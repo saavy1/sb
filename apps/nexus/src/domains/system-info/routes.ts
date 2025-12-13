@@ -1,4 +1,5 @@
 import { Elysia, t } from "elysia";
+import logger from "logger";
 import { systemInfoService } from "./service";
 import {
 	ApiError,
@@ -11,21 +12,29 @@ import {
 	UpdateDriveRequest,
 } from "./types";
 
+const STATS_INTERVAL_MS = 2000;
+
 export const systemInfoRoutes = new Elysia({ prefix: "/systemInfo" })
 	// WebSocket for live system stats
 	.ws("/live", {
 		open(ws) {
+			const data = { interval: null as ReturnType<typeof setInterval> | null };
 			const send = async () => {
-				const overview = await systemInfoService.getSystemOverview();
-				ws.send(JSON.stringify(overview));
+				try {
+					const overview = await systemInfoService.getSystemOverview();
+					ws.send(JSON.stringify(overview));
+				} catch (error) {
+					logger.error({ error }, "Failed to send system overview");
+				}
 			};
 			send();
-			const interval = setInterval(send, 1000);
-			ws.data = { interval };
+			data.interval = setInterval(send, STATS_INTERVAL_MS);
+			ws.data = data;
 		},
 		close(ws) {
-			if (ws.data?.interval) {
-				clearInterval(ws.data.interval);
+			const data = ws.data as { interval: ReturnType<typeof setInterval> | null } | undefined;
+			if (data?.interval) {
+				clearInterval(data.interval);
 			}
 		},
 	})
