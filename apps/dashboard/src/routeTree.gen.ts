@@ -9,37 +9,37 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as SettingsRouteImport } from './routes/settings'
-import { Route as ServersRouteImport } from './routes/servers'
-import { Route as LogsRouteImport } from './routes/logs'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as LogsRouteImport } from './routes/logs'
+import { Route as ServersRouteImport } from './routes/servers'
 import { Route as ServersNewRouteImport } from './routes/servers_.new'
+import { Route as SettingsRouteImport } from './routes/settings'
 
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
   getParentRoute: () => rootRouteImport,
-} as any)
+})
 const ServersRoute = ServersRouteImport.update({
   id: '/servers',
   path: '/servers',
   getParentRoute: () => rootRouteImport,
-} as any)
+})
 const LogsRoute = LogsRouteImport.update({
   id: '/logs',
   path: '/logs',
   getParentRoute: () => rootRouteImport,
-} as any)
+})
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
-} as any)
+})
 const ServersNewRoute = ServersNewRouteImport.update({
   id: '/servers_/new',
   path: '/servers/new',
   getParentRoute: () => rootRouteImport,
-} as any)
+})
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute

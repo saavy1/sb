@@ -30,16 +30,21 @@ function HomePage() {
 		try {
 			const { data } = await client.api.gameServers.get();
 			if (data) setServers(data);
-		} catch {}
+		} catch (error) {
+			console.error("Failed to fetch servers:", error);
+		}
 	}, []);
 
 	const fetchSuggestions = useCallback(async () => {
 		try {
 			const res = await client.api.systemInfo.drives.suggestions.get();
 			if (res.data) setSuggestions(res.data);
-		} catch {}
+		} catch (error) {
+			console.error("Failed to fetch drive suggestions:", error);
+		}
 	}, []);
 
+	// WebSocket connection - no dependencies to avoid reconnection loops
 	useEffect(() => {
 		const connect = () => {
 			const ws = new WebSocket(`${WS_URL}/api/systemInfo/live`);
@@ -51,7 +56,9 @@ function HomePage() {
 			ws.onmessage = (e) => {
 				try {
 					setSystemInfo(JSON.parse(e.data));
-				} catch {}
+				} catch (error) {
+					console.error("Failed to parse system info:", error);
+				}
 			};
 			ws.onclose = () => {
 				setConnected(false);
@@ -60,11 +67,15 @@ function HomePage() {
 			ws.onerror = () => ws.close();
 		};
 		connect();
-		fetchServers();
-		fetchSuggestions();
 		return () => {
 			wsRef.current?.close();
 		};
+	}, []);
+
+	// Initial data fetch
+	useEffect(() => {
+		fetchServers();
+		fetchSuggestions();
 	}, [fetchServers, fetchSuggestions]);
 
 	const handleStart = async (name: string) => {
@@ -159,9 +170,7 @@ function HomePage() {
 							<div key={server.id} className="flex items-center justify-between px-3 py-2.5">
 								<div className="flex items-center gap-2.5 min-w-0">
 									<StatusDot
-										status={
-											server.status as "running" | "stopped" | "starting" | "stopping" | "error"
-										}
+										status={server.status}
 									/>
 									<div className="min-w-0">
 										<div className="font-medium text-sm truncate">{server.name}</div>
