@@ -1,17 +1,18 @@
 {
-  "compilerOptions": {
-    "strict": true,
-    "target": "ES2022",
-    "module": "ESNext",
-    "moduleResolution": "Bundler",
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "baseUrl": ".",
-    "paths": {
-      "@nexus/*": ["./nexus/src/*"],
-      "@machine/*": ["./the-machine/src/*"],
-      "@dashboard/*": ["./dashboard/src/*"]
-    }
-  }
+	"compilerOptions": {
+		"strict": true,
+		"target": "ES2022",
+		"module": "ESNext",
+		"moduleResolution": "Bundler",
+		"esModuleInterop": true,
+		"skipLibCheck": true,
+		"forceConsistentCasingInFileNames": true,
+		"baseUrl": ".",
+		"paths": {
+			"@nexus/*": ["./nexus/src/*"],
+			"@machine/*": ["./the-machine/src/*"],
+			"@dashboard/*": ["./dashboard/src/*"],
+			"@logger/*": ["./logger/src/*"]
+		}
+	}
 }

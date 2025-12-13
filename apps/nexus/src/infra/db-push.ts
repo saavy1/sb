@@ -1,20 +1,23 @@
 import { Database } from "bun:sqlite";
-import { drizzle } from "drizzle-orm/bun-sqlite";
 import { sql } from "drizzle-orm";
-import { join } from "path";
+import { drizzle } from "drizzle-orm/bun-sqlite";
+import logger from "logger";
+import { join } from "node:path";
 import { config } from "./config";
 
 const dbPath = config.DB_PATH;
 
 // Ensure db directory exists
-import { mkdirSync } from "fs";
+import { mkdirSync } from "node:fs";
 try {
-  mkdirSync(dbPath, { recursive: true });
+	mkdirSync(dbPath, { recursive: true });
 } catch {}
 
 // Push minecraft schema
-console.log("[minecraft] Pushing schema...");
-const minecraftSqlite = new Database(join(dbPath, "minecraft.sqlite"), { create: true });
+logger.info({ database: "minecraft" }, "Pushing schema");
+const minecraftSqlite = new Database(join(dbPath, "minecraft.sqlite"), {
+	create: true,
+});
 minecraftSqlite.exec("PRAGMA journal_mode = WAL;");
 const minecraftDb = drizzle(minecraftSqlite);
 
@@ -35,11 +38,11 @@ minecraftDb.run(sql`
 minecraftDb.run(sql`CREATE INDEX IF NOT EXISTS idx_servers_name ON servers(name)`);
 minecraftDb.run(sql`CREATE INDEX IF NOT EXISTS idx_servers_status ON servers(status)`);
 minecraftDb.run(sql`CREATE INDEX IF NOT EXISTS idx_servers_created_by ON servers(created_by)`);
-console.log("[minecraft] Schema pushed");
+logger.info({ database: "minecraft" }, "Schema pushed");
 minecraftSqlite.close();
 
 // Push core schema
-console.log("[core] Pushing schema...");
+logger.info({ database: "core" }, "Pushing schema");
 const coreSqlite = new Database(join(dbPath, "core.sqlite"), { create: true });
 coreSqlite.exec("PRAGMA journal_mode = WAL;");
 const coreDb = drizzle(coreSqlite);
@@ -79,7 +82,7 @@ coreDb.run(sql`
   )
 `);
 coreDb.run(sql`CREATE INDEX IF NOT EXISTS idx_permissions_discord_id ON permissions(discord_id)`);
-console.log("[core] Schema pushed");
+logger.info({ database: "core" }, "Schema pushed");
 coreSqlite.close();
 
-console.log("All schemas pushed successfully");
+logger.info("All schemas pushed successfully");
