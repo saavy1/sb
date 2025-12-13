@@ -56,11 +56,67 @@ bun run dev
 - `GET /internal/game-servers` - List servers
 - `POST /internal/webhooks/k8s` - K8s event webhook
 
+## Kubernetes Setup
+
+Nexus requires RBAC permissions to manage game server resources. Apply this to your cluster:
+
+```yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: nexus
+  namespace: minecraft
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: nexus-manager
+  namespace: minecraft
+rules:
+- apiGroups: [""]
+  resources: ["services", "persistentvolumeclaims"]
+  verbs: ["get", "list", "create", "update", "patch", "delete"]
+- apiGroups: ["apps"]
+  resources: ["deployments", "deployments/scale", "deployments/status"]
+  verbs: ["get", "list", "create", "update", "patch", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: nexus-manager-binding
+  namespace: minecraft
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: nexus-manager
+subjects:
+- kind: ServiceAccount
+  name: nexus
+  namespace: minecraft
+```
+
+Then update your nexus Deployment to use the ServiceAccount:
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nexus
+spec:
+  template:
+    spec:
+      serviceAccountName: nexus  # Add this line
+      containers:
+      - name: nexus
+        # ... rest of config
+```
+
 ## Tech Stack
 
 - [Bun](https://bun.sh) runtime
 - [Elysia](https://elysiajs.com) web framework
 - [Drizzle ORM](https://orm.drizzle.team) with bun:sqlite
+- [@kubernetes/client-node](https://github.com/kubernetes-client/javascript) for K8s API
 - TypeScript
 
 ## Project Structure

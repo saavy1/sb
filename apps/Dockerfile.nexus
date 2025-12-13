@@ -1,0 +1,47 @@
+FROM oven/bun:1 AS base
+WORKDIR /workspace
+
+# Copy entire workspace for dependency resolution
+COPY tsconfig.json package.json bun.lock ./
+COPY nexus/package.json nexus/tsconfig.json ./nexus/
+COPY the-machine/package.json ./the-machine/
+COPY dashboard/package.json dashboard/tsconfig.json ./dashboard/
+COPY logger ./logger/
+
+# Install all dependencies
+RUN bun install
+
+# Copy Nexus source (needed for dashboard types)
+FROM base AS build
+COPY nexus/src ./nexus/src
+
+# Build dashboard
+FROM build AS build-dashboard
+COPY dashboard ./dashboard/
+RUN cd dashboard && bun vite build
+
+# Runtime
+FROM oven/bun:1 AS runtime
+WORKDIR /app
+
+# Create db and public directories
+RUN mkdir -p /app/db /app/public && chown -R bun:bun /app/db /app/public
+
+# Copy built artifacts and dependencies
+COPY --from=base /workspace/nexus/node_modules ./node_modules
+COPY --from=build /workspace/nexus/src ./src
+COPY --from=build-dashboard /workspace/dashboard/dist ./public
+COPY --from=base /workspace/logger ./node_modules/logger
+COPY nexus/package.json ./
+
+# SQLite databases will be stored here
+VOLUME /app/db
+
+ENV PORT=3000
+ENV DB_PATH=/app/db
+ENV NODE_ENV=production
+
+EXPOSE 3000
+
+USER bun
+CMD ["bun", "run", "src/index.ts"]

@@ -1,163 +1,286 @@
+import * as k8s from "@kubernetes/client-node";
+import logger from "logger";
 import { config } from "../../infra/config";
 
 interface K8sDeploymentSpec {
-	name: string;
-	namespace: string;
-	modpack: string;
-	memory: string;
-	port: number;
-	cfApiKey?: string;
+  name: string;
+  namespace: string;
+  modpack: string;
+  memory: string;
+  port: number;
+  cfApiKey?: string;
 }
+
+// Initialize Kubernetes client
+const kc = new k8s.KubeConfig();
+
+// Load config based on environment
+if (process.env.NODE_ENV === "production") {
+  // Use in-cluster config when running in K8s
+  kc.loadFromCluster();
+} else {
+  // Use default kubeconfig for local development
+  kc.loadFromDefault();
+}
+
+const k8sAppsApi = kc.makeApiClient(k8s.AppsV1Api);
+const k8sCoreApi = kc.makeApiClient(k8s.CoreV1Api);
 
 export function generateMinecraftManifests(spec: K8sDeploymentSpec) {
-	const { name, namespace, modpack, memory, port, cfApiKey } = spec;
-	const labels = {
-		app: name,
-		"app.kubernetes.io/name": name,
-		"app.kubernetes.io/component": "minecraft",
-		"app.kubernetes.io/managed-by": "nexus",
-	};
+  const { name, namespace, modpack, memory, port, cfApiKey } = spec;
+  const labels = {
+    app: name,
+    "app.kubernetes.io/name": name,
+    "app.kubernetes.io/component": "minecraft",
+    "app.kubernetes.io/managed-by": "nexus",
+  };
 
-	const pvc = {
-		apiVersion: "v1",
-		kind: "PersistentVolumeClaim",
-		metadata: { name: `${name}-data`, namespace, labels },
-		spec: {
-			accessModes: ["ReadWriteOnce"],
-			storageClassName: config.MC_STORAGE_CLASS,
-			resources: { requests: { storage: config.MC_STORAGE_SIZE } },
-		},
-	};
+  const pvc: k8s.V1PersistentVolumeClaim = {
+    apiVersion: "v1",
+    kind: "PersistentVolumeClaim",
+    metadata: { name: `${name}-data`, namespace, labels },
+    spec: {
+      accessModes: ["ReadWriteOnce"],
+      storageClassName: config.MC_STORAGE_CLASS,
+      resources: { requests: { storage: config.MC_STORAGE_SIZE } },
+    },
+  };
 
-	const deployment = {
-		apiVersion: "apps/v1",
-		kind: "Deployment",
-		metadata: { name, namespace, labels },
-		spec: {
-			replicas: 0, // Start stopped
-			selector: { matchLabels: { app: name } },
-			template: {
-				metadata: { labels },
-				spec: {
-					containers: [
-						{
-							name: "minecraft",
-							image: "itzg/minecraft-server:latest",
-							ports: [{ containerPort: 25565, name: "minecraft" }],
-							env: [
-								{ name: "EULA", value: "TRUE" },
-								{ name: "TYPE", value: "AUTO_CURSEFORGE" },
-								{ name: "CF_SLUG", value: modpack },
-								{ name: "MEMORY", value: memory },
-								...(cfApiKey ? [{ name: "CF_API_KEY", value: cfApiKey }] : []),
-							],
-							resources: {
-								requests: { memory, cpu: "1000m" },
-								limits: { memory },
-							},
-							volumeMounts: [{ name: "data", mountPath: "/data" }],
-							tty: true,
-							stdin: true,
-						},
-					],
-					volumes: [
-						{
-							name: "data",
-							persistentVolumeClaim: { claimName: `${name}-data` },
-						},
-					],
-				},
-			},
-		},
-	};
+  const deployment: k8s.V1Deployment = {
+    apiVersion: "apps/v1",
+    kind: "Deployment",
+    metadata: { name, namespace, labels },
+    spec: {
+      replicas: 0, // Start stopped
+      selector: { matchLabels: { app: name } },
+      template: {
+        metadata: { labels },
+        spec: {
+          containers: [
+            {
+              name: "minecraft",
+              image: "itzg/minecraft-server:latest",
+              ports: [{ containerPort: 25565, name: "minecraft" }],
+              env: [
+                { name: "EULA", value: "TRUE" },
+                { name: "TYPE", value: "AUTO_CURSEFORGE" },
+                { name: "CF_SLUG", value: modpack },
+                { name: "MEMORY", value: memory },
+                ...(cfApiKey ? [{ name: "CF_API_KEY", value: cfApiKey }] : []),
+              ],
+              resources: {
+                requests: { memory, cpu: "1000m" },
+                limits: { memory },
+              },
+              volumeMounts: [{ name: "data", mountPath: "/data" }],
+              tty: true,
+              stdin: true,
+            },
+          ],
+          volumes: [
+            {
+              name: "data",
+              persistentVolumeClaim: { claimName: `${name}-data` },
+            },
+          ],
+        },
+      },
+    },
+  };
 
-	const service = {
-		apiVersion: "v1",
-		kind: "Service",
-		metadata: { name, namespace, labels },
-		spec: {
-			type: "NodePort",
-			selector: { app: name },
-			ports: [
-				{
-					port: 25565,
-					targetPort: 25565,
-					nodePort: port,
-					name: "minecraft",
-				},
-			],
-		},
-	};
+  const service: k8s.V1Service = {
+    apiVersion: "v1",
+    kind: "Service",
+    metadata: { name, namespace, labels },
+    spec: {
+      type: "NodePort",
+      selector: { app: name },
+      ports: [
+        {
+          port: 25565,
+          targetPort: 25565,
+          nodePort: port,
+          name: "minecraft",
+        },
+      ],
+    },
+  };
 
-	return { pvc, deployment, service };
+  return { pvc, deployment, service };
 }
 
-// K8s client operations (placeholder - implement with @kubernetes/client-node or kubectl)
 export const k8sAdapter = {
-	async applyManifests(manifests: object[]): Promise<void> {
-		// In production, use @kubernetes/client-node
-		// For now, shell out to kubectl
-		for (const manifest of manifests) {
-			const yaml = JSON.stringify(manifest);
-			const proc = Bun.spawn(["kubectl", "apply", "-f", "-"], {
-				stdin: Buffer.from(yaml),
-			});
-			await proc.exited;
-			if (proc.exitCode !== 0) {
-				throw new Error(`kubectl apply failed: ${proc.exitCode}`);
-			}
-		}
-	},
+  async applyManifests(manifests: {
+    pvc: k8s.V1PersistentVolumeClaim;
+    deployment: k8s.V1Deployment;
+    service: k8s.V1Service;
+  }): Promise<void> {
+    const { pvc, deployment, service } = manifests;
+    const namespace = config.K8S_NAMESPACE;
 
-	async scaleDeployment(name: string, replicas: number): Promise<void> {
-		const proc = Bun.spawn([
-			"kubectl",
-			"scale",
-			`deployment/${name}`,
-			`--replicas=${replicas}`,
-			`-n`,
-			config.K8S_NAMESPACE,
-		]);
-		await proc.exited;
-		if (proc.exitCode !== 0) {
-			throw new Error(`kubectl scale failed: ${proc.exitCode}`);
-		}
-	},
+    try {
+      // Create or update PVC
+      try {
+        await k8sCoreApi.createNamespacedPersistentVolumeClaim(namespace, pvc);
+        logger.info(
+          { name: pvc.metadata?.name },
+          "Created PersistentVolumeClaim",
+        );
+      } catch (error: any) {
+        if (error.statusCode === 409) {
+          // Already exists, that's fine
+          logger.debug(
+            { name: pvc.metadata?.name },
+            "PersistentVolumeClaim already exists",
+          );
+        } else {
+          throw error;
+        }
+      }
 
-	async deleteResources(name: string): Promise<void> {
-		const namespace = config.K8S_NAMESPACE;
-		// Delete in reverse order
-		for (const kind of ["service", "deployment", "pvc"]) {
-			const resourceName = kind === "pvc" ? `${name}-data` : name;
-			const proc = Bun.spawn([
-				"kubectl",
-				"delete",
-				kind,
-				resourceName,
-				`-n`,
-				namespace,
-				"--ignore-not-found",
-			]);
-			await proc.exited;
-		}
-	},
+      // Create or update Deployment
+      try {
+        await k8sAppsApi.createNamespacedDeployment(namespace, deployment);
+        logger.info({ name: deployment.metadata?.name }, "Created Deployment");
+      } catch (error: any) {
+        if (error.statusCode === 409) {
+          // Already exists, update it
+          await k8sAppsApi.replaceNamespacedDeployment(
+            deployment.metadata!.name!,
+            namespace,
+            deployment,
+          );
+          logger.info(
+            { name: deployment.metadata?.name },
+            "Updated Deployment",
+          );
+        } else {
+          throw error;
+        }
+      }
 
-	async getDeploymentStatus(name: string): Promise<{ replicas: number; ready: number } | null> {
-		const proc = Bun.spawn([
-			"kubectl",
-			"get",
-			`deployment/${name}`,
-			`-n`,
-			config.K8S_NAMESPACE,
-			"-o",
-			"jsonpath={.status.replicas},{.status.readyReplicas}",
-		]);
-		const output = await new Response(proc.stdout).text();
-		await proc.exited;
+      // Create or update Service
+      try {
+        await k8sCoreApi.createNamespacedService(namespace, service);
+        logger.info({ name: service.metadata?.name }, "Created Service");
+      } catch (error: any) {
+        if (error.statusCode === 409) {
+          // Already exists, update it
+          await k8sCoreApi.replaceNamespacedService(
+            service.metadata!.name!,
+            namespace,
+            service,
+          );
+          logger.info({ name: service.metadata?.name }, "Updated Service");
+        } else {
+          throw error;
+        }
+      }
+    } catch (error) {
+      logger.error({ error }, "Failed to apply K8s manifests");
+      throw error;
+    }
+  },
 
-		if (proc.exitCode !== 0) return null;
+  async scaleDeployment(name: string, replicas: number): Promise<void> {
+    const namespace = config.K8S_NAMESPACE;
+    try {
+      await k8sAppsApi.patchNamespacedDeploymentScale(
+        name,
+        namespace,
+        { spec: { replicas } },
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        {
+          headers: { "Content-Type": "application/merge-patch+json" },
+        },
+      );
+      logger.info({ name, replicas, namespace }, "Scaled deployment");
+    } catch (error) {
+      logger.error(
+        { error, name, replicas, namespace },
+        "Failed to scale deployment",
+      );
+      throw error;
+    }
+  },
 
-		const [replicas, ready] = output.split(",").map(Number);
-		return { replicas: replicas || 0, ready: ready || 0 };
-	},
+  async deleteResources(name: string): Promise<void> {
+    const namespace = config.K8S_NAMESPACE;
+
+    // Delete in reverse order: service -> deployment -> pvc
+    try {
+      // Delete Service
+      try {
+        await k8sCoreApi.deleteNamespacedService(name, namespace);
+        logger.info({ name, namespace }, "Deleted Service");
+      } catch (error: any) {
+        if (error.statusCode !== 404) {
+          logger.warn({ error, name }, "Failed to delete Service");
+        }
+      }
+
+      // Delete Deployment
+      try {
+        await k8sAppsApi.deleteNamespacedDeployment(name, namespace);
+        logger.info({ name, namespace }, "Deleted Deployment");
+      } catch (error: any) {
+        if (error.statusCode !== 404) {
+          logger.warn({ error, name }, "Failed to delete Deployment");
+        }
+      }
+
+      // Delete PVC
+      try {
+        await k8sCoreApi.deleteNamespacedPersistentVolumeClaim(
+          `${name}-data`,
+          namespace,
+        );
+        logger.info(
+          { name: `${name}-data`, namespace },
+          "Deleted PersistentVolumeClaim",
+        );
+      } catch (error: any) {
+        if (error.statusCode !== 404) {
+          logger.warn(
+            { error, name },
+            "Failed to delete PersistentVolumeClaim",
+          );
+        }
+      }
+    } catch (error) {
+      logger.error({ error, name, namespace }, "Failed to delete resources");
+      throw error;
+    }
+  },
+
+  async getDeploymentStatus(
+    name: string,
+  ): Promise<{ replicas: number; ready: number } | null> {
+    const namespace = config.K8S_NAMESPACE;
+    try {
+      const response = await k8sAppsApi.readNamespacedDeploymentStatus(
+        name,
+        namespace,
+      );
+      const status = response.body.status;
+
+      return {
+        replicas: status?.replicas || 0,
+        ready: status?.readyReplicas || 0,
+      };
+    } catch (error: any) {
+      if (error.statusCode === 404) {
+        return null;
+      }
+      logger.error(
+        { error, name, namespace },
+        "Failed to get deployment status",
+      );
+      throw error;
+    }
+  },
 };

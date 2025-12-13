@@ -1,36 +1,44 @@
 FROM oven/bun:1 AS base
-WORKDIR /app
+WORKDIR /workspace
+
+# Copy workspace configuration first
+COPY package.json bun.lock* ./
 
 # Build dashboard
 FROM base AS build-dashboard
-WORKDIR /dashboard
-COPY dashboard/package.json dashboard/bun.lock ./
-RUN bun install --frozen-lockfile
-COPY dashboard ./
-RUN bun run build
+COPY dashboard/package.json ./dashboard/package.json
+RUN bun install --frozen-lockfile --cwd dashboard
+COPY dashboard ./dashboard/
+RUN cd dashboard && bun run build
 
 # Install dependencies and build Nexus
 FROM base AS build
-COPY nexus/package.json ./
-RUN bun install
-COPY nexus/src ./src
-COPY nexus/tsconfig.json ./
-RUN bun run typecheck
+COPY logger/package.json ./logger/package.json
+COPY nexus/package.json ./nexus/package.json
+RUN bun install --cwd nexus
+COPY logger ./logger/
+COPY nexus/src ./nexus/src
+COPY nexus/tsconfig.json ./nexus/
+RUN cd nexus && bun run typecheck
 
 # Production dependencies
 FROM base AS deps
-COPY nexus/package.json ./
-RUN bun install --production
+COPY logger/package.json ./logger/package.json
+COPY nexus/package.json ./nexus/package.json
+RUN bun install --production --cwd nexus
+COPY logger ./logger/
 
 # Runtime
-FROM base AS runtime
+FROM oven/bun:1 AS runtime
+WORKDIR /app
 
 # Create db and public directories
 RUN mkdir -p /app/db /app/public && chown -R bun:bun /app/db /app/public
 
-COPY --from=deps /app/node_modules ./node_modules
-COPY --from=build /app/src ./src
-COPY --from=build-dashboard /dashboard/dist ./public
+COPY --from=deps /workspace/nexus/node_modules ./node_modules
+COPY --from=build /workspace/nexus/src ./src
+COPY --from=build-dashboard /workspace/dashboard/dist ./public
+COPY --from=deps /workspace/logger ./node_modules/logger
 COPY nexus/package.json ./
 
 # SQLite databases will be stored here
