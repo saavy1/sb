@@ -1,8 +1,8 @@
 import { Database } from "bun:sqlite";
+import { join } from "node:path";
 import { drizzle } from "drizzle-orm/bun-sqlite";
 import { migrate } from "drizzle-orm/bun-sqlite/migrator";
 import logger from "logger";
-import { join } from "node:path";
 import { config } from "./config";
 
 const dbPath = config.DB_PATH;

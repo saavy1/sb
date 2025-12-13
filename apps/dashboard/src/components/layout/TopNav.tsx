@@ -34,9 +34,10 @@ export function TopNav() {
 								<div
 									className={`
 										px-3 py-2 flex items-center rounded-md transition-colors
-										${isActive 
-											? "text-text-primary" 
-											: "text-text-secondary hover:text-text-primary hover:bg-surface-elevated"
+										${
+											isActive
+												? "text-text-primary"
+												: "text-text-secondary hover:text-text-primary hover:bg-surface-elevated"
 										}
 									`}
 								>
@@ -60,19 +61,11 @@ export function BottomNav() {
 		<nav className="md:hidden fixed bottom-0 left-0 right-0 bg-background border-t border-border z-50 pb-safe">
 			<div className="flex justify-around items-center">
 				{navItems.map(({ to, icon: Icon, label }) => (
-					<Link
-						key={to}
-						to={to}
-						className="flex-1 py-3"
-						activeProps={{ className: "flex-1 py-3" }}
-					>
+					<Link key={to} to={to} className="flex-1 py-3" activeProps={{ className: "flex-1 py-3" }}>
 						{({ isActive }) => (
 							<div className="flex flex-col items-center gap-1">
-								<Icon 
-									size={22} 
-									className={isActive ? "text-accent" : "text-text-secondary"} 
-								/>
-								<span 
+								<Icon size={22} className={isActive ? "text-accent" : "text-text-secondary"} />
+								<span
 									className={`text-xs ${isActive ? "text-accent font-medium" : "text-text-secondary"}`}
 								>
 									{label}

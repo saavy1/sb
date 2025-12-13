@@ -1,10 +1,15 @@
 {
-	"name": "homelab-elysia",
+	"name": "nexus",
 	"version": "1.0.0",
 	"scripts": {
 		"dev": "bun run --watch src/index.ts",
 		"start": "bun run src/index.ts",
+		"build": "bun build src/index.ts --outdir=dist --target=bun",
 		"typecheck": "tsc --noEmit",
+		"lint": "biome lint .",
+		"lint:fix": "biome lint --write .",
+		"format": "biome format --write .",
+		"check": "biome check .",
 		"db:generate:minecraft": "drizzle-kit generate --dialect=sqlite --schema=./src/domains/game-servers/schema.ts --out=./db/migrations/minecraft",
 		"db:generate:core": "drizzle-kit generate --dialect=sqlite --schema=./src/domains/core/schema.ts --out=./db/migrations/core",
 		"db:generate": "bun run db:generate:minecraft && bun run db:generate:core",
@@ -21,6 +26,7 @@
 		"logger": "workspace:*"
 	},
 	"devDependencies": {
+		"@biomejs/biome": "catalog:",
 		"bun-types": "catalog:",
 		"drizzle-kit": "^0.31.8",
 		"typescript": "catalog:"

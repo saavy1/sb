@@ -1,13 +1,20 @@
-import { $ } from "bun";
 import { readFileSync } from "node:fs";
-import logger from "logger";
 import os from "node:os";
-import { systemInfoDb } from "../../infra/db";
-import { drives } from "./schema";
+import { $ } from "bun";
 import { eq } from "drizzle-orm";
-import type { DriveRecord } from "./schema";
 import type { Static } from "elysia";
-import type { SystemStats, CpuStats, MemoryStats, DiskStats, NetworkStats, GpuStats } from "./types";
+import logger from "logger";
+import { systemInfoDb } from "../../infra/db";
+import type { DriveRecord } from "./schema";
+import { drives } from "./schema";
+import type {
+	CpuStats,
+	DiskStats,
+	GpuStats,
+	MemoryStats,
+	NetworkStats,
+	SystemStats,
+} from "./types";
 
 interface MountInfo {
 	path: string;
@@ -30,7 +37,16 @@ interface RawSample {
 
 class SystemInfoService {
 	private static ALLOWED_FILESYSTEMS = new Set([
-		"ext4", "ext3", "xfs", "btrfs", "zfs", "nfs", "nfs4", "cifs", "ntfs", "vfat",
+		"ext4",
+		"ext3",
+		"xfs",
+		"btrfs",
+		"zfs",
+		"nfs",
+		"nfs4",
+		"cifs",
+		"ntfs",
+		"vfat",
 	]);
 
 	// Rolling previous sample for delta calculations
@@ -54,8 +70,8 @@ class SystemInfoService {
 				const device = parts[2];
 				// Only count real disks (sda, nvme0n1, etc), not partitions
 				if (/^(sd[a-z]|nvme\d+n\d+|vd[a-z])$/.test(device)) {
-					diskReads += parseInt(parts[5]) * 512; // sectors read * 512 bytes
-					diskWrites += parseInt(parts[9]) * 512; // sectors written * 512 bytes
+					diskReads += parseInt(parts[5], 10) * 512; // sectors read * 512 bytes
+					diskWrites += parseInt(parts[9], 10) * 512; // sectors written * 512 bytes
 				}
 			}
 		} catch {
@@ -73,8 +89,8 @@ class SystemInfoService {
 				const iface = parts[0].replace(":", "");
 				// Skip loopback
 				if (iface === "lo") continue;
-				netRx += parseInt(parts[1]);
-				netTx += parseInt(parts[9]);
+				netRx += parseInt(parts[1], 10);
+				netTx += parseInt(parts[9], 10);
 			}
 		} catch {
 			// /proc/net/dev not available
@@ -129,29 +145,37 @@ class SystemInfoService {
 	private async getAmdGpuStats(): Promise<Static<typeof GpuStats> | null> {
 		try {
 			const { readdirSync, readFileSync: readSync } = await import("node:fs");
-			const cards = readdirSync("/sys/class/drm").filter(d => /^card\d+$/.test(d));
-			
+			const cards = readdirSync("/sys/class/drm").filter((d) => /^card\d+$/.test(d));
+
 			for (const card of cards) {
 				const devicePath = `/sys/class/drm/${card}/device`;
-				
+
 				// Check if it's an AMD GPU
 				try {
 					const vendor = readSync(`${devicePath}/vendor`, "utf-8").trim();
 					if (vendor !== "0x1002") continue; // 0x1002 = AMD
-				} catch { continue; }
+				} catch {
+					continue;
+				}
 
 				// Get GPU usage
 				let usage: number | undefined;
 				try {
-					usage = parseInt(readSync(`${devicePath}/gpu_busy_percent`, "utf-8").trim());
+					usage = parseInt(readSync(`${devicePath}/gpu_busy_percent`, "utf-8").trim(), 10);
 				} catch {}
 
 				// Get VRAM usage
 				let memoryUsed: number | undefined;
 				let memoryTotal: number | undefined;
 				try {
-					memoryUsed = Math.round(parseInt(readSync(`${devicePath}/mem_info_vram_used`, "utf-8").trim()) / 1024 / 1024);
-					memoryTotal = Math.round(parseInt(readSync(`${devicePath}/mem_info_vram_total`, "utf-8").trim()) / 1024 / 1024);
+					memoryUsed = Math.round(
+						parseInt(readSync(`${devicePath}/mem_info_vram_used`, "utf-8").trim(), 10) / 1024 / 1024
+					);
+					memoryTotal = Math.round(
+						parseInt(readSync(`${devicePath}/mem_info_vram_total`, "utf-8").trim(), 10) /
+							1024 /
+							1024
+					);
 				} catch {}
 
 				// Get temperature from hwmon
@@ -160,7 +184,10 @@ class SystemInfoService {
 					const hwmons = readdirSync(`${devicePath}/hwmon`);
 					for (const hwmon of hwmons) {
 						try {
-							const temp = parseInt(readSync(`${devicePath}/hwmon/${hwmon}/temp1_input`, "utf-8").trim());
+							const temp = parseInt(
+								readSync(`${devicePath}/hwmon/${hwmon}/temp1_input`, "utf-8").trim(),
+								10
+							);
 							temperature = Math.round(temp / 1000);
 							break;
 						} catch {}
@@ -197,16 +224,18 @@ class SystemInfoService {
 	private async getIntelGpuStats(): Promise<Static<typeof GpuStats> | null> {
 		try {
 			const { readdirSync, readFileSync: readSync } = await import("node:fs");
-			const cards = readdirSync("/sys/class/drm").filter(d => /^card\d+$/.test(d));
-			
+			const cards = readdirSync("/sys/class/drm").filter((d) => /^card\d+$/.test(d));
+
 			for (const card of cards) {
 				const devicePath = `/sys/class/drm/${card}/device`;
-				
+
 				// Check if it's an Intel GPU
 				try {
 					const vendor = readSync(`${devicePath}/vendor`, "utf-8").trim();
 					if (vendor !== "0x8086") continue; // 0x8086 = Intel
-				} catch { continue; }
+				} catch {
+					continue;
+				}
 
 				// Get temperature from hwmon
 				let temperature: number | undefined;
@@ -214,7 +243,10 @@ class SystemInfoService {
 					const hwmons = readdirSync(`${devicePath}/hwmon`);
 					for (const hwmon of hwmons) {
 						try {
-							const temp = parseInt(readSync(`${devicePath}/hwmon/${hwmon}/temp1_input`, "utf-8").trim());
+							const temp = parseInt(
+								readSync(`${devicePath}/hwmon/${hwmon}/temp1_input`, "utf-8").trim(),
+								10
+							);
 							temperature = Math.round(temp / 1000);
 							break;
 						} catch {}
@@ -252,16 +284,17 @@ class SystemInfoService {
 
 	private async getNvidiaGpuStats(): Promise<Static<typeof GpuStats> | null> {
 		try {
-			const result = await $`nvidia-smi --query-gpu=name,utilization.gpu,memory.used,memory.total,temperature.gpu --format=csv,noheader,nounits`.text();
+			const result =
+				await $`nvidia-smi --query-gpu=name,utilization.gpu,memory.used,memory.total,temperature.gpu --format=csv,noheader,nounits`.text();
 			const parts = result.trim().split(", ");
 			if (parts.length >= 5) {
 				return {
 					available: true,
 					name: parts[0].trim(),
-					usage: parseInt(parts[1]),
-					memoryUsed: parseInt(parts[2]),
-					memoryTotal: parseInt(parts[3]),
-					temperature: parseInt(parts[4]),
+					usage: parseInt(parts[1], 10),
+					memoryUsed: parseInt(parts[2], 10),
+					memoryTotal: parseInt(parts[3], 10),
+					temperature: parseInt(parts[4], 10),
 				};
 			}
 		} catch {}
@@ -270,7 +303,7 @@ class SystemInfoService {
 
 	private calculateCpuStats(
 		current: RawSample,
-		previous: RawSample | null,
+		previous: RawSample | null
 	): Static<typeof CpuStats> {
 		const cpus = os.cpus();
 		const model = cpus[0]?.model || "Unknown";
@@ -318,7 +351,7 @@ class SystemInfoService {
 			for (const line of meminfo.split("\n")) {
 				const [key, value] = line.split(":");
 				if (!value) continue;
-				const kb = parseInt(value.trim().split(/\s+/)[0]);
+				const kb = parseInt(value.trim().split(/\s+/)[0], 10);
 
 				if (key === "MemTotal") total = kb;
 				else if (key === "MemAvailable") available = kb;
@@ -345,7 +378,7 @@ class SystemInfoService {
 	private calculateDiskStats(
 		current: RawSample,
 		previous: RawSample | null,
-		deltaSec: number,
+		deltaSec: number
 	): Static<typeof DiskStats> {
 		if (!previous || deltaSec <= 0) {
 			return { readSpeed: 0, writeSpeed: 0 };
@@ -363,7 +396,7 @@ class SystemInfoService {
 	private calculateNetworkStats(
 		current: RawSample,
 		previous: RawSample | null,
-		deltaSec: number,
+		deltaSec: number
 	): Static<typeof NetworkStats> {
 		if (!previous || deltaSec <= 0) {
 			return { interfaces: [], totalRxSpeed: 0, totalTxSpeed: 0 };
@@ -399,15 +432,20 @@ class SystemInfoService {
 				const mountPoint = mountParts.join(" ");
 
 				if (!SystemInfoService.ALLOWED_FILESYSTEMS.has(fsType)) continue;
-				if (mountPoint.startsWith("/snap") || mountPoint.startsWith("/boot/efi") || mountPoint.includes("/docker/")) continue;
+				if (
+					mountPoint.startsWith("/snap") ||
+					mountPoint.startsWith("/boot/efi") ||
+					mountPoint.includes("/docker/")
+				)
+					continue;
 
 				mounts.push({
 					path: mountPoint,
 					filesystem: fsType,
-					total: parseInt(totalStr.replace("G", "")),
-					used: parseInt(usedStr.replace("G", "")),
-					available: parseInt(availStr.replace("G", "")),
-					usagePercent: parseInt(percentStr.replace("%", "")),
+					total: parseInt(totalStr.replace("G", ""), 10),
+					used: parseInt(usedStr.replace("G", ""), 10),
+					available: parseInt(availStr.replace("G", ""), 10),
+					usagePercent: parseInt(percentStr.replace("%", ""), 10),
 				});
 			}
 			return mounts;
@@ -482,7 +520,10 @@ class SystemInfoService {
 
 	async updateDrive(id: string, data: { label?: string; expectedCapacity?: number }) {
 		const now = new Date().toISOString();
-		await systemInfoDb.update(drives).set({ ...data, updatedAt: now }).where(eq(drives.id, id));
+		await systemInfoDb
+			.update(drives)
+			.set({ ...data, updatedAt: now })
+			.where(eq(drives.id, id));
 		const updated = await systemInfoDb.select().from(drives).where(eq(drives.id, id));
 		return updated[0] || null;
 	}
