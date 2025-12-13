@@ -1,6 +1,6 @@
 {
-  "extends": "../../tsconfig.json",
-  "include": ["src/**/*.ts", "src/**/*.tsx", "../elysia-backend/src/**/*.ts"],
+  "extends": "../tsconfig.json",
+  "include": ["src/**/*.ts", "src/**/*.tsx", "../nexus/src/**/*.ts"],
   "exclude": ["node_modules"],
   "compilerOptions": {
     "target": "ES2022",
@@ -25,9 +25,9 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
-      "@backend/*": ["../elysia-backend/src/*"],
-      "@elysiajs/*": ["../../node_modules/@elysiajs/*"],
-      "elysia": ["../../node_modules/elysia"]
+      "@nexus/*": ["../nexus/src/*"],
+      "@elysiajs/*": ["../node_modules/@elysiajs/*"],
+      "elysia": ["../node_modules/elysia"]
     }
   }
 }

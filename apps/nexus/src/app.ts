@@ -1,10 +1,18 @@
 import { Elysia } from "elysia";
 import { openapi } from "@elysiajs/openapi";
+import { staticPlugin } from "@elysiajs/static";
 import { publicRoutes } from "./routes/public";
 import { privateRoutes } from "./routes/private";
 import { internalRoutes } from "./routes/internal";
 
 export const app = new Elysia()
+  .use(
+    staticPlugin({
+      assets: "public",
+      prefix: "/",
+      alwaysStatic: true,
+    }),
+  )
   .use(
     openapi({
       documentation: {
@@ -19,13 +27,14 @@ export const app = new Elysia()
           { name: "Internal", description: "Internal K8s endpoints" },
         ],
       },
-    })
+    }),
   )
   .use(publicRoutes)
   .use(privateRoutes)
   .use(internalRoutes)
   .onError((ctx) => {
-    const message = ctx.error instanceof Error ? ctx.error.message : String(ctx.error);
+    const message =
+      ctx.error instanceof Error ? ctx.error.message : String(ctx.error);
     console.error(`[${ctx.code}] ${message}`);
 
     if (ctx.code === "VALIDATION") {

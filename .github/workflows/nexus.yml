@@ -1,18 +1,19 @@
-name: Build The Machine
+name: Build Nexus
 
 on:
   push:
     branches: [main]
     paths:
-      - 'apps/docker-discord-bot/**'
-      - '.github/workflows/the-machine.yml'
+      - "apps/nexus/**"
+      - "apps/dashboard/**"
+      - ".github/workflows/nexus.yml"
   schedule:
-    - cron: '0 0 * * 0'
+    - cron: "0 0 * * 0"
   workflow_dispatch:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository_owner }}/the-machine
+  IMAGE_NAME: ${{ github.repository_owner }}/nexus
 
 jobs:
   build-and-push:
@@ -51,7 +52,8 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
-          context: ./apps/docker-discord-bot
+          context: ./apps
+          file: ./apps/nexus/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
