@@ -1,6 +1,6 @@
-# docker-discord-bot
+# The Machine
 
-Discord bot for managing game servers. Thin client that calls the [homelab-elysia](../homelab-elysia) API.
+Discord bot for managing game servers. Thin client that calls the [Nexus](../nexus) API.
 
 ## Features
 

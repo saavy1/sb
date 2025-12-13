@@ -12,9 +12,9 @@ function LogsPage() {
 
 			<Card>
 				<CardContent>
-					<div className="font-mono text-sm text-[var(--text-secondary)] p-4 bg-[var(--background)] rounded border border-[var(--border)]">
-						<p className="text-[var(--text-tertiary)]">Log viewer coming soon...</p>
-						<p className="text-[var(--text-tertiary)]">Select a service to view logs</p>
+					<div className="font-mono text-sm text-text-secondary p-4 bg-background rounded border border-border">
+						<p className="text-text-tertiary">Log viewer coming soon...</p>
+						<p className="text-text-tertiary">Select a service to view logs</p>
 					</div>
 				</CardContent>
 			</Card>

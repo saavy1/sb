@@ -1,6 +1,6 @@
 import { Client, Events, GatewayIntentBits, REST, Routes } from "discord.js";
-import { config } from "./config";
 import { commands, handleCommand } from "./commands";
+import { config } from "./config";
 
 const client = new Client({
 	intents: [GatewayIntentBits.Guilds],

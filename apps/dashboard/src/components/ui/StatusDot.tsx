@@ -3,12 +3,12 @@ import { cn } from "@/lib/utils";
 type Status = "running" | "starting" | "stopping" | "stopped" | "error" | "unknown";
 
 const statusColors: Record<Status, string> = {
-	running: "bg-[var(--status-running)]",
-	starting: "bg-[var(--status-starting)]",
-	stopping: "bg-[var(--status-stopping)]",
-	stopped: "bg-[var(--status-stopped)]",
-	error: "bg-[var(--status-error)]",
-	unknown: "bg-[var(--status-unknown)]",
+	running: "bg-status-running",
+	starting: "bg-status-starting",
+	stopping: "bg-status-stopping",
+	stopped: "bg-status-stopped",
+	error: "bg-status-error",
+	unknown: "bg-status-unknown",
 };
 
 interface StatusDotProps {

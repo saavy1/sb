@@ -68,6 +68,7 @@
       "name": "homelab-elysia",
       "version": "1.0.0",
       "dependencies": {
+        "@elysiajs/cors": "^1.4.0",
         "@elysiajs/openapi": "^1.4.11",
         "@elysiajs/static": "^1.1.1",
         "@kubernetes/client-node": "^1.4.0",
@@ -218,6 +219,8 @@
     "@discordjs/ws": ["@discordjs/ws@3.0.0-pr-10758.1765463096-d081e1706", "", { "dependencies": { "@discordjs/collection": "3.0.0-pr-10758.1765463096-d081e1706", "@discordjs/util": "2.0.0-pr-10758.1765463096-d081e1706", "@sapphire/async-queue": "^1.5.5", "@types/ws": "^8.18.1", "@vladfrangu/async_event_emitter": "^2.4.7", "discord-api-types": "^0.38.36", "tslib": "^2.8.1", "ws": "^8.18.3" } }, "sha512-3rVqZpjie8KZi/zdNvoANmMphW30yAdOuZz0SbCYfFVwZCJEez4hxq+D6JPOdtMZeY3gYVk/CayfrcYmCU/qiw=="],
 
     "@drizzle-team/brocli": ["@drizzle-team/brocli@0.10.2", "", {}, "sha512-z33Il7l5dKjUgGULTqBsQBQwckHh5AbIuxhdsIxDDiZAzBOrZO6q9ogcWC65kU382AfynTfgNumVcNIjuIua6w=="],
+
+    "@elysiajs/cors": ["@elysiajs/cors@1.4.0", "", { "peerDependencies": { "elysia": ">= 1.4.0" } }, "sha512-pb0SCzBfFbFSYA/U40HHO7R+YrcXBJXOWgL20eSViK33ol1e20ru2/KUaZYo5IMUn63yaTJI/bQERuQ+77ND8g=="],
 
     "@elysiajs/eden": ["@elysiajs/eden@1.4.5", "", { "peerDependencies": { "elysia": ">= 1.4.0" } }, "sha512-hIOeH+S5NU/84A7+t8yB1JjxqjmzRkBF9fnLn6y+AH8EcF39KumOAnciMhIOkhhThVZvXZ3d+GsizRc+Fxoi8g=="],
 

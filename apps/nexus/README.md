@@ -1,6 +1,6 @@
-# homelab-elysia
+# Nexus
 
-Central API for homelab automation. Built with Elysia + Drizzle + Bun.
+Central Elysia API control plane for Superbloom homelab automation. Built with Elysia + Drizzle + Bun.
 
 ## Features
 

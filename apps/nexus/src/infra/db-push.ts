@@ -10,13 +10,13 @@ const dbPath = config.DB_PATH;
 // Ensure db directory exists
 import { mkdirSync } from "node:fs";
 try {
-	mkdirSync(dbPath, { recursive: true });
+  mkdirSync(dbPath, { recursive: true });
 } catch {}
 
 // Push minecraft schema
 logger.info({ database: "minecraft" }, "Pushing schema");
 const minecraftSqlite = new Database(join(dbPath, "minecraft.sqlite"), {
-	create: true,
+  create: true,
 });
 minecraftSqlite.exec("PRAGMA journal_mode = WAL;");
 const minecraftDb = drizzle(minecraftSqlite);
@@ -35,9 +35,15 @@ minecraftDb.run(sql`
     k8s_deployment TEXT
   )
 `);
-minecraftDb.run(sql`CREATE INDEX IF NOT EXISTS idx_servers_name ON servers(name)`);
-minecraftDb.run(sql`CREATE INDEX IF NOT EXISTS idx_servers_status ON servers(status)`);
-minecraftDb.run(sql`CREATE INDEX IF NOT EXISTS idx_servers_created_by ON servers(created_by)`);
+minecraftDb.run(
+  sql`CREATE INDEX IF NOT EXISTS idx_servers_name ON servers(name)`,
+);
+minecraftDb.run(
+  sql`CREATE INDEX IF NOT EXISTS idx_servers_status ON servers(status)`,
+);
+minecraftDb.run(
+  sql`CREATE INDEX IF NOT EXISTS idx_servers_created_by ON servers(created_by)`,
+);
 logger.info({ database: "minecraft" }, "Schema pushed");
 minecraftSqlite.close();
 
@@ -81,8 +87,34 @@ coreDb.run(sql`
     granted_at TEXT NOT NULL
   )
 `);
-coreDb.run(sql`CREATE INDEX IF NOT EXISTS idx_permissions_discord_id ON permissions(discord_id)`);
+coreDb.run(
+  sql`CREATE INDEX IF NOT EXISTS idx_permissions_discord_id ON permissions(discord_id)`,
+);
 logger.info({ database: "core" }, "Schema pushed");
 coreSqlite.close();
+
+// Push system-info schema
+logger.info({ database: "system-info" }, "Pushing schema");
+const systemInfoSqlite = new Database(join(dbPath, "system-info.sqlite"), {
+  create: true,
+});
+systemInfoSqlite.exec("PRAGMA journal_mode = WAL;");
+const systemInfoDb = drizzle(systemInfoSqlite);
+
+systemInfoDb.run(sql`
+  CREATE TABLE IF NOT EXISTS drives (
+    id TEXT PRIMARY KEY,
+    path TEXT NOT NULL UNIQUE,
+    label TEXT NOT NULL,
+    expected_capacity INTEGER,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  )
+`);
+systemInfoDb.run(
+  sql`CREATE INDEX IF NOT EXISTS idx_drives_path ON drives(path)`,
+);
+logger.info({ database: "system-info" }, "Schema pushed");
+systemInfoSqlite.close();
 
 logger.info("All schemas pushed successfully");

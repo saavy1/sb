@@ -9,18 +9,12 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as StorageRouteImport } from './routes/storage'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ServersRouteImport } from './routes/servers'
 import { Route as LogsRouteImport } from './routes/logs'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ServersNewRouteImport } from './routes/servers_.new'
 
-const StorageRoute = StorageRouteImport.update({
-  id: '/storage',
-  path: '/storage',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
@@ -52,7 +46,6 @@ export interface FileRoutesByFullPath {
   '/logs': typeof LogsRoute
   '/servers': typeof ServersRoute
   '/settings': typeof SettingsRoute
-  '/storage': typeof StorageRoute
   '/servers/new': typeof ServersNewRoute
 }
 export interface FileRoutesByTo {
@@ -60,7 +53,6 @@ export interface FileRoutesByTo {
   '/logs': typeof LogsRoute
   '/servers': typeof ServersRoute
   '/settings': typeof SettingsRoute
-  '/storage': typeof StorageRoute
   '/servers/new': typeof ServersNewRoute
 }
 export interface FileRoutesById {
@@ -69,28 +61,14 @@ export interface FileRoutesById {
   '/logs': typeof LogsRoute
   '/servers': typeof ServersRoute
   '/settings': typeof SettingsRoute
-  '/storage': typeof StorageRoute
   '/servers_/new': typeof ServersNewRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths:
-    | '/'
-    | '/logs'
-    | '/servers'
-    | '/settings'
-    | '/storage'
-    | '/servers/new'
+  fullPaths: '/' | '/logs' | '/servers' | '/settings' | '/servers/new'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/logs' | '/servers' | '/settings' | '/storage' | '/servers/new'
-  id:
-    | '__root__'
-    | '/'
-    | '/logs'
-    | '/servers'
-    | '/settings'
-    | '/storage'
-    | '/servers_/new'
+  to: '/' | '/logs' | '/servers' | '/settings' | '/servers/new'
+  id: '__root__' | '/' | '/logs' | '/servers' | '/settings' | '/servers_/new'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -98,19 +76,11 @@ export interface RootRouteChildren {
   LogsRoute: typeof LogsRoute
   ServersRoute: typeof ServersRoute
   SettingsRoute: typeof SettingsRoute
-  StorageRoute: typeof StorageRoute
   ServersNewRoute: typeof ServersNewRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/storage': {
-      id: '/storage'
-      path: '/storage'
-      fullPath: '/storage'
-      preLoaderRoute: typeof StorageRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/settings': {
       id: '/settings'
       path: '/settings'
@@ -154,7 +124,6 @@ const rootRouteChildren: RootRouteChildren = {
   LogsRoute: LogsRoute,
   ServersRoute: ServersRoute,
   SettingsRoute: SettingsRoute,
-  StorageRoute: StorageRoute,
   ServersNewRoute: ServersNewRoute,
 }
 export const routeTree = rootRouteImport
