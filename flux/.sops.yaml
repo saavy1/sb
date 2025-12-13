@@ -1,4 +1,4 @@
 creation_rules:
-  - path_regex: 'clusters/polyphony/apps/infra/.*/secrets.yaml'
+  - path_regex: 'clusters/superbloom/apps/infra/.*/secrets.yaml'
     encrypted_regex: '^(data|stringData)$'
     age: ['age1776wth2d8psy2swdcuw5t5ptj4hdegnjzh2eppz4gahas6waks7q37cf57']
