@@ -1,9 +1,16 @@
-import { config } from "./infra/config";
+import logger from "logger";
 import { app } from "./app";
+import { config } from "./infra/config";
 
 const server = app.listen(config.PORT);
 
-console.log(
-  `Homelab API running at http://${server.server?.hostname}:${server.server?.port}`
+logger.info(
+	{
+		hostname: server.server?.hostname,
+		port: server.server?.port,
+		openapi: `/openapi`,
+	},
+	"Homelab API started"
 );
-console.log(`OpenAPI docs at http://${server.server?.hostname}:${server.server?.port}/openapi`);
+logger.info(`Homelab API running at http://${server.server?.hostname}:${server.server?.port}`);
+logger.info(`OpenAPI docs at http://${server.server?.hostname}:${server.server?.port}/openapi`);

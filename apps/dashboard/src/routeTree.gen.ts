@@ -14,6 +14,7 @@ import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ServersRouteImport } from './routes/servers'
 import { Route as LogsRouteImport } from './routes/logs'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ServersNewRouteImport } from './routes/servers_.new'
 
 const StorageRoute = StorageRouteImport.update({
   id: '/storage',
@@ -40,6 +41,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ServersNewRoute = ServersNewRouteImport.update({
+  id: '/servers_/new',
+  path: '/servers/new',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -47,6 +53,7 @@ export interface FileRoutesByFullPath {
   '/servers': typeof ServersRoute
   '/settings': typeof SettingsRoute
   '/storage': typeof StorageRoute
+  '/servers/new': typeof ServersNewRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -54,6 +61,7 @@ export interface FileRoutesByTo {
   '/servers': typeof ServersRoute
   '/settings': typeof SettingsRoute
   '/storage': typeof StorageRoute
+  '/servers/new': typeof ServersNewRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -62,13 +70,27 @@ export interface FileRoutesById {
   '/servers': typeof ServersRoute
   '/settings': typeof SettingsRoute
   '/storage': typeof StorageRoute
+  '/servers_/new': typeof ServersNewRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/logs' | '/servers' | '/settings' | '/storage'
+  fullPaths:
+    | '/'
+    | '/logs'
+    | '/servers'
+    | '/settings'
+    | '/storage'
+    | '/servers/new'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/logs' | '/servers' | '/settings' | '/storage'
-  id: '__root__' | '/' | '/logs' | '/servers' | '/settings' | '/storage'
+  to: '/' | '/logs' | '/servers' | '/settings' | '/storage' | '/servers/new'
+  id:
+    | '__root__'
+    | '/'
+    | '/logs'
+    | '/servers'
+    | '/settings'
+    | '/storage'
+    | '/servers_/new'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -77,6 +99,7 @@ export interface RootRouteChildren {
   ServersRoute: typeof ServersRoute
   SettingsRoute: typeof SettingsRoute
   StorageRoute: typeof StorageRoute
+  ServersNewRoute: typeof ServersNewRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -116,6 +139,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/servers_/new': {
+      id: '/servers_/new'
+      path: '/servers/new'
+      fullPath: '/servers/new'
+      preLoaderRoute: typeof ServersNewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -125,6 +155,7 @@ const rootRouteChildren: RootRouteChildren = {
   ServersRoute: ServersRoute,
   SettingsRoute: SettingsRoute,
   StorageRoute: StorageRoute,
+  ServersNewRoute: ServersNewRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

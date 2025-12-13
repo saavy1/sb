@@ -1,11 +1,9 @@
 import { treaty } from "@elysiajs/eden";
-import type { App } from "@backend/app";
+import type { App } from "@nexus/app";
 import { config } from "./config";
 
 export const client = treaty<App>(config.ELYSIA_API_URL, {
-  headers: config.ELYSIA_API_KEY
-    ? { Authorization: `Bearer ${config.ELYSIA_API_KEY}` }
-    : undefined,
+	headers: config.ELYSIA_API_KEY ? { Authorization: `Bearer ${config.ELYSIA_API_KEY}` } : undefined,
 });
 
 // Convenience exports

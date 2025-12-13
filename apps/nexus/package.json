@@ -1,26 +1,27 @@
 {
-  "name": "homelab-elysia",
-  "version": "1.0.0",
-  "scripts": {
-    "dev": "bun run --watch src/index.ts",
-    "start": "bun run src/index.ts",
-    "typecheck": "tsc --noEmit",
-    "db:generate:minecraft": "drizzle-kit generate --dialect=sqlite --schema=./src/domains/game-servers/schema.ts --out=./db/migrations/minecraft",
-    "db:generate:core": "drizzle-kit generate --dialect=sqlite --schema=./src/domains/core/schema.ts --out=./db/migrations/core",
-    "db:generate": "bun run db:generate:minecraft && bun run db:generate:core",
-    "db:migrate": "bun run src/infra/migrate.ts",
-    "db:push": "bun run src/infra/db-push.ts"
-  },
-  "dependencies": {
-    "@elysiajs/openapi": "^1.4.11",
-    "@elysiajs/static": "^1.1.1",
-    "drizzle-orm": "^0.45.1",
-    "elysia": "catalog:"
-  },
-  "devDependencies": {
-    "bun-types": "catalog:",
-    "drizzle-kit": "^0.31.8",
-    "typescript": "catalog:"
-  },
-  "module": "src/index.ts"
+	"name": "homelab-elysia",
+	"version": "1.0.0",
+	"scripts": {
+		"dev": "bun run --watch src/index.ts",
+		"start": "bun run src/index.ts",
+		"typecheck": "tsc --noEmit",
+		"db:generate:minecraft": "drizzle-kit generate --dialect=sqlite --schema=./src/domains/game-servers/schema.ts --out=./db/migrations/minecraft",
+		"db:generate:core": "drizzle-kit generate --dialect=sqlite --schema=./src/domains/core/schema.ts --out=./db/migrations/core",
+		"db:generate": "bun run db:generate:minecraft && bun run db:generate:core",
+		"db:migrate": "bun run src/infra/migrate.ts",
+		"db:push": "bun run src/infra/db-push.ts"
+	},
+	"dependencies": {
+		"@elysiajs/openapi": "^1.4.11",
+		"@elysiajs/static": "^1.1.1",
+		"drizzle-orm": "^0.45.1",
+		"elysia": "catalog:",
+		"logger": "workspace:*"
+	},
+	"devDependencies": {
+		"bun-types": "catalog:",
+		"drizzle-kit": "^0.31.8",
+		"typescript": "catalog:"
+	},
+	"module": "src/index.ts"
 }

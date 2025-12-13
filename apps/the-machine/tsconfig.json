@@ -1,19 +1,19 @@
 {
-  "extends": "../../tsconfig.json",
-  "include": ["src/**/*.ts", "../elysia-backend/src/**/*.ts"],
-  "exclude": ["node_modules"],
-  "compilerOptions": {
-    "lib": ["ESNext"],
-    "types": ["bun-types"],
-    "noEmit": true,
-    "noFallthroughCasesInSwitch": true,
-    "noUncheckedIndexedAccess": true,
-    "noImplicitOverride": true,
-    "baseUrl": ".",
-    "paths": {
-      "@backend/*": ["../elysia-backend/src/*"],
-      "@elysiajs/*": ["../../node_modules/@elysiajs/*"],
-      "elysia": ["../../node_modules/elysia"]
-    }
-  }
+	"extends": "../../tsconfig.json",
+	"include": ["src/**/*.ts", "../elysia-backend/src/**/*.ts"],
+	"exclude": ["node_modules"],
+	"compilerOptions": {
+		"lib": ["ESNext"],
+		"types": ["bun-types"],
+		"noEmit": true,
+		"noFallthroughCasesInSwitch": true,
+		"noUncheckedIndexedAccess": true,
+		"noImplicitOverride": true,
+		"baseUrl": ".",
+		"paths": {
+			"@nexus/*": ["../nexus/src/*"],
+			"@elysiajs/*": ["../../node_modules/@elysiajs/*"],
+			"elysia": ["../../node_modules/elysia"]
+		}
+	}
 }
