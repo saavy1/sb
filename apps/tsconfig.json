@@ -9,9 +9,9 @@
     "forceConsistentCasingInFileNames": true,
     "baseUrl": ".",
     "paths": {
-      "@backend/*": ["./apps/elysia-backend/src/*"],
-      "@bot/*": ["./apps/docker-discord-bot/src/*"],
-      "@frontend/*": ["./apps/elysia-frontend/src/*"]
+      "@nexus/*": ["./nexus/src/*"],
+      "@machine/*": ["./the-machine/src/*"],
+      "@dashboard/*": ["./dashboard/src/*"]
     }
   }
 }

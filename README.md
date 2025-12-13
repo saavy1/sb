@@ -16,12 +16,16 @@ This monorepo manages the entire **Superbloom** homelab infrastructure, from bar
 
 ```
 sb/
-├── sb-system/          # NixOS system configuration
-├── sb-cluster/         # Kubernetes GitOps with Flux CD
-└── sb-apps/            # Application services (Bun monorepo)
+├── .github/workflows/  # CI/CD for building container images
+├── nixos/              # NixOS system configuration
+├── flux/               # Kubernetes GitOps with Flux CD
+└── apps/               # Application services (Bun workspace)
+    ├── nexus/          # Elysia API control plane
+    ├── the-machine/    # Discord bot
+    └── dashboard/      # Web dashboard
 ```
 
-### sb-system - NixOS Configuration
+### nixos/ - NixOS Configuration
 
 Declarative NixOS configuration for the Superbloom server using Nix Flakes.
 
@@ -39,7 +43,7 @@ Declarative NixOS configuration for the Superbloom server using Nix Flakes.
 - Networking and firewall rules
 - User environments and shell configuration
 
-### sb-cluster - Kubernetes GitOps
+### flux/ - Kubernetes GitOps
 
 Flux CD GitOps repository managing all Kubernetes deployments on the Superbloom K3s cluster.
 
@@ -55,7 +59,7 @@ Flux CD GitOps repository managing all Kubernetes deployments on the Superbloom 
 - Cloudflare DDNS
 - Custom applications from sb-apps
 
-### sb-apps - Application Services
+### apps/ - Application Services
 
 Bun workspace monorepo containing custom applications for homelab automation.
 
