@@ -12,6 +12,7 @@
 		"db:push": "bun run src/infra/db-push.ts"
 	},
 	"dependencies": {
+		"@elysiajs/cors": "^1.4.0",
 		"@elysiajs/openapi": "^1.4.11",
 		"@elysiajs/static": "^1.1.1",
 		"@kubernetes/client-node": "^1.4.0",

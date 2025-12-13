@@ -18,8 +18,8 @@ function SettingsPage() {
 					<CardContent>
 						<dl className="space-y-3 text-sm">
 							<div className="flex justify-between">
-								<dt className="text-[var(--text-secondary)]">API URL</dt>
-								<dd className="font-mono text-[var(--text-tertiary)]">
+								<dt className="text-text-secondary">API URL</dt>
+								<dd className="font-mono text-text-tertiary">
 									{import.meta.env.VITE_API_URL || "http://localhost:3000"}
 								</dd>
 							</div>

@@ -1,6 +1,6 @@
 import type { ChatInputCommandInteraction } from "discord.js";
-import { serverCommand, handleServerCommand } from "./server";
-import { healthCommand, handleHealthCommand } from "./health";
+import { handleHealthCommand, healthCommand } from "./health";
+import { handleServerCommand, serverCommand } from "./server";
 
 export const commands = [serverCommand, healthCommand];
 

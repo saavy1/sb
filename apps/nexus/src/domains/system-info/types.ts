@@ -1,0 +1,112 @@
+import { t } from "elysia";
+
+// Elysia types for API contracts (shared with frontend via Eden Treaty)
+export const Drive = t.Object({
+  id: t.String(),
+  path: t.String(),
+  label: t.String(),
+  expectedCapacity: t.Nullable(t.Number()),
+  createdAt: t.String(),
+  updatedAt: t.String(),
+});
+
+export const DriveWithStats = t.Object({
+  id: t.String(),
+  path: t.String(),
+  label: t.String(),
+  expectedCapacity: t.Nullable(t.Number()),
+  createdAt: t.String(),
+  updatedAt: t.String(),
+  // Current stats (only present if drive is mounted)
+  mounted: t.Boolean(),
+  used: t.Optional(t.Number()), // GB
+  total: t.Optional(t.Number()), // GB
+  available: t.Optional(t.Number()), // GB
+  usagePercent: t.Optional(t.Number()),
+});
+
+export const CpuCore = t.Object({
+  core: t.Number(),
+  usage: t.Number(), // percentage 0-100
+});
+
+export const CpuStats = t.Object({
+  usage: t.Number(), // overall percentage
+  coreCount: t.Number(),
+  cores: t.Array(CpuCore),
+  model: t.String(),
+  speed: t.Number(), // current MHz
+});
+
+export const MemoryStats = t.Object({
+  used: t.Number(), // GB
+  total: t.Number(), // GB
+  available: t.Number(), // GB
+  cached: t.Number(), // GB
+  usagePercent: t.Number(),
+});
+
+export const DiskStats = t.Object({
+  readSpeed: t.Number(), // MB/s
+  writeSpeed: t.Number(), // MB/s
+});
+
+export const NetworkInterface = t.Object({
+  name: t.String(),
+  rxSpeed: t.Number(), // MB/s download
+  txSpeed: t.Number(), // MB/s upload
+});
+
+export const NetworkStats = t.Object({
+  interfaces: t.Array(NetworkInterface),
+  totalRxSpeed: t.Number(), // MB/s
+  totalTxSpeed: t.Number(), // MB/s
+});
+
+export const GpuStats = t.Object({
+  available: t.Boolean(),
+  name: t.Optional(t.String()),
+  usage: t.Optional(t.Number()), // percentage 0-100
+  memoryUsed: t.Optional(t.Number()), // MB
+  memoryTotal: t.Optional(t.Number()), // MB
+  temperature: t.Optional(t.Number()), // Celsius
+});
+
+export const SystemStats = t.Object({
+  cpu: CpuStats,
+  memory: MemoryStats,
+  disk: DiskStats,
+  network: NetworkStats,
+  gpu: GpuStats,
+});
+
+export const SystemOverview = t.Object({
+  drives: t.Array(DriveWithStats),
+  stats: SystemStats,
+});
+
+export const CreateDriveRequest = t.Object({
+  path: t.String(),
+  label: t.String(),
+  expectedCapacity: t.Optional(t.Number()),
+});
+
+export const UpdateDriveRequest = t.Object({
+  label: t.Optional(t.String()),
+  expectedCapacity: t.Optional(t.Number()),
+});
+
+export const DriveIdParam = t.Object({
+  id: t.String(),
+});
+
+export const SuggestedDrive = t.Object({
+  path: t.String(),
+  suggestedLabel: t.String(),
+  total: t.Number(), // GB
+  filesystem: t.String(),
+});
+
+export const ApiError = t.Object({
+  error: t.String(),
+});

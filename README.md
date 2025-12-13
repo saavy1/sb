@@ -19,10 +19,12 @@ sb/
 ├── .github/workflows/  # CI/CD for building container images
 ├── nixos/              # NixOS system configuration
 ├── flux/               # Kubernetes GitOps with Flux CD
+├── docs/               # Documentation
 └── apps/               # Application services (Bun workspace)
     ├── nexus/          # Elysia API control plane
     ├── the-machine/    # Discord bot
-    └── dashboard/      # Web dashboard
+    ├── dashboard/      # Web dashboard
+    └── logger/         # Shared logging package
 ```
 
 ### nixos/ - NixOS Configuration
@@ -73,7 +75,7 @@ Bun workspace monorepo containing custom applications for homelab automation.
 
 **Applications:**
 
-#### elysia-backend (→ Nexus)
+#### Nexus
 Central Elysia API control plane providing multi-domain backend services. Currently handles game server management with plans to expand to additional domains (app launcher, system monitoring, etc.).
 
 - Multiple SQLite databases (one per domain)
@@ -81,41 +83,44 @@ Central Elysia API control plane providing multi-domain backend services. Curren
 - Kubernetes integration for game server deployment
 - OpenAPI/Swagger documentation
 
-#### docker-discord-bot (→ The Machine)
+#### The Machine
 Discord bot providing game server management through slash commands. Thin client consuming the game-servers domain from Nexus.
 
 - Discord.js v15
 - Eden Treaty client (type-safe RPC to Nexus)
 - Zod validation
 
-#### elysia-frontend (→ Dashboard)
-React web dashboard for managing game servers and (eventually) other homelab services.
+#### Dashboard
+React web dashboard for managing game servers and other homelab services.
 
 - TanStack Router (type-safe routing)
 - Tailwind CSS v4
 - Eden Treaty client to Nexus API
 - Vite build tooling
 
+#### Logger
+Shared logging package providing structured JSON logging via Pino for all Superbloom applications.
+
 ## Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│ sb-system (NixOS)                                       │
+│ nixos/ (NixOS Configuration)                            │
 │ ├─ Provisions the base OS                              │
 │ ├─ Installs and configures K3s cluster                 │
 │ └─ Sets up Docker, networking, users                   │
 └────────────────────┬────────────────────────────────────┘
                      │
 ┌────────────────────▼────────────────────────────────────┐
-│ sb-cluster (Flux GitOps)                                │
+│ flux/ (Flux GitOps)                                     │
 │ ├─ Deploys infrastructure (Caddy, Authelia, DDNS)      │
-│ ├─ Deploys applications from sb-apps                   │
+│ ├─ Deploys applications from apps/                     │
 │ ├─ Manages Kubernetes manifests declaratively          │
 │ └─ Watches Git repo, auto-reconciles cluster state     │
 └────────────────────┬────────────────────────────────────┘
                      │
 ┌────────────────────▼────────────────────────────────────┐
-│ sb-apps (Applications)                                  │
+│ apps/ (Applications)                                    │
 │                                                         │
 │ ┌─────────────────────────────────────────────┐        │
 │ │ Nexus (Elysia API)                          │        │
@@ -133,49 +138,28 @@ React web dashboard for managing game servers and (eventually) other homelab ser
 └─────────────────────────────────────────────────────────┘
 ```
 
-## Current Status
-
-This is the original multi-repo structure. Plans are in progress to consolidate into a unified monorepo with the following structure:
-
-```
-sb/
-├── .github/workflows/      # Unified CI/CD
-├── nixos/                  # NixOS config (standalone)
-├── flux/                   # Flux manifests (standalone)
-├── apps/                   # Bun workspace
-│   ├── nexus/              # Elysia API control plane
-│   ├── the-machine/        # Discord bot
-│   └── dashboard/          # Web UI
-├── docs/
-├── scripts/
-├── Taskfile.yml            # Optional task automation
-└── README.md
-```
-
 ## Development
 
 Each subdirectory has its own development workflow:
 
-**sb-system (NixOS):**
+**NixOS:**
 ```bash
-cd sb-system
+cd nixos
 nixos-rebuild build --flake .#superbloom
 ```
 
-**sb-cluster (Flux):**
+**Flux:**
 ```bash
-cd sb-cluster
 flux check
 flux reconcile kustomization flux-system
 ```
 
-**sb-apps (Applications):**
+**Applications:**
 ```bash
-cd sb-apps
 bun install
 bun run dev:api        # Nexus API on :3000
 bun run dev:bot        # The Machine bot
-bun run dev:frontend   # Dashboard on :3001
+bun run dev:dashboard  # Dashboard on :3001
 ```
 
 ## Contributing

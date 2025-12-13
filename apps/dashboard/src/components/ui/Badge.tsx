@@ -5,11 +5,11 @@ type Variant = "success" | "warning" | "error" | "info" | "default";
 type Status = "running" | "starting" | "stopping" | "stopped" | "error";
 
 const variantStyles: Record<Variant, string> = {
-	success: "bg-[var(--success-bg)] text-[var(--success)]",
-	warning: "bg-[var(--warning-bg)] text-[var(--warning)]",
-	error: "bg-[var(--error-bg)] text-[var(--error)]",
-	info: "bg-[var(--info-bg)] text-[var(--info)]",
-	default: "bg-[var(--surface)] text-[var(--text-secondary)]",
+	success: "bg-success-bg text-success",
+	warning: "bg-warning-bg text-warning",
+	error: "bg-error-bg text-error",
+	info: "bg-info-bg text-info",
+	default: "bg-surface text-text-secondary",
 };
 
 const statusToVariant: Record<Status, Variant> = {

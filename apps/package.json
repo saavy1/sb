@@ -17,9 +17,9 @@
 		}
 	},
 	"scripts": {
-		"clean": "rm -rf node_modules && rm -rf nexus/node_modules && rm -rf the-machine/node_modules && rm -rf dashboard/node_modules",
-		"dev:bot": "bun run --cwd the-machine dev",
-		"dev:api": "bun run --cwd nexus dev",
+		"clean": "rm -rf node_modules && rm -rf nexus/node_modules && rms -rf the-machine/node_modules && rm -rf dashboard/node_modules",
+		"dev:bot": "bun run --cwd the-machine dev | jq 'del(.hostname, .level, .pid, .time)'",
+		"dev:api": "bun run --cwd nexus dev | jq 'del(.hostname, .level, .pid, .time)'",
 		"dev:dashboard": "bun run --cwd dashboard dev",
 		"build:bot": "bun run --cwd the-machine build",
 		"build:api": "bun run --cwd nexus build",

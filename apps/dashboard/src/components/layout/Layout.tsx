@@ -1,4 +1,4 @@
-import { Sidebar } from "./Sidebar";
+import { BottomNav, TopNav } from "./TopNav";
 
 interface LayoutProps {
 	children: React.ReactNode;
@@ -6,11 +6,12 @@ interface LayoutProps {
 
 export function Layout({ children }: LayoutProps) {
 	return (
-		<div className="min-h-screen bg-[var(--background)]">
-			<Sidebar />
-			<main className="ml-60 p-8">
-				<div className="max-w-6xl mx-auto">{children}</div>
+		<div className="min-h-screen bg-background">
+			<TopNav />
+			<main className="container mx-auto px-4 py-6 pb-24 md:pb-6">
+				{children}
 			</main>
+			<BottomNav />
 		</div>
 	);
 }
