@@ -1,0 +1,11 @@
+pre-push:
+  parallel: true
+  jobs:
+    - name: lint
+      run: bunx --bun biome check
+    - name: format
+      run: bunx --bun biome format
+    - name: typecheck
+      run: bunx --bun biome typecheck
+    - name: test
+      run: bunx --bun biome test
