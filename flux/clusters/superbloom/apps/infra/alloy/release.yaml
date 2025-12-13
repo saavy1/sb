@@ -1,0 +1,27 @@
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: grafana
+  namespace: flux-system
+spec:
+  interval: 30m
+  url: https://grafana.github.io/helm-charts
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: grafana-k8s-monitoring
+  namespace: alloy
+spec:
+  interval: 5m
+  chart:
+    spec:
+      chart: k8s-monitoring
+      sourceRef:
+        kind: HelmRepository
+        name: grafana
+        namespace: flux-system
+  valuesFrom:
+    - kind: Secret
+      name: grafana-cloud-credentials
+      valuesKey: values.yaml
