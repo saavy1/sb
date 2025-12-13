@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { HardDrive, Plus, Play, RefreshCw, Square, Trash2, Wifi, WifiOff } from "lucide-react";
+import { HardDrive, Play, Plus, RefreshCw, Square, Trash2, Wifi, WifiOff } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button, StatusDot } from "../components/ui";
 import { client } from "../lib/api";
@@ -10,7 +10,9 @@ export const Route = createFileRoute("/")({
 
 type ServersResponse = Awaited<ReturnType<typeof client.api.gameServers.get>>["data"];
 type SystemOverview = Awaited<ReturnType<typeof client.api.systemInfo.overview.get>>["data"];
-type SuggestedDrive = Awaited<ReturnType<typeof client.api.systemInfo.drives.suggestions.get>>["data"];
+type SuggestedDrive = Awaited<
+	ReturnType<typeof client.api.systemInfo.drives.suggestions.get>
+>["data"];
 
 const WS_URL =
 	import.meta.env.VITE_API_URL?.replace(/^http/, "ws") ||
@@ -42,15 +44,27 @@ function HomePage() {
 		const connect = () => {
 			const ws = new WebSocket(`${WS_URL}/api/systemInfo/live`);
 			wsRef.current = ws;
-			ws.onopen = () => { setConnected(true); setLoading(false); };
-			ws.onmessage = (e) => { try { setSystemInfo(JSON.parse(e.data)); } catch {} };
-			ws.onclose = () => { setConnected(false); setTimeout(connect, 2000); };
+			ws.onopen = () => {
+				setConnected(true);
+				setLoading(false);
+			};
+			ws.onmessage = (e) => {
+				try {
+					setSystemInfo(JSON.parse(e.data));
+				} catch {}
+			};
+			ws.onclose = () => {
+				setConnected(false);
+				setTimeout(connect, 2000);
+			};
 			ws.onerror = () => ws.close();
 		};
 		connect();
 		fetchServers();
 		fetchSuggestions();
-		return () => { wsRef.current?.close(); };
+		return () => {
+			wsRef.current?.close();
+		};
 	}, [fetchServers, fetchSuggestions]);
 
 	const handleStart = async (name: string) => {
@@ -82,7 +96,9 @@ function HomePage() {
 			{/* Header with connection status */}
 			<div className="flex items-center justify-between">
 				<h1 className="text-xl font-semibold">Dashboard</h1>
-				<span className={`flex items-center gap-1 text-xs ${connected ? "text-success" : "text-text-tertiary"}`}>
+				<span
+					className={`flex items-center gap-1 text-xs ${connected ? "text-success" : "text-text-tertiary"}`}
+				>
 					{connected ? <Wifi size={12} /> : <WifiOff size={12} />}
 					{connected ? "Live" : "..."}
 				</span>
@@ -107,14 +123,14 @@ function HomePage() {
 					</div>
 					<div className="flex items-center gap-1.5 text-xs">
 						<span className="text-text-tertiary">Net</span>
-						<span className="font-mono tabular-nums">↓{stats.network.totalRxSpeed} ↑{stats.network.totalTxSpeed}</span>
+						<span className="font-mono tabular-nums">
+							↓{stats.network.totalRxSpeed} ↑{stats.network.totalTxSpeed}
+						</span>
 					</div>
 				</div>
 			)}
 
-			{loading && !stats && (
-				<div className="py-4 text-sm text-text-tertiary">Loading...</div>
-			)}
+			{loading && !stats && <div className="py-4 text-sm text-text-tertiary">Loading...</div>}
 
 			{/* Servers */}
 			<section className="border border-border rounded-lg">
@@ -142,11 +158,16 @@ function HomePage() {
 						{servers.map((server) => (
 							<div key={server.id} className="flex items-center justify-between px-3 py-2.5">
 								<div className="flex items-center gap-2.5 min-w-0">
-									<StatusDot status={server.status as "running" | "stopped" | "starting" | "stopping" | "error"} />
+									<StatusDot
+										status={
+											server.status as "running" | "stopped" | "starting" | "stopping" | "error"
+										}
+									/>
 									<div className="min-w-0">
 										<div className="font-medium text-sm truncate">{server.name}</div>
 										<div className="text-xs text-text-tertiary truncate">
-											{server.gameType}{server.modpack ? ` · ${server.modpack}` : ""}
+											{server.gameType}
+											{server.modpack ? ` · ${server.modpack}` : ""}
 										</div>
 									</div>
 								</div>
@@ -173,9 +194,7 @@ function HomePage() {
 						))}
 					</div>
 				) : (
-					<div className="px-3 py-6 text-center text-sm text-text-tertiary">
-						No servers yet
-					</div>
+					<div className="px-3 py-6 text-center text-sm text-text-tertiary">No servers yet</div>
 				)}
 			</section>
 
@@ -185,7 +204,7 @@ function HomePage() {
 					<div className="px-3 py-2 border-b border-border">
 						<h2 className="text-sm font-medium">Storage</h2>
 					</div>
-					
+
 					<div className="divide-y divide-border">
 						{drives.map((drive) => (
 							<div key={drive.id} className="flex items-center gap-3 px-3 py-2.5">
@@ -207,7 +226,12 @@ function HomePage() {
 												className="h-full rounded-full"
 												style={{
 													width: `${drive.usagePercent}%`,
-													backgroundColor: (drive.usagePercent ?? 0) > 90 ? "var(--error)" : (drive.usagePercent ?? 0) > 70 ? "var(--warning)" : "var(--accent)",
+													backgroundColor:
+														(drive.usagePercent ?? 0) > 90
+															? "var(--error)"
+															: (drive.usagePercent ?? 0) > 70
+																? "var(--warning)"
+																: "var(--accent)",
 												}}
 											/>
 										</div>
@@ -229,7 +253,9 @@ function HomePage() {
 								<HardDrive size={14} className="text-text-tertiary shrink-0" />
 								<div className="flex-1 min-w-0">
 									<div className="text-sm font-medium truncate">{s.suggestedLabel}</div>
-									<div className="text-xs text-text-tertiary truncate">{s.path} · {s.total}G</div>
+									<div className="text-xs text-text-tertiary truncate">
+										{s.path} · {s.total}G
+									</div>
 								</div>
 								<Button
 									size="sm"

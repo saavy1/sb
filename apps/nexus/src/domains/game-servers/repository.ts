@@ -1,7 +1,7 @@
-import { eq, desc } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { minecraftDb } from "../../infra/db";
-import { servers, type Server } from "./schema";
-import type { GameServerType, GameServerStatusType } from "./types";
+import { type Server, servers } from "./schema";
+import type { GameServerStatusType, GameServerType } from "./types";
 
 function mapToGameServer(row: Server): GameServerType {
 	return {

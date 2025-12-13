@@ -75,9 +75,7 @@ function ServersPage() {
 				<div className="py-12 text-center">
 					<Server className="mx-auto mb-4 text-text-tertiary" size={48} />
 					<p className="text-text-secondary">No game servers yet</p>
-					<p className="text-text-tertiary text-sm mt-1">
-						Create your first server to get started
-					</p>
+					<p className="text-text-tertiary text-sm mt-1">Create your first server to get started</p>
 				</div>
 			)}
 
@@ -86,7 +84,7 @@ function ServersPage() {
 					<div className="text-sm text-text-secondary mb-4">
 						{servers.length} server{servers.length !== 1 ? "s" : ""}
 					</div>
-					
+
 					<div className="border border-border rounded-lg overflow-hidden">
 						<table className="w-full">
 							<thead className="hidden md:table-header-group">
@@ -107,15 +105,19 @@ function ServersPage() {
 							</thead>
 							<tbody className="divide-y divide-border">
 								{servers.map((server) => (
-									<tr
-										key={server.id}
-										className="group hover:bg-surface-elevated transition-colors"
-									>
+									<tr key={server.id} className="group hover:bg-surface-elevated transition-colors">
 										{/* Server name column - always visible */}
 										<td className="px-4 py-4">
 											<div className="flex items-start gap-3">
 												<StatusDot
-													status={server.status as "running" | "stopped" | "starting" | "stopping" | "error"}
+													status={
+														server.status as
+															| "running"
+															| "stopped"
+															| "starting"
+															| "stopping"
+															| "error"
+													}
 													className="mt-1.5 shrink-0"
 												/>
 												<div className="min-w-0">
@@ -133,17 +135,17 @@ function ServersPage() {
 												</div>
 											</div>
 										</td>
-										
+
 										{/* Type column - hidden on mobile */}
 										<td className="hidden md:table-cell px-4 py-4 text-text-secondary">
 											{server.gameType}
 										</td>
-										
+
 										{/* Modpack column - hidden on mobile */}
 										<td className="hidden md:table-cell px-4 py-4 text-sm font-mono text-text-tertiary">
 											{server.modpack || "—"}
 										</td>
-										
+
 										{/* Actions column */}
 										<td className="px-4 py-4">
 											<div className="flex justify-end gap-1">
