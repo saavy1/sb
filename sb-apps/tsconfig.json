@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "baseUrl": ".",
+    "paths": {
+      "@backend/*": ["./apps/elysia-backend/src/*"],
+      "@bot/*": ["./apps/docker-discord-bot/src/*"],
+      "@frontend/*": ["./apps/elysia-frontend/src/*"]
+    }
+  }
+}

@@ -1,0 +1,71 @@
+/* The Machine - Design System */
+
+:root {
+  /* Foundation */
+  --background: hsl(240 10% 3.9%);
+  --surface: hsl(240 10% 8%);
+  --surface-elevated: hsl(240 10% 12%);
+  --border: hsl(240 6% 16%);
+  --border-strong: hsl(240 6% 22%);
+
+  /* Text */
+  --text-primary: hsl(0 0% 95%);
+  --text-secondary: hsl(240 5% 65%);
+  --text-tertiary: hsl(240 5% 45%);
+
+  /* Semantic */
+  --accent: hsl(215 100% 50%);
+  --accent-hover: hsl(215 100% 60%);
+
+  --success: hsl(142 76% 36%);
+  --success-bg: hsl(142 76% 36% / 0.1);
+
+  --warning: hsl(48 96% 53%);
+  --warning-bg: hsl(48 96% 53% / 0.1);
+
+  --error: hsl(0 84% 60%);
+  --error-bg: hsl(0 84% 60% / 0.1);
+
+  --info: hsl(215 100% 50%);
+  --info-bg: hsl(215 100% 50% / 0.1);
+
+  /* Status */
+  --status-running: hsl(142 76% 36%);
+  --status-starting: hsl(48 96% 53%);
+  --status-stopping: hsl(25 95% 53%);
+  --status-stopped: hsl(0 84% 60%);
+  --status-error: hsl(0 84% 60%);
+  --status-unknown: hsl(240 5% 45%);
+
+  /* Typography */
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+
+  /* Spacing */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+
+  /* Sidebar */
+  --sidebar-width: 240px;
+}
+
+/* Base resets */
+body {
+  background: var(--background);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

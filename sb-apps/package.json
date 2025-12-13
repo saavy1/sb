@@ -1,0 +1,41 @@
+{
+  "name": "homelab-images",
+  "private": true,
+  "workspaces": {
+    "packages": ["apps/*"],
+    "catalog": {
+      "elysia": "1.4.17",
+      "@elysiajs/eden": "1.4.5",
+      "typescript": "5.7.3",
+      "bun-types": "1.2.5"
+    }
+  },
+  "scripts": {
+    "clean": "rm -rf node_modules && rm -rf apps/*/node_modules",
+    "dev:bot": "bun run --cwd apps/docker-discord-bot dev",
+    "dev:api": "bun run --cwd apps/elysia-backend dev",
+    "dev:frontend": "bun run --cwd apps/elysia-frontend dev",
+    "dev:elysia": "bun run --cwd apps/elysia-backend dev && bun run --cwd apps/elysia-frontend dev",
+    "build:bot": "bun run --cwd apps/docker-discord-bot build",
+    "build:api": "bun run --cwd apps/elysia-backend build",
+    "build:frontend": "bun run --cwd apps/elysia-frontend build",
+    "typecheck": "bun run typecheck:bot && bun run typecheck:api && bun run typecheck:frontend",
+    "typecheck:bot": "bun run --cwd apps/docker-discord-bot typecheck",
+    "typecheck:api": "bun run --cwd apps/elysia-backend typecheck",
+    "typecheck:frontend": "bun run --cwd apps/elysia-frontend tsc --noEmit",
+    "typecheck:elysia": "bun run --cwd apps/elysia-backend typecheck && bun run --cwd apps/elysia-frontend tsc --noEmit",
+    "lint:bot": "bun run --cwd apps/docker-discord-bot lint",
+    "lint:api": "bun run --cwd apps/elysia-backend lint",
+    "lint:frontend": "bun run --cwd apps/elysia-frontend lint",
+    "lint:elysia": "bun run --cwd apps/elysia-backend lint && bun run --cwd apps/elysia-frontend lint",
+    "lint:bot:fix": "bun run --cwd apps/docker-discord-bot lint:fix",
+    "lint:api:fix": "bun run --cwd apps/elysia-backend lint:fix",
+    "lint:frontend:fix": "bun run --cwd apps/elysia-frontend lint:fix",
+    "lint:elysia:fix": "bun run --cwd apps/elysia-backend lint:fix && bun run --cwd apps/elysia-frontend lint:fix",
+    "format:bot": "bun run --cwd apps/docker-discord-bot format",
+    "format:api": "bun run --cwd apps/elysia-backend format",
+    "format:frontend": "bun run --cwd apps/elysia-frontend format",
+    "format:elysia": "bun run --cwd apps/elysia-backend format && bun run --cwd apps/elysia-frontend format",
+    "db:push": "bun run --cwd apps/elysia-backend db:push"
+  }
+}
