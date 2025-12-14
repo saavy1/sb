@@ -158,4 +158,39 @@ appsDb.run(sql`CREATE INDEX IF NOT EXISTS idx_apps_sort_order ON apps(sort_order
 logger.info({ database: "apps" }, "Schema pushed");
 appsSqlite.close();
 
+// Push chat schema
+logger.info({ database: "chat" }, "Pushing schema");
+const chatSqlite = new Database(join(dbPath, "chat.sqlite"), { create: true });
+chatSqlite.exec("PRAGMA journal_mode = WAL;");
+const chatDb = drizzle(chatSqlite);
+
+chatDb.run(sql`
+  CREATE TABLE IF NOT EXISTS conversations (
+    id TEXT PRIMARY KEY,
+    title TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  )
+`);
+chatDb.run(
+	sql`CREATE INDEX IF NOT EXISTS idx_conversations_updated_at ON conversations(updated_at)`
+);
+
+chatDb.run(sql`
+  CREATE TABLE IF NOT EXISTS messages (
+    id TEXT PRIMARY KEY,
+    conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+    role TEXT NOT NULL,
+    content TEXT,
+    parts TEXT,
+    created_at TEXT NOT NULL
+  )
+`);
+chatDb.run(
+	sql`CREATE INDEX IF NOT EXISTS idx_messages_conversation_id ON messages(conversation_id)`
+);
+chatDb.run(sql`CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at)`);
+logger.info({ database: "chat" }, "Schema pushed");
+chatSqlite.close();
+
 logger.info("All schemas pushed successfully");
