@@ -1,22 +1,85 @@
 import { fetchServerSentEvents, useChat } from "@tanstack/ai-react";
 import { Bot, Loader2, Send, User } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Markdown from "react-markdown";
-import { API_URL } from "../lib/api";
+import { API_URL, client } from "../lib/api";
 
-export function Chat() {
+interface Props {
+	conversationId?: string;
+	onConversationChange?: (id: string | null) => void;
+}
+
+export function Chat({ conversationId, onConversationChange }: Props) {
 	const [input, setInput] = useState("");
+	const [activeConversationId, setActiveConversationId] = useState<string | null>(
+		conversationId ?? null
+	);
+	const lastMessageCountRef = useRef(0);
 
-	const { messages, sendMessage, isLoading, error } = useChat({
+	const { messages, sendMessage, isLoading, error, setMessages } = useChat({
 		connection: fetchServerSentEvents(`${API_URL}/api/ai/chat`),
 	});
 
-	const handleSubmit = (e: React.FormEvent) => {
-		e.preventDefault();
-		if (input.trim() && !isLoading) {
-			sendMessage(input);
-			setInput("");
+	// Load conversation messages when switching
+	useEffect(() => {
+		if (!activeConversationId) {
+			setMessages([]);
+			lastMessageCountRef.current = 0;
+			return;
 		}
+
+		const loadConversation = async () => {
+			const { data } = await client.api.conversations({ id: activeConversationId }).get();
+			if (data && "messages" in data && Array.isArray(data.messages)) {
+				const uiMessages = data.messages.map((m: any) => ({
+					id: m.id,
+					role: m.role,
+					parts: m.parts || [{ type: "text", content: m.content }],
+				}));
+				setMessages(uiMessages);
+				lastMessageCountRef.current = uiMessages.length;
+			}
+		};
+
+		loadConversation();
+	}, [activeConversationId, setMessages]);
+
+	// Save new messages to backend
+	useEffect(() => {
+		if (!activeConversationId || messages.length <= lastMessageCountRef.current) return;
+
+		const saveNewMessages = async () => {
+			const newMessages = messages.slice(lastMessageCountRef.current);
+			for (const msg of newMessages) {
+				await client.api.conversations({ id: activeConversationId }).messages.post({
+					role: msg.role,
+					content: (msg as any).content,
+					parts: (msg as any).parts,
+				});
+			}
+			lastMessageCountRef.current = messages.length;
+		};
+
+		if (!isLoading) {
+			saveNewMessages();
+		}
+	}, [messages, isLoading, activeConversationId]);
+
+	const handleSubmit = async (e: React.FormEvent) => {
+		e.preventDefault();
+		if (!input.trim() || isLoading) return;
+
+		// Create conversation if none active
+		if (!activeConversationId) {
+			const { data } = await client.api.conversations.post({});
+			if (data && "id" in data) {
+				setActiveConversationId(data.id);
+				onConversationChange?.(data.id);
+			}
+		}
+
+		sendMessage(input);
+		setInput("");
 	};
 
 	return (

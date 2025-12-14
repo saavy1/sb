@@ -1,6 +1,7 @@
 import { Elysia } from "elysia";
 import logger from "logger";
 import { appRoutes } from "../domains/apps/routes";
+import { chatRoutes } from "../domains/chat/routes";
 import { gameServerRoutes } from "../domains/game-servers/routes";
 import { opsRoutes } from "../domains/ops/routes";
 import { systemInfoRoutes } from "../domains/system-info/routes";
@@ -10,6 +11,7 @@ import { aiRoutes } from "./ai";
 export const privateRoutes = new Elysia({ prefix: "/api" })
 	.use(autheliaMiddleware)
 	.use(appRoutes)
+	.use(chatRoutes)
 	.use(gameServerRoutes)
 	.use(systemInfoRoutes)
 	.use(opsRoutes)
