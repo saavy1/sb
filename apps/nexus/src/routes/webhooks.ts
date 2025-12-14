@@ -1,8 +1,7 @@
-import { Elysia } from "elysia";
+import { Elysia, t } from "elysia";
 import logger from "logger";
 import { config } from "../infra/config";
 import { opsService } from "../domains/ops/service";
-import { WebhookPayload, WebhookResponse } from "../domains/ops/types";
 
 // Timing-safe comparison to prevent timing attacks
 function timingSafeEqual(a: string, b: string): boolean {
@@ -14,8 +13,8 @@ function timingSafeEqual(a: string, b: string): boolean {
 	return result === 0;
 }
 
-// Verify GitHub webhook signature using HMAC-SHA256
-async function verifyGitHubSignature(
+// Verify webhook signature using HMAC-SHA256
+async function verifySignature(
 	payload: string,
 	signature: string,
 	secret: string
@@ -41,52 +40,53 @@ export const webhookRoutes = new Elysia({ prefix: "/webhooks" }).post(
 		const rawBody = await request.clone().text();
 		const webhookSecret = config.GITHUB_WEBHOOK_SECRET;
 
+		// Verify signature
 		if (webhookSecret) {
 			const signature = headers["x-hub-signature-256"];
 			if (!signature) {
-				logger.warn("GitHub webhook missing signature");
+				logger.warn("Webhook missing signature");
 				set.status = 401;
 				return { message: "Missing signature" };
 			}
 
-			const isValid = await verifyGitHubSignature(rawBody, signature, webhookSecret);
+			const isValid = await verifySignature(rawBody, signature, webhookSecret);
 			if (!isValid) {
-				logger.warn("GitHub webhook signature verification failed");
+				logger.warn("Webhook signature verification failed");
 				set.status = 401;
 				return { message: "Invalid signature" };
 			}
 		}
 
 		const payload = typeof body === "string" ? JSON.parse(body) : body;
-		const event = headers["x-github-event"];
+		const { trigger, actor } = payload;
 
-		if (event !== "push") {
-			return { message: "Ignored non-push event" };
+		if (!trigger) {
+			return { message: "No trigger specified" };
 		}
 
-		const changedFiles: string[] = [];
-		for (const commit of payload.commits || []) {
-			changedFiles.push(...(commit.modified || []), ...(commit.added || []));
+		// Dispatch based on trigger type
+		if (trigger === "nixos-rebuild") {
+			await opsService.triggerOperation("nixos-rebuild", "webhook", actor);
+			logger.info({ trigger, actor }, "Webhook triggered nixos-rebuild");
+			return { message: "nixos-rebuild triggered" };
 		}
 
-		const user = payload.sender?.login;
-		const triggers: string[] = [];
-
-		if (opsService.shouldTriggerNixosRebuild(changedFiles)) {
-			await opsService.triggerOperation("nixos-rebuild", "webhook", user);
-			triggers.push("nixos-rebuild");
+		if (trigger === "flux-reconcile") {
+			await opsService.triggerOperation("flux-reconcile", "webhook", actor);
+			logger.info({ trigger, actor }, "Webhook triggered flux-reconcile");
+			return { message: "flux-reconcile triggered" };
 		}
 
-		if (triggers.length === 0) {
-			return { message: "No matching triggers", changedFiles };
-		}
-
-		logger.info({ triggers, changedFiles, user }, "Webhook triggered operations");
-		return { message: "Operations triggered", triggers };
+		return { message: `Unknown trigger: ${trigger}` };
 	},
 	{
-		detail: { tags: ["Webhooks"], summary: "GitHub webhook for auto-deploy" },
-		body: WebhookPayload,
-		response: { 200: WebhookResponse },
+		detail: { tags: ["Webhooks"], summary: "GitHub Actions webhook for deployments" },
+		body: t.Object({
+			trigger: t.String(),
+			actor: t.Optional(t.String()),
+		}),
+		response: {
+			200: t.Object({ message: t.String() }),
+		},
 	}
 );
