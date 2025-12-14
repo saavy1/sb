@@ -81,6 +81,27 @@ export const opsRoutes = new Elysia({ prefix: "/ops" })
 		}
 	);
 
+// Verify GitHub webhook signature using HMAC-SHA256
+async function verifyGitHubSignature(
+	payload: string,
+	signature: string,
+	secret: string
+): Promise<boolean> {
+	const encoder = new TextEncoder();
+	const key = await crypto.subtle.importKey(
+		"raw",
+		encoder.encode(secret),
+		{ name: "HMAC", hash: "SHA-256" },
+		false,
+		["sign"]
+	);
+	const sig = await crypto.subtle.sign("HMAC", key, encoder.encode(payload));
+	const expectedSig = `sha256=${Array.from(new Uint8Array(sig))
+		.map((b) => b.toString(16).padStart(2, "0"))
+		.join("")}`;
+	return signature === expectedSig;
+}
+
 export const opsWebhookRoutes = new Elysia({ prefix: "/webhooks" }).post(
 	"/github",
 	async ({ body, headers, set }) => {
@@ -92,7 +113,15 @@ export const opsWebhookRoutes = new Elysia({ prefix: "/webhooks" }).post(
 				set.status = 401;
 				return { message: "Missing signature" };
 			}
-			// TODO: Implement HMAC verification
+
+			// Get raw body for signature verification
+			const rawBody = JSON.stringify(body);
+			const isValid = await verifyGitHubSignature(rawBody, signature, webhookSecret);
+			if (!isValid) {
+				logger.warn("GitHub webhook signature verification failed");
+				set.status = 401;
+				return { message: "Invalid signature" };
+			}
 		}
 
 		const event = headers["x-github-event"];
