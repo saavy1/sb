@@ -16,7 +16,9 @@ type SuggestedDrive = Awaited<
 
 const WS_URL =
 	import.meta.env.VITE_API_URL?.replace(/^http/, "ws") ||
-	(import.meta.env.MODE === "production" ? `ws://${window.location.host}` : "ws://localhost:3000");
+	(import.meta.env.MODE === "production"
+		? `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.host}`
+		: "ws://localhost:3000");
 
 function HomePage() {
 	const [servers, setServers] = useState<NonNullable<ServersResponse>>([]);
