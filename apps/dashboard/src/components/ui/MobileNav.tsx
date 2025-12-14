@@ -1,8 +1,9 @@
 import { Link, useLocation } from "@tanstack/react-router";
-import { Home, Plus, Server, Settings } from "lucide-react";
+import { Grid, Home, Plus, Server, Settings } from "lucide-react";
 
 const navItems = [
 	{ to: "/", icon: Home, label: "Home" },
+	{ to: "/apps", icon: Grid, label: "Apps" },
 	{ to: "/servers", icon: Server, label: "Servers" },
 	{ to: "/settings", icon: Settings, label: "Settings" },
 ] as const;
@@ -12,7 +13,7 @@ export function MobileNav() {
 
 	return (
 		<nav className="md:hidden fixed bottom-0 left-0 right-0 bg-surface border-t border-border z-50 pb-safe">
-			<div className="grid grid-cols-4 items-center">
+			<div className="grid grid-cols-5 items-center">
 				{navItems.map(({ to, icon: Icon, label }) => {
 					const isActive =
 						location.pathname === to || (to !== "/" && location.pathname.startsWith(to));

@@ -1,6 +1,6 @@
 import { useNavigate } from "@tanstack/react-router";
 import { Command } from "cmdk";
-import { Home, Play, Plus, Server, Settings, Square } from "lucide-react";
+import { Grid, Home, Play, Plus, Server, Settings, Square } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { client } from "../../lib/api";
@@ -114,6 +114,16 @@ export function CommandPalette() {
 								<span>Dashboard</span>
 								<kbd className="ml-auto text-xs text-text-tertiary bg-background px-1.5 py-0.5 rounded">
 									g h
+								</kbd>
+							</Command.Item>
+							<Command.Item
+								onSelect={() => runCommand(() => navigate({ to: "/apps" }))}
+								className="flex items-center gap-3 px-3 py-2 rounded cursor-pointer text-text-secondary data-[selected=true]:bg-surface-elevated data-[selected=true]:text-text-primary"
+							>
+								<Grid size={16} />
+								<span>Apps</span>
+								<kbd className="ml-auto text-xs text-text-tertiary bg-background px-1.5 py-0.5 rounded">
+									g a
 								</kbd>
 							</Command.Item>
 							<Command.Item

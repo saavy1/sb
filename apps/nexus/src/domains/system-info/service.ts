@@ -600,6 +600,7 @@ class SystemInfoService {
 			{ name: "core.sqlite", domain: "core" },
 			{ name: "system-info.sqlite", domain: "system-info" },
 			{ name: "ops.sqlite", domain: "ops" },
+			{ name: "apps.sqlite", domain: "apps" },
 		];
 
 		for (const { name, domain } of dbFiles) {

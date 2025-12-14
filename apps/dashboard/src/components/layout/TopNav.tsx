@@ -5,8 +5,9 @@ import { useHotkeys } from "../../lib/useHotkeys";
 
 const navItems = [
 	{ to: "/", label: "Dashboard", key: "1" },
-	{ to: "/servers", label: "Servers", key: "2" },
-	{ to: "/settings", label: "Settings", key: "3" },
+	{ to: "/apps", label: "Apps", key: "2" },
+	{ to: "/servers", label: "Servers", key: "3" },
+	{ to: "/settings", label: "Settings", key: "4" },
 ] as const;
 
 export function TopNav() {
@@ -15,6 +16,7 @@ export function TopNav() {
 
 	useHotkeys({
 		"g+h": () => navigate({ to: "/" }),
+		"g+a": () => navigate({ to: "/apps" }),
 		"g+s": () => navigate({ to: "/servers" }),
 		"g+,": () => navigate({ to: "/settings" }),
 	});

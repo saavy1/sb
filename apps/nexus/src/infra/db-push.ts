@@ -133,4 +133,29 @@ opsDb.run(sql`CREATE INDEX IF NOT EXISTS idx_operations_started_at ON operations
 logger.info({ database: "ops" }, "Schema pushed");
 opsSqlite.close();
 
+// Push apps schema
+logger.info({ database: "apps" }, "Pushing schema");
+const appsSqlite = new Database(join(dbPath, "apps.sqlite"), { create: true });
+appsSqlite.exec("PRAGMA journal_mode = WAL;");
+const appsDb = drizzle(appsSqlite);
+
+appsDb.run(sql`
+  CREATE TABLE IF NOT EXISTS apps (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    url TEXT NOT NULL,
+    icon TEXT,
+    category TEXT NOT NULL DEFAULT 'other',
+    health_check_url TEXT,
+    description TEXT,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  )
+`);
+appsDb.run(sql`CREATE INDEX IF NOT EXISTS idx_apps_category ON apps(category)`);
+appsDb.run(sql`CREATE INDEX IF NOT EXISTS idx_apps_sort_order ON apps(sort_order)`);
+logger.info({ database: "apps" }, "Schema pushed");
+appsSqlite.close();
+
 logger.info("All schemas pushed successfully");
