@@ -46,6 +46,8 @@ export function Chat({ conversationId, onConversationChange }: Props) {
 	);
 	const lastMessageCountRef = useRef(0);
 	const isNewConversationRef = useRef(false);
+	const inputRef = useRef<HTMLInputElement>(null);
+	const wasLoadingRef = useRef(false);
 
 	const { messages, sendMessage, isLoading, error, setMessages } = useChat({
 		connection: fetchServerSentEvents(`${API_URL}/api/ai/chat`),
@@ -54,7 +56,14 @@ export function Chat({ conversationId, onConversationChange }: Props) {
 	// Sync prop to state when parent changes conversationId (clicking sidebar)
 	useEffect(() => {
 		setActiveConversationId(conversationId ?? null);
+		// Focus input when switching conversations
+		setTimeout(() => inputRef.current?.focus(), 100);
 	}, [conversationId]);
+
+	// Focus input on mount
+	useEffect(() => {
+		inputRef.current?.focus();
+	}, []);
 
 	// Load conversation messages when switching
 	useEffect(() => {
@@ -109,6 +118,15 @@ export function Chat({ conversationId, onConversationChange }: Props) {
 			saveNewMessages();
 		}
 	}, [messages, isLoading, activeConversationId]);
+
+	// Focus input when model finishes replying
+	useEffect(() => {
+		if (wasLoadingRef.current && !isLoading) {
+			// Loading just finished
+			setTimeout(() => inputRef.current?.focus(), 100);
+		}
+		wasLoadingRef.current = isLoading;
+	}, [isLoading]);
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
@@ -187,6 +205,7 @@ export function Chat({ conversationId, onConversationChange }: Props) {
 			<form onSubmit={handleSubmit} className="border-t border-zinc-800 p-4">
 				<div className="flex gap-2">
 					<input
+						ref={inputRef}
 						type="text"
 						value={input}
 						onChange={(e) => setInput(e.target.value)}

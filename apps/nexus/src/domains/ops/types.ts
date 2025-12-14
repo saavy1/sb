@@ -1,6 +1,34 @@
 import { t } from "elysia";
 
-// Elysia types for API contracts (shared with frontend via Eden Treaty)
+// === Internal schemas ===
+
+export const OperationType = t.Union([t.Literal("nixos-rebuild"), t.Literal("flux-reconcile")]);
+export type OperationTypeValue = typeof OperationType.static;
+
+export const TriggerSource = t.Union([
+	t.Literal("webhook"),
+	t.Literal("dashboard"),
+	t.Literal("cli"),
+	t.Literal("ai"),
+]);
+export type TriggerSourceValue = typeof TriggerSource.static;
+
+export const OperationStatus = t.Union([
+	t.Literal("running"),
+	t.Literal("success"),
+	t.Literal("failed"),
+]);
+export type OperationStatusValue = typeof OperationStatus.static;
+
+export const CommandResult = t.Object({
+	success: t.Boolean(),
+	output: t.String(),
+	errorMessage: t.Optional(t.String()),
+	durationMs: t.Number(),
+});
+export type CommandResultType = typeof CommandResult.static;
+
+// === API schemas ===
 
 export const Operation = t.Object({
 	id: t.String(),

@@ -1,6 +1,14 @@
 import { Elysia, t } from "elysia";
 import logger from "logger";
-import { systemInfoService } from "./service";
+import {
+	createDrive,
+	deleteDrive,
+	getDrive,
+	getSuggestedDrives,
+	getSystemOverview,
+	listDrivesWithStats,
+	updateDrive,
+} from "./functions";
 import {
 	ApiError,
 	CreateDriveRequest,
@@ -22,7 +30,7 @@ export const systemInfoRoutes = new Elysia({ prefix: "/systemInfo" })
 		open(ws) {
 			const send = async () => {
 				try {
-					const overview = await systemInfoService.getSystemOverview();
+					const overview = await getSystemOverview();
 					ws.send(JSON.stringify(overview));
 				} catch (error) {
 					logger.error({ error }, "Failed to send system overview");
@@ -44,7 +52,7 @@ export const systemInfoRoutes = new Elysia({ prefix: "/systemInfo" })
 	.get(
 		"/overview",
 		async () => {
-			return await systemInfoService.getSystemOverview();
+			return await getSystemOverview();
 		},
 		{
 			detail: {
@@ -59,7 +67,7 @@ export const systemInfoRoutes = new Elysia({ prefix: "/systemInfo" })
 	.get(
 		"/drives/suggestions",
 		async () => {
-			return await systemInfoService.getSuggestedDrives();
+			return await getSuggestedDrives();
 		},
 		{
 			detail: {
@@ -74,7 +82,7 @@ export const systemInfoRoutes = new Elysia({ prefix: "/systemInfo" })
 	.get(
 		"/drives",
 		async () => {
-			return await systemInfoService.listDrivesWithStats();
+			return await listDrivesWithStats();
 		},
 		{
 			detail: {
@@ -89,7 +97,7 @@ export const systemInfoRoutes = new Elysia({ prefix: "/systemInfo" })
 	.get(
 		"/drives/:id",
 		async ({ params, set }) => {
-			const drive = await systemInfoService.getDrive(params.id);
+			const drive = await getDrive(params.id);
 			if (!drive) {
 				set.status = 404;
 				return { error: "Drive not found" };
@@ -111,7 +119,7 @@ export const systemInfoRoutes = new Elysia({ prefix: "/systemInfo" })
 		"/drives",
 		async ({ body, set }) => {
 			try {
-				return await systemInfoService.createDrive(body);
+				return await createDrive(body);
 			} catch (e) {
 				const message = e instanceof Error ? e.message : "Failed to create drive";
 				set.status = 400;
@@ -133,7 +141,7 @@ export const systemInfoRoutes = new Elysia({ prefix: "/systemInfo" })
 		"/drives/:id",
 		async ({ params, body, set }) => {
 			try {
-				const updated = await systemInfoService.updateDrive(params.id, body);
+				const updated = await updateDrive(params.id, body);
 				if (!updated) {
 					set.status = 404;
 					return { error: "Drive not found" };
@@ -161,12 +169,12 @@ export const systemInfoRoutes = new Elysia({ prefix: "/systemInfo" })
 		"/drives/:id",
 		async ({ params, set }) => {
 			try {
-				const drive = await systemInfoService.getDrive(params.id);
+				const drive = await getDrive(params.id);
 				if (!drive) {
 					set.status = 404;
 					return { error: "Drive not found" };
 				}
-				await systemInfoService.deleteDrive(params.id);
+				await deleteDrive(params.id);
 				return { success: true };
 			} catch (e) {
 				const message = e instanceof Error ? e.message : "Failed to delete drive";

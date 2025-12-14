@@ -1,10 +1,11 @@
 import { Elysia, t } from "elysia";
-import { appService } from "./service";
+import { create, deleteApp, get, list, refreshStatus, update } from "./functions";
 import {
 	ApiError,
 	AppListResponse,
 	AppParams,
 	AppResponse,
+	AppStatus,
 	AppWithStatusResponse,
 	CreateAppBody,
 	UpdateAppBody,
@@ -14,7 +15,7 @@ export const appRoutes = new Elysia({ prefix: "/apps" })
 	.get(
 		"/",
 		async () => {
-			return await appService.list();
+			return await list();
 		},
 		{
 			detail: { tags: ["Apps"], summary: "List all apps with status" },
@@ -25,7 +26,7 @@ export const appRoutes = new Elysia({ prefix: "/apps" })
 	.get(
 		"/:id",
 		async ({ params, set }) => {
-			const app = await appService.get(params.id);
+			const app = await get(params.id);
 			if (!app) {
 				set.status = 404;
 				return { error: "App not found" };
@@ -42,7 +43,7 @@ export const appRoutes = new Elysia({ prefix: "/apps" })
 	.post(
 		"/",
 		async ({ body }) => {
-			return await appService.create(body);
+			return await create(body);
 		},
 		{
 			detail: { tags: ["Apps"], summary: "Create a new app" },
@@ -54,7 +55,7 @@ export const appRoutes = new Elysia({ prefix: "/apps" })
 	.patch(
 		"/:id",
 		async ({ params, body, set }) => {
-			const app = await appService.update(params.id, body);
+			const app = await update(params.id, body);
 			if (!app) {
 				set.status = 404;
 				return { error: "App not found" };
@@ -72,7 +73,7 @@ export const appRoutes = new Elysia({ prefix: "/apps" })
 	.delete(
 		"/:id",
 		async ({ params, set }) => {
-			const deleted = await appService.delete(params.id);
+			const deleted = await deleteApp(params.id);
 			if (!deleted) {
 				set.status = 404;
 				return { error: "App not found" };
@@ -89,16 +90,14 @@ export const appRoutes = new Elysia({ prefix: "/apps" })
 	.post(
 		"/:id/refresh",
 		async ({ params }) => {
-			const status = await appService.refreshStatus(params.id);
+			const status = await refreshStatus(params.id);
 			return { status };
 		},
 		{
 			detail: { tags: ["Apps"], summary: "Refresh app health status" },
 			params: AppParams,
 			response: {
-				200: t.Object({
-					status: t.Union([t.Literal("up"), t.Literal("down"), t.Literal("unknown")]),
-				}),
+				200: t.Object({ status: AppStatus }),
 			},
 		}
 	);

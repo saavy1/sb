@@ -1,12 +1,12 @@
 import { Elysia, t } from "elysia";
-import { gameServerService } from "./service";
+import { create, deleteServer, get, list, start, stop, syncStatus } from "./functions";
 import { ApiError, CreateServerRequest, GameServer, ServerNameParam } from "./types";
 
 export const gameServerRoutes = new Elysia({ prefix: "/gameServers" })
 	.get(
 		"/",
 		() => {
-			return gameServerService.list();
+			return list();
 		},
 		{
 			detail: { tags: ["Game Servers"], summary: "List all game servers" },
@@ -16,7 +16,7 @@ export const gameServerRoutes = new Elysia({ prefix: "/gameServers" })
 	.get(
 		"/:name",
 		({ params, set }) => {
-			const server = gameServerService.get(params.name);
+			const server = get(params.name);
 			if (!server) {
 				set.status = 404;
 				return { error: "Server not found" };
@@ -33,7 +33,7 @@ export const gameServerRoutes = new Elysia({ prefix: "/gameServers" })
 		"/",
 		async ({ body, set }) => {
 			try {
-				return await gameServerService.create(body);
+				return await create(body);
 			} catch (e) {
 				const message = e instanceof Error ? e.message : "Failed to create server";
 				set.status = 400;
@@ -50,7 +50,7 @@ export const gameServerRoutes = new Elysia({ prefix: "/gameServers" })
 		"/:name/start",
 		async ({ params, set }) => {
 			try {
-				return await gameServerService.start(params.name);
+				return await start(params.name);
 			} catch (e) {
 				const message = e instanceof Error ? e.message : "Failed to start server";
 				set.status = 400;
@@ -67,7 +67,7 @@ export const gameServerRoutes = new Elysia({ prefix: "/gameServers" })
 		"/:name/stop",
 		async ({ params, set }) => {
 			try {
-				return await gameServerService.stop(params.name);
+				return await stop(params.name);
 			} catch (e) {
 				const message = e instanceof Error ? e.message : "Failed to stop server";
 				set.status = 400;
@@ -84,7 +84,7 @@ export const gameServerRoutes = new Elysia({ prefix: "/gameServers" })
 		"/:name",
 		async (ctx) => {
 			try {
-				await gameServerService.delete(ctx.params.name);
+				await deleteServer(ctx.params.name);
 				return { success: true };
 			} catch (e) {
 				const message = e instanceof Error ? e.message : "Failed to delete server";
@@ -101,7 +101,7 @@ export const gameServerRoutes = new Elysia({ prefix: "/gameServers" })
 	.post(
 		"/:name/sync",
 		async (ctx) => {
-			const server = await gameServerService.syncStatus(ctx.params.name);
+			const server = await syncStatus(ctx.params.name);
 			if (!server) {
 				ctx.set.status = 404;
 				return { error: "Server not found" };

@@ -1,6 +1,6 @@
 import { Elysia, t } from "elysia";
 import logger from "logger";
-import { opsService } from "../domains/ops/service";
+import { triggerOperation } from "../domains/ops/functions";
 import { config } from "../infra/config";
 
 // Timing-safe comparison to prevent timing attacks
@@ -68,13 +68,13 @@ export const webhookRoutes = new Elysia({ prefix: "/webhooks" }).post(
 
 		// Dispatch based on trigger type
 		if (trigger === "nixos-rebuild") {
-			await opsService.triggerOperation("nixos-rebuild", "webhook", actor);
+			await triggerOperation("nixos-rebuild", "webhook", actor);
 			logger.info({ trigger, actor }, "Webhook triggered nixos-rebuild");
 			return { message: "nixos-rebuild triggered" };
 		}
 
 		if (trigger === "flux-reconcile") {
-			await opsService.triggerOperation("flux-reconcile", "webhook", actor);
+			await triggerOperation("flux-reconcile", "webhook", actor);
 			logger.info({ trigger, actor }, "Webhook triggered flux-reconcile");
 			return { message: "flux-reconcile triggered" };
 		}

@@ -1,5 +1,18 @@
 import { t } from "elysia";
 
+// === Internal schemas ===
+
+export const AppStatus = t.Union([t.Literal("up"), t.Literal("down"), t.Literal("unknown")]);
+export type AppStatusType = typeof AppStatus.static;
+
+export const StatusCacheEntry = t.Object({
+	status: AppStatus,
+	checkedAt: t.Number(),
+});
+export type StatusCacheEntryType = typeof StatusCacheEntry.static;
+
+// === API schemas ===
+
 export const AppCategory = t.Union([
 	t.Literal("media"),
 	t.Literal("tools"),
@@ -56,7 +69,7 @@ export const AppWithStatusResponse = t.Object({
 	sortOrder: t.Number(),
 	createdAt: t.String(),
 	updatedAt: t.String(),
-	status: t.Union([t.Literal("up"), t.Literal("down"), t.Literal("unknown")]),
+	status: AppStatus,
 });
 
 export const AppListResponse = t.Array(AppWithStatusResponse);

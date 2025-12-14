@@ -1,6 +1,45 @@
 import { t } from "elysia";
 
-// Elysia types for API contracts (shared with frontend via Eden Treaty)
+// === Internal schemas (not exposed via API) ===
+
+export const CpuTimes = t.Object({
+	user: t.Number(),
+	nice: t.Number(),
+	sys: t.Number(),
+	idle: t.Number(),
+	irq: t.Number(),
+});
+export type CpuTimesType = typeof CpuTimes.static;
+
+export const NetInterfaceSample = t.Object({
+	rx: t.Number(),
+	tx: t.Number(),
+});
+export type NetInterfaceSampleType = typeof NetInterfaceSample.static;
+
+export const RawSample = t.Object({
+	timestamp: t.Number(),
+	cpuTimes: t.Array(CpuTimes),
+	diskReads: t.Number(),
+	diskWrites: t.Number(),
+	netRx: t.Number(),
+	netTx: t.Number(),
+});
+export type RawSampleType = typeof RawSample.static & {
+	netInterfaces: Map<string, NetInterfaceSampleType>;
+};
+
+export const MountInfo = t.Object({
+	path: t.String(),
+	filesystem: t.String(),
+	total: t.Number(),
+	used: t.Number(),
+	available: t.Number(),
+	usagePercent: t.Number(),
+});
+export type MountInfoType = typeof MountInfo.static;
+
+// === API schemas (shared with frontend via Eden Treaty) ===
 export const Drive = t.Object({
 	id: t.String(),
 	path: t.String(),

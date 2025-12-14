@@ -1,5 +1,5 @@
 import { Elysia, t } from "elysia";
-import { opsService } from "./service";
+import { getLatestOperation, getOperation, listOperations, triggerOperation } from "./functions";
 import {
 	ApiError,
 	LatestQueryParams,
@@ -14,11 +14,7 @@ export const opsRoutes = new Elysia({ prefix: "/ops" })
 	.post(
 		"/trigger",
 		async ({ body }) => {
-			const op = await opsService.triggerOperation(
-				body.type,
-				body.source || "dashboard",
-				body.user
-			);
+			const op = await triggerOperation(body.type, body.source || "dashboard", body.user);
 			return {
 				id: op.id,
 				status: op.status,
@@ -34,7 +30,7 @@ export const opsRoutes = new Elysia({ prefix: "/ops" })
 	.get(
 		"/operations/:id",
 		async ({ params, set }) => {
-			const op = await opsService.getOperation(params.id);
+			const op = await getOperation(params.id);
 			if (!op) {
 				set.status = 404;
 				return { error: "Operation not found" };
@@ -51,7 +47,7 @@ export const opsRoutes = new Elysia({ prefix: "/ops" })
 		"/operations",
 		async ({ query }) => {
 			const limit = query.limit ? parseInt(query.limit, 10) : 50;
-			return opsService.listOperations(limit);
+			return listOperations(limit);
 		},
 		{
 			detail: { tags: ["Ops"], summary: "List recent operations" },
@@ -63,7 +59,7 @@ export const opsRoutes = new Elysia({ prefix: "/ops" })
 		"/latest",
 		async ({ query, set }) => {
 			const type = query.type as "nixos-rebuild" | "flux-reconcile" | undefined;
-			const op = await opsService.getLatestOperation(type);
+			const op = await getLatestOperation(type);
 			if (!op) {
 				set.status = 404;
 				return { error: "No operations found" };
