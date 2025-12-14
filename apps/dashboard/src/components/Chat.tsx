@@ -51,6 +51,11 @@ export function Chat({ conversationId, onConversationChange }: Props) {
 		connection: fetchServerSentEvents(`${API_URL}/api/ai/chat`),
 	});
 
+	// Sync prop to state when parent changes conversationId (clicking sidebar)
+	useEffect(() => {
+		setActiveConversationId(conversationId ?? null);
+	}, [conversationId]);
+
 	// Load conversation messages when switching
 	useEffect(() => {
 		if (!activeConversationId) {
