@@ -81,6 +81,16 @@ export const opsRoutes = new Elysia({ prefix: "/ops" })
 		}
 	);
 
+// Timing-safe comparison to prevent timing attacks
+function timingSafeEqual(a: string, b: string): boolean {
+	if (a.length !== b.length) return false;
+	let result = 0;
+	for (let i = 0; i < a.length; i++) {
+		result |= a.charCodeAt(i) ^ b.charCodeAt(i);
+	}
+	return result === 0;
+}
+
 // Verify GitHub webhook signature using HMAC-SHA256
 async function verifyGitHubSignature(
 	payload: string,
@@ -99,13 +109,16 @@ async function verifyGitHubSignature(
 	const expectedSig = `sha256=${Array.from(new Uint8Array(sig))
 		.map((b) => b.toString(16).padStart(2, "0"))
 		.join("")}`;
-	return signature === expectedSig;
+	return timingSafeEqual(signature, expectedSig);
 }
 
 export const opsWebhookRoutes = new Elysia({ prefix: "/webhooks" }).post(
 	"/github",
-	async ({ body, headers, set }) => {
+	async ({ body, headers, set, request }) => {
+		// Clone request to read raw body for signature verification
+		const rawBody = await request.clone().text();
 		const webhookSecret = config.GITHUB_WEBHOOK_SECRET;
+
 		if (webhookSecret) {
 			const signature = headers["x-hub-signature-256"];
 			if (!signature) {
@@ -114,8 +127,6 @@ export const opsWebhookRoutes = new Elysia({ prefix: "/webhooks" }).post(
 				return { message: "Missing signature" };
 			}
 
-			// Get raw body for signature verification
-			const rawBody = JSON.stringify(body);
 			const isValid = await verifyGitHubSignature(rawBody, signature, webhookSecret);
 			if (!isValid) {
 				logger.warn("GitHub webhook signature verification failed");
@@ -124,17 +135,20 @@ export const opsWebhookRoutes = new Elysia({ prefix: "/webhooks" }).post(
 			}
 		}
 
+		// Parse body from raw if needed (Elysia may have already parsed it)
+		const payload = typeof body === "string" ? JSON.parse(body) : body;
+
 		const event = headers["x-github-event"];
 		if (event !== "push") {
 			return { message: "Ignored non-push event" };
 		}
 
 		const changedFiles: string[] = [];
-		for (const commit of body.commits || []) {
+		for (const commit of payload.commits || []) {
 			changedFiles.push(...(commit.modified || []), ...(commit.added || []));
 		}
 
-		const user = body.sender?.login;
+		const user = payload.sender?.login;
 		const triggers: string[] = [];
 
 		if (opsService.shouldTriggerNixosRebuild(changedFiles)) {

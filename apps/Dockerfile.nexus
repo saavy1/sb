@@ -37,9 +37,15 @@ ENV NODE_ENV=production
 # Remove .env.example (we use Docker ENV instead)
 RUN rm -f /app/nexus/.env.example
 
+# Set ownership to bun user for runtime directories
+RUN chown -R bun:bun /app/db /app/nexus
+
 EXPOSE 3000
 
 WORKDIR /app/nexus
+
+# Run as non-root user
+USER bun
 
 # Start the server
 CMD ["bun", "src/index.ts"]
