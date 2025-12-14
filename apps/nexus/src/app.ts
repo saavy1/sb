@@ -8,6 +8,7 @@ import { config } from "./infra/config";
 import { internalRoutes } from "./routes/internal";
 import { privateRoutes } from "./routes/private";
 import { publicRoutes } from "./routes/public";
+import { webhookRoutes } from "./routes/webhooks";
 
 const PUBLIC_DIR = "public";
 
@@ -38,6 +39,7 @@ export const app = new Elysia()
 		})
 	)
 	.use(publicRoutes)
+	.use(webhookRoutes)
 	.use(privateRoutes)
 	.use(internalRoutes)
 	// Serve static files (SPA fallback to index.html)
