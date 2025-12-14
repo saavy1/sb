@@ -1,13 +1,33 @@
 import { EventEmitter } from "node:events";
+import { t } from "elysia";
 import logger from "logger";
 
 const log = logger.child({ module: "events" });
 
-// Define all event types and their payloads
+// Define event payload schemas
+export const ConversationUpdatedPayload = t.Object({
+	id: t.String(),
+	title: t.Nullable(t.String()),
+});
+
+export const ConversationCreatedPayload = t.Object({
+	id: t.String(),
+});
+
+export const ConversationDeletedPayload = t.Object({
+	id: t.String(),
+});
+
+// Derived TypeScript types
+export type ConversationUpdatedPayloadType = typeof ConversationUpdatedPayload.static;
+export type ConversationCreatedPayloadType = typeof ConversationCreatedPayload.static;
+export type ConversationDeletedPayloadType = typeof ConversationDeletedPayload.static;
+
+// Event map for type-safe emitter
 export type AppEvents = {
-	"conversation:updated": { id: string; title: string | null };
-	"conversation:created": { id: string };
-	"conversation:deleted": { id: string };
+	"conversation:updated": ConversationUpdatedPayloadType;
+	"conversation:created": ConversationCreatedPayloadType;
+	"conversation:deleted": ConversationDeletedPayloadType;
 };
 
 export type AppEventName = keyof AppEvents;
