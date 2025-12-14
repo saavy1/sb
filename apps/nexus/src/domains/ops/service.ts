@@ -99,8 +99,21 @@ class OpsService {
 		logger.info({ id, type, source, user }, "Operation started");
 
 		// Execute async - don't block the response
-		this.executeOperation(id, type).catch((err) => {
+		this.executeOperation(id, type).catch(async (err) => {
 			logger.error({ err, id }, "Operation execution error");
+			// Update DB on unexpected errors
+			try {
+				await opsDb
+					.update(operations)
+					.set({
+						status: "failed",
+						errorMessage: err?.message || "Unexpected error",
+						completedAt: new Date().toISOString(),
+					})
+					.where(eq(operations.id, id));
+			} catch (dbErr) {
+				logger.error({ dbErr, id }, "Failed to update operation status after error");
+			}
 		});
 
 		return { ...newOp, output: null, errorMessage: null, completedAt: null, durationMs: null };
@@ -151,21 +164,23 @@ class OpsService {
 		];
 
 		let combinedOutput = "";
+		let totalDurationMs = 0;
 		for (const cmd of commands) {
 			logger.info({ cmd }, "Executing SSH command");
 			const result = await this.executeSSH(cmd);
 			combinedOutput += `$ ${cmd}\n${result.output}\n\n`;
+			totalDurationMs += result.durationMs;
 			if (!result.success) {
 				return {
 					success: false,
 					output: combinedOutput,
 					errorMessage: result.errorMessage,
-					durationMs: result.durationMs,
+					durationMs: totalDurationMs,
 				};
 			}
 		}
 
-		return { success: true, output: combinedOutput, durationMs: 0 };
+		return { success: true, output: combinedOutput, durationMs: totalDurationMs };
 	}
 
 	private async executeFluxReconcile(): Promise<CommandResult> {
