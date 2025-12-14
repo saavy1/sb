@@ -32,8 +32,14 @@ export function HelpModal() {
 	const [open, setOpen] = useState(false);
 
 	useEffect(() => {
+		const isEditable = (el: Element | null) =>
+			el?.tagName === "INPUT" ||
+			el?.tagName === "TEXTAREA" ||
+			el?.tagName === "SELECT" ||
+			el?.getAttribute("contenteditable") === "true";
+
 		const handler = (e: KeyboardEvent) => {
-			if (e.key === "?" && !e.metaKey && !e.ctrlKey) {
+			if (e.key === "?" && !e.metaKey && !e.ctrlKey && !isEditable(document.activeElement)) {
 				e.preventDefault();
 				setOpen((o) => !o);
 			}

@@ -1,5 +1,5 @@
 import { Toaster } from "sonner";
-import { CommandBar, CommandPalette, HelpModal, MobileNav } from "../ui";
+import { CommandPalette, HelpModal, MobileNav } from "../ui";
 import { TopNav } from "./TopNav";
 
 interface LayoutProps {
@@ -23,8 +23,7 @@ export function Layout({ children }: LayoutProps) {
 				}}
 			/>
 			<TopNav />
-			<main className="container mx-auto px-4 py-4 pb-24 md:pb-12">{children}</main>
-			<CommandBar />
+			<main className="container mx-auto px-4 py-4">{children}</main>
 			<MobileNav />
 		</div>
 	);

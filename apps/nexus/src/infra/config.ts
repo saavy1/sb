@@ -27,6 +27,10 @@ export const config = {
 	OPS_FLAKE_PATH: Bun.env.OPS_FLAKE_PATH || "/home/saavy/dev/sb",
 	OPS_FLAKE_TARGET: Bun.env.OPS_FLAKE_TARGET || "superbloom",
 	GITHUB_WEBHOOK_SECRET: Bun.env.GITHUB_WEBHOOK_SECRET,
+
+	// AI / OpenRouter
+	OPENROUTER_API_KEY: Bun.env.OPENROUTER_API_KEY,
+	AI_MODEL: Bun.env.AI_MODEL || "deepseek/deepseek-chat",
 } as const;
 
 export const isDev = config.NODE_ENV === "development";
