@@ -1,6 +1,7 @@
 import { $ } from "bun";
 import { desc, eq } from "drizzle-orm";
 import logger from "logger";
+import { config } from "../../infra/config";
 import { opsDb } from "../../infra/db";
 import type { NewOperationRecord, OperationRecord } from "./schema";
 import { operations } from "./schema";
@@ -23,10 +24,10 @@ class OpsService {
 
 	constructor() {
 		// Use Tailscale hostname - Tailscale SSH handles auth, no keys needed
-		this.sshHost = process.env.OPS_SSH_HOST || "superbloom";
-		this.sshUser = process.env.OPS_SSH_USER || "root";
-		this.flakePath = process.env.OPS_FLAKE_PATH || "/home/saavy/dev/sb";
-		this.flakeTarget = process.env.OPS_FLAKE_TARGET || "superbloom";
+		this.sshHost = config.OPS_SSH_HOST;
+		this.sshUser = config.OPS_SSH_USER;
+		this.flakePath = config.OPS_FLAKE_PATH;
+		this.flakeTarget = config.OPS_FLAKE_TARGET;
 	}
 
 	private async executeSSH(command: string): Promise<CommandResult> {
@@ -170,9 +171,7 @@ class OpsService {
 	private async executeFluxReconcile(): Promise<CommandResult> {
 		// Flux runs in K8s, so we can use kubectl/flux CLI locally or via SSH
 		// If Nexus is running in K8s, use local kubectl
-		const isInCluster = process.env.KUBERNETES_SERVICE_HOST !== undefined;
-
-		if (isInCluster) {
+		if (config.K8S_IN_CLUSTER) {
 			return this.executeLocal(
 				"flux reconcile kustomization flux-system --with-source --timeout=5m"
 			);
