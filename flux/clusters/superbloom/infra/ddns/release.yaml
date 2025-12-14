@@ -24,9 +24,12 @@ spec:
               repository: favonia/cloudflare-ddns
               tag: latest
               pullPolicy: IfNotPresent
+            env:
+              DOMAINS: saavylab.dev,mc.saavylab.dev,auth.saavylab.dev,nexus.saavylab.dev
+              PROXIED: "true"
             envFrom:
               - secretRef:
-                  name: ddns
+                  name: ddns-env
             resources:
               requests:
                 cpu: 20m
