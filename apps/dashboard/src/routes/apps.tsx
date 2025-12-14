@@ -52,7 +52,7 @@ function AppsPage() {
 	const fetchApps = useCallback(async () => {
 		try {
 			const { data } = await client.api.apps.get();
-			if (data) setApps(data);
+			if (Array.isArray(data)) setApps(data);
 		} catch (error) {
 			console.error("Failed to fetch apps:", error);
 			toast.error("Failed to load apps");
@@ -192,30 +192,13 @@ function AppCard({
 
 	return (
 		<div className="group relative p-3 bg-surface-elevated/50 hover:bg-surface-elevated rounded border border-border transition-colors">
-			<a href={app.url} target="_blank" rel="noopener noreferrer" className="block">
-				<div className="flex items-start gap-3">
-					<div className="text-2xl">{app.icon || "🔗"}</div>
-					<div className="flex-1 min-w-0">
-						<div className="flex items-center gap-2">
-							<span className="font-medium text-sm truncate">{app.name}</span>
-							{statusIcon}
-						</div>
-						{app.description && (
-							<p className="text-xs text-text-tertiary mt-0.5 line-clamp-2">{app.description}</p>
-						)}
-					</div>
-					<ExternalLink
-						size={12}
-						className="text-text-tertiary opacity-0 group-hover:opacity-100 transition-opacity"
-					/>
-				</div>
-			</a>
-			{/* Action buttons */}
-			<div className="absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+			{/* Action buttons - positioned above the link */}
+			<div className="absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10 bg-surface-elevated rounded">
 				<button
 					type="button"
 					onClick={(e) => {
 						e.preventDefault();
+						e.stopPropagation();
 						onRefresh();
 					}}
 					className="p-1 rounded text-text-tertiary hover:text-text-primary hover:bg-surface"
@@ -227,6 +210,7 @@ function AppCard({
 					type="button"
 					onClick={(e) => {
 						e.preventDefault();
+						e.stopPropagation();
 						onDelete();
 					}}
 					className="p-1 rounded text-text-tertiary hover:text-error hover:bg-error-bg"
@@ -235,6 +219,24 @@ function AppCard({
 					<Trash2 size={10} />
 				</button>
 			</div>
+			<a href={app.url} target="_blank" rel="noopener noreferrer" className="block">
+				<div className="flex items-start gap-3">
+					<div className="text-2xl">{app.icon || "🔗"}</div>
+					<div className="flex-1 min-w-0 pr-12">
+						<div className="flex items-center gap-2">
+							<span className="font-medium text-sm truncate">{app.name}</span>
+							{statusIcon}
+						</div>
+						{app.description && (
+							<p className="text-xs text-text-tertiary mt-0.5 line-clamp-2">{app.description}</p>
+						)}
+					</div>
+					<ExternalLink
+						size={12}
+						className="text-text-tertiary opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+					/>
+				</div>
+			</a>
 		</div>
 	);
 }

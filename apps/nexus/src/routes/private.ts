@@ -20,4 +20,8 @@ export const privateRoutes = new Elysia({ prefix: "/api" })
 			logger.warn({ path }, "Unauthenticated request to protected route");
 			// Don't block - Authelia should handle this at ingress
 		}
+	})
+	.onAfterHandle(({ set }) => {
+		// Prevent browser caching of API responses
+		set.headers["Cache-Control"] = "no-store, no-cache, must-revalidate";
 	});

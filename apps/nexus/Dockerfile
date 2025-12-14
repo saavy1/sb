@@ -32,6 +32,12 @@ COPY logger ./logger/
 FROM oven/bun:1 AS runtime
 WORKDIR /app
 
+# Install system tools for GPU monitoring
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    intel-gpu-tools \
+    pciutils \
+    && rm -rf /var/lib/apt/lists/*
+
 # Create db and public directories
 RUN mkdir -p /app/db /app/public && chown -R bun:bun /app/db /app/public
 

@@ -42,7 +42,7 @@ function HomePage() {
 	const fetchServers = useCallback(async () => {
 		try {
 			const { data } = await client.api.gameServers.get();
-			if (data) setServers(data);
+			if (Array.isArray(data)) setServers(data);
 		} catch (error) {
 			console.error("Failed to fetch servers:", error);
 		}
@@ -51,7 +51,7 @@ function HomePage() {
 	const fetchSuggestions = useCallback(async () => {
 		try {
 			const res = await client.api.systemInfo.drives.suggestions.get();
-			if (res.data) setSuggestions(res.data);
+			if (Array.isArray(res.data)) setSuggestions(res.data);
 		} catch (error) {
 			console.error("Failed to fetch drive suggestions:", error);
 		}
@@ -127,7 +127,9 @@ function HomePage() {
 									history={cpuHistory}
 									alert={cpuAlert}
 								/>
-								{stats.gpu?.available && <Stat label="GPU" value={`${stats.gpu.usage}%`} />}
+								{stats.gpu?.available && stats.gpu.usage !== undefined && (
+									<Stat label="GPU" value={`${stats.gpu.usage}%`} />
+								)}
 								<StatWithGraph
 									label="MEM"
 									value={stats.memory.usagePercent}
