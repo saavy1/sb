@@ -170,7 +170,6 @@ function ChatPage() {
 				</div>
 				<div className="flex-1 overflow-hidden">
 					<Chat
-						key={activeId ?? "new"}
 						conversationId={activeId ?? undefined}
 						onConversationChange={handleConversationChange}
 					/>
