@@ -17,11 +17,20 @@ data:
 
     # Nexus dashboard - protected with forward_auth
     nexus.saavylab.dev {
-        forward_auth authelia.authelia.svc.cluster.local:80 {
-            uri /api/authz/forward-auth
-            copy_headers Remote-User Remote-Groups Remote-Email Remote-Name
+        # Webhooks bypass auth (signature verified in app)
+        @webhooks path /webhooks/*
+        handle @webhooks {
+            reverse_proxy nexus.nexus.svc.cluster.local:3000
         }
-        reverse_proxy nexus.nexus.svc.cluster.local:3000
+
+        # Everything else requires auth
+        handle {
+            forward_auth authelia.authelia.svc.cluster.local:80 {
+                uri /api/authz/forward-auth
+                copy_headers Remote-User Remote-Groups Remote-Email Remote-Name
+            }
+            reverse_proxy nexus.nexus.svc.cluster.local:3000
+        }
     }
 
     # Health endpoint (optional - for k8s probes on the caddy service itself)
