@@ -59,7 +59,7 @@ export const gameServerService = {
 		});
 
 		try {
-			await k8sAdapter.applyManifests([manifests.pvc, manifests.deployment, manifests.service]);
+			await k8sAdapter.applyManifests(manifests);
 			gameServerRepository.updateK8sDeployment(request.name, request.name);
 			gameServerRepository.updateStatus(request.name, "stopped", port);
 		} catch (error) {

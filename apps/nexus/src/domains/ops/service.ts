@@ -116,7 +116,14 @@ class OpsService {
 			}
 		});
 
-		return { ...newOp, output: null, errorMessage: null, completedAt: null, durationMs: null };
+		return {
+			...newOp,
+			triggeredByUser: newOp.triggeredByUser ?? null,
+			output: null,
+			errorMessage: null,
+			completedAt: null,
+			durationMs: null,
+		};
 	}
 
 	private async executeOperation(id: string, type: OperationType): Promise<void> {

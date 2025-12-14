@@ -1,8 +1,8 @@
+import type { ServerStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { StatusDot } from "./StatusDot";
 
 type Variant = "success" | "warning" | "error" | "info" | "default";
-type Status = "running" | "starting" | "stopping" | "stopped" | "error";
 
 const variantStyles: Record<Variant, string> = {
 	success: "bg-success-bg text-success",
@@ -12,7 +12,7 @@ const variantStyles: Record<Variant, string> = {
 	default: "bg-surface text-text-secondary",
 };
 
-const statusToVariant: Record<Status, Variant> = {
+const statusToVariant: Record<ServerStatus, Variant> = {
 	running: "success",
 	starting: "warning",
 	stopping: "warning",
@@ -23,7 +23,7 @@ const statusToVariant: Record<Status, Variant> = {
 interface BadgeProps {
 	children: React.ReactNode;
 	variant?: Variant;
-	status?: Status;
+	status?: ServerStatus;
 	showDot?: boolean;
 	className?: string;
 }

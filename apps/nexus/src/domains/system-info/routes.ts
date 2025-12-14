@@ -14,11 +14,12 @@ import {
 
 const STATS_INTERVAL_MS = 2000;
 
+const wsIntervals = new Map<unknown, ReturnType<typeof setInterval>>();
+
 export const systemInfoRoutes = new Elysia({ prefix: "/systemInfo" })
 	// WebSocket for live system stats
 	.ws("/live", {
 		open(ws) {
-			const data = { interval: null as ReturnType<typeof setInterval> | null };
 			const send = async () => {
 				try {
 					const overview = await systemInfoService.getSystemOverview();
@@ -28,13 +29,13 @@ export const systemInfoRoutes = new Elysia({ prefix: "/systemInfo" })
 				}
 			};
 			send();
-			data.interval = setInterval(send, STATS_INTERVAL_MS);
-			ws.data = data;
+			wsIntervals.set(ws, setInterval(send, STATS_INTERVAL_MS));
 		},
 		close(ws) {
-			const data = ws.data as { interval: ReturnType<typeof setInterval> | null } | undefined;
-			if (data?.interval) {
-				clearInterval(data.interval);
+			const interval = wsIntervals.get(ws);
+			if (interval) {
+				clearInterval(interval);
+				wsIntervals.delete(ws);
 			}
 		},
 	})

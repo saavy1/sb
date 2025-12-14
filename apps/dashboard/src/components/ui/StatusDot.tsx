@@ -1,6 +1,7 @@
+import type { ServerStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-type Status = "running" | "starting" | "stopping" | "stopped" | "error" | "unknown";
+type Status = ServerStatus | "unknown";
 
 const statusColors: Record<Status, string> = {
 	running: "bg-status-running",

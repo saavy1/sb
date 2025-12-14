@@ -26,9 +26,17 @@ const createServerSchema = z.object({
 		.max(32, "Name must be 32 characters or less")
 		.regex(/^[a-z0-9-]+$/, "Name must contain only lowercase letters, numbers, and hyphens"),
 	modpack: z.string().min(1, "Modpack is required"),
-	memory: z.string().optional(),
+	memory: z.string().min(1),
 	createdBy: z.string().min(1, "Creator is required"),
 });
+
+function getErrorMessage(error: unknown): string {
+	if (typeof error === "string") return error;
+	if (error && typeof error === "object" && "message" in error) {
+		return String(error.message);
+	}
+	return "Invalid value";
+}
 
 function NewServerPage() {
 	const navigate = useNavigate();
@@ -53,7 +61,12 @@ function NewServerPage() {
 				const { data, error: apiError } = await client.api.gameServers.post(value);
 
 				if (apiError || !data) {
-					setError(apiError?.value?.error || "Failed to create server");
+					const errorValue = apiError?.value;
+					const errorMessage =
+						errorValue && typeof errorValue === "object" && "error" in errorValue
+							? String(errorValue.error)
+							: "Failed to create server";
+					setError(errorMessage);
 					setIsSubmitting(false);
 					return;
 				}
@@ -108,7 +121,9 @@ function NewServerPage() {
 										onChange={(e) => field.handleChange(e.target.value)}
 									/>
 									{field.state.meta.errors.length > 0 && (
-										<p className="text-error text-sm">{field.state.meta.errors[0]}</p>
+										<p className="text-error text-sm">
+											{getErrorMessage(field.state.meta.errors[0])}
+										</p>
 									)}
 									{field.state.meta.errors.length === 0 && (
 										<p className="text-text-tertiary text-xs">
@@ -134,7 +149,9 @@ function NewServerPage() {
 										onChange={(e) => field.handleChange(e.target.value)}
 									/>
 									{field.state.meta.errors.length > 0 && (
-										<p className="text-error text-sm">{field.state.meta.errors[0]}</p>
+										<p className="text-error text-sm">
+											{getErrorMessage(field.state.meta.errors[0])}
+										</p>
 									)}
 									{field.state.meta.errors.length === 0 && (
 										<p className="text-text-tertiary text-xs">The modpack identifier or name</p>
@@ -158,7 +175,9 @@ function NewServerPage() {
 										onChange={(e) => field.handleChange(e.target.value)}
 									/>
 									{field.state.meta.errors.length > 0 && (
-										<p className="text-error text-sm">{field.state.meta.errors[0]}</p>
+										<p className="text-error text-sm">
+											{getErrorMessage(field.state.meta.errors[0])}
+										</p>
 									)}
 									{field.state.meta.errors.length === 0 && (
 										<p className="text-text-tertiary text-xs">
@@ -184,7 +203,9 @@ function NewServerPage() {
 										onChange={(e) => field.handleChange(e.target.value)}
 									/>
 									{field.state.meta.errors.length > 0 && (
-										<p className="text-error text-sm">{field.state.meta.errors[0]}</p>
+										<p className="text-error text-sm">
+											{getErrorMessage(field.state.meta.errors[0])}
+										</p>
 									)}
 								</div>
 							)}
