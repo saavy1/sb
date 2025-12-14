@@ -12,12 +12,12 @@ data:
 
     # Authelia portal - no forward_auth (would cause redirect loop)
     auth.saavylab.dev {
-        reverse_proxy authelia.authelia.svc.cluster.local:9091
+        reverse_proxy authelia.authelia.svc.cluster.local:80
     }
 
     # Nexus dashboard - protected with forward_auth
     nexus.saavylab.dev {
-        forward_auth authelia.authelia.svc.cluster.local:9091 {
+        forward_auth authelia.authelia.svc.cluster.local:80 {
             uri /api/authz/forward-auth
             copy_headers Remote-User Remote-Groups Remote-Email Remote-Name
         }

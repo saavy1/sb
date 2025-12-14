@@ -22,7 +22,7 @@ SOPS config location: `flux/.sops.yaml`
 creation_rules:
   - path_regex: 'clusters/superbloom/.*/secrets.yaml'
     encrypted_regex: '^(data|stringData)$'
-    age: ['age1776wth2d8psy2swdcuw5t5ptj4hdegnjzh2eppz4gahas6waks7q37cf57']
+    age: ['<your-age-public-key>']
 ```
 
 This encrypts `data` and `stringData` fields in any `secrets.yaml` under `clusters/superbloom/`.
@@ -74,8 +74,8 @@ metadata:
   namespace: my-app
 type: Opaque
 stringData:
-  API_KEY: your-secret-key
-  DATABASE_URL: postgres://user:pass@host/db
+  API_KEY: example-api-key-replace-me
+  DATABASE_URL: postgres://user:example@host/db
 EOF
 
 # Encrypt in place
@@ -93,8 +93,8 @@ metadata:
   namespace: app
 type: Opaque
 stringData:
-  API_KEY: secret-value
-  DB_PASSWORD: another-secret
+  API_KEY: REPLACE_WITH_REAL_VALUE
+  DB_PASSWORD: REPLACE_WITH_REAL_VALUE
 ```
 
 ### HelmRelease Values Secret (bjw-s app-template)
@@ -117,7 +117,7 @@ stringData:
               repository: ghcr.io/saavy1/app
               tag: latest
             env:
-              SECRET_KEY: "my-secret-value"
+              SECRET_KEY: "REPLACE_WITH_REAL_VALUE"
     service:
       main:
         controller: main
@@ -145,7 +145,7 @@ metadata:
   namespace: app
 type: Opaque
 stringData:
-  API_KEY: secret-key
+  API_KEY: REPLACE_WITH_REAL_VALUE
 ```
 
 ## Encrypted File Format
@@ -156,10 +156,10 @@ stringData:
     API_KEY: ENC[AES256_GCM,data:...,iv:...,tag:...,type:str]
 sops:
     age:
-        - recipient: age1776wth2d8psy2swdcuw5t5ptj4hdegnjzh2eppz4gahas6waks7q37cf57
+        - recipient: <your-age-public-key>
           enc: |
             -----BEGIN AGE ENCRYPTED FILE-----
-            ...
+            <encrypted-key-data>
             -----END AGE ENCRYPTED FILE-----
     lastmodified: "2025-12-14T01:00:00Z"
     mac: ENC[AES256_GCM,...]
