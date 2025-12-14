@@ -1,7 +1,9 @@
 import { Elysia, t } from "elysia";
+import { opsWebhookRoutes } from "../domains/ops/routes";
 import { config } from "../infra/config";
 
 export const publicRoutes = new Elysia({ prefix: "" })
+	.use(opsWebhookRoutes)
 	.get(
 		"/health",
 		() => ({

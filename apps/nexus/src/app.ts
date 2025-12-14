@@ -1,6 +1,7 @@
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { cors } from "@elysiajs/cors";
 import { openapi } from "@elysiajs/openapi";
-import { staticPlugin } from "@elysiajs/static";
 import { Elysia } from "elysia";
 import logger from "logger";
 import { config } from "./infra/config";
@@ -8,17 +9,12 @@ import { internalRoutes } from "./routes/internal";
 import { privateRoutes } from "./routes/private";
 import { publicRoutes } from "./routes/public";
 
+const PUBLIC_DIR = "public";
+
 export const app = new Elysia()
 	.use(
 		cors({
 			origin: config.NODE_ENV === "development",
-		})
-	)
-	.use(
-		staticPlugin({
-			assets: "public",
-			prefix: "/",
-			alwaysStatic: true,
 		})
 	)
 	.use(
@@ -44,6 +40,24 @@ export const app = new Elysia()
 	.use(publicRoutes)
 	.use(privateRoutes)
 	.use(internalRoutes)
+	// Serve static files (SPA fallback to index.html)
+	.get("/*", ({ params }) => {
+		const reqPath = params["*"] || "index.html";
+		const filePath = join(PUBLIC_DIR, reqPath);
+
+		// Serve file if exists
+		if (existsSync(filePath)) {
+			return new Response(Bun.file(filePath));
+		}
+
+		// SPA fallback - serve index.html for client-side routing
+		const indexPath = join(PUBLIC_DIR, "index.html");
+		if (existsSync(indexPath)) {
+			return new Response(Bun.file(indexPath));
+		}
+
+		return new Response("Not found", { status: 404 });
+	})
 	.onError((ctx) => {
 		const message = ctx.error instanceof Error ? ctx.error.message : String(ctx.error);
 		logger.error(`[${ctx.code}] ${message}`);
