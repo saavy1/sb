@@ -4,6 +4,7 @@ import { Check, MessageSquarePlus, Pencil, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Chat } from "../components/Chat";
 import { client } from "../lib/api";
+import { useEvents } from "../lib/useEvents";
 
 export const Route = createFileRoute("/chat")({
 	component: ChatPage,
@@ -26,6 +27,13 @@ function ChatPage() {
 	useEffect(() => {
 		fetchConversations();
 	}, [fetchConversations]);
+
+	// Listen for real-time conversation updates (e.g., title generation)
+	useEvents("conversation:updated", (payload) => {
+		setConversations((prev) =>
+			prev.map((c) => (c.id === payload.id ? { ...c, title: payload.title } : c))
+		);
+	});
 
 	const handleNewChat = () => {
 		setActiveId(null);

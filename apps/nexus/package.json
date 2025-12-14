@@ -2,7 +2,7 @@
 	"name": "nexus",
 	"version": "1.0.0",
 	"scripts": {
-		"dev": "bun run --watch src/index.ts",
+		"dev": "bun run --watch src/index.ts | jq 'del(.hostname, .level, .pid, .time)'",
 		"start": "bun run src/index.ts",
 		"build": "bun build src/index.ts --outdir=dist --target=bun",
 		"typecheck": "tsc --noEmit",

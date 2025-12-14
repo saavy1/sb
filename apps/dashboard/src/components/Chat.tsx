@@ -93,6 +93,7 @@ export function Chat({ conversationId, onConversationChange }: Props) {
 
 		const saveNewMessages = async () => {
 			const newMessages = messages.slice(lastMessageCountRef.current);
+
 			for (const msg of newMessages) {
 				const typedMsg = msg as unknown as UIMessage;
 				await client.api.conversations({ id: activeConversationId }).messages.post({
