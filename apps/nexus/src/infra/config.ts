@@ -30,7 +30,7 @@ export const config = {
 
 	// AI / OpenRouter
 	OPENROUTER_API_KEY: Bun.env.OPENROUTER_API_KEY,
-	AI_MODEL: Bun.env.AI_MODEL || "deepseek/deepseek-chat",
+	AI_MODEL: Bun.env.AI_MODEL || "google/gemini-2.5-flash-lite",
 } as const;
 
 export const isDev = config.NODE_ENV === "development";

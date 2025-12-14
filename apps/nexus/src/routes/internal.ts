@@ -1,6 +1,6 @@
 import { Elysia, t } from "elysia";
 import logger from "logger";
-import { gameServerService } from "../domains/game-servers/service";
+import { list, syncStatus } from "../domains/game-servers/functions";
 import { GameServer } from "../domains/game-servers/types";
 import { internalMiddleware } from "../middleware/internal";
 
@@ -8,14 +8,14 @@ export const internalRoutes = new Elysia({ prefix: "/internal" })
 	.use(internalMiddleware)
 	.guard({ requireInternal: true }, (app) =>
 		app
-			.get("/game-servers", () => gameServerService.list(), {
+			.get("/game-servers", () => list(), {
 				detail: { tags: ["Internal"], summary: "List servers (internal)" },
 				response: { 200: t.Array(GameServer) },
 			})
 			.post(
 				"/game-servers/:name/sync",
 				async ({ params }) => {
-					const server = await gameServerService.syncStatus(params.name);
+					const server = await syncStatus(params.name);
 					return server || { error: "Not found" };
 				},
 				{

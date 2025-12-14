@@ -1,12 +1,12 @@
 import { Elysia } from "elysia";
 import logger from "logger";
+import { aiRoutes } from "../domains/ai/routes";
 import { appRoutes } from "../domains/apps/routes";
 import { chatRoutes } from "../domains/chat/routes";
 import { gameServerRoutes } from "../domains/game-servers/routes";
 import { opsRoutes } from "../domains/ops/routes";
 import { systemInfoRoutes } from "../domains/system-info/routes";
 import { autheliaMiddleware } from "../middleware/authelia";
-import { aiRoutes } from "./ai";
 import { eventsRoutes } from "./events";
 
 export const privateRoutes = new Elysia({ prefix: "/api" })
