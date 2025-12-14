@@ -1,4 +1,3 @@
-import type { HttpError } from "@kubernetes/client-node";
 import * as k8s from "@kubernetes/client-node";
 import logger from "logger";
 import { config } from "../../infra/config";
@@ -10,6 +9,11 @@ interface K8sDeploymentSpec {
 	memory: string;
 	port: number;
 	cfApiKey?: string;
+}
+
+interface K8sHttpError {
+	statusCode?: number;
+	body?: unknown;
 }
 
 // Initialize Kubernetes client
@@ -27,7 +31,7 @@ if (process.env.NODE_ENV === "production") {
 const k8sAppsApi = kc.makeApiClient(k8s.AppsV1Api);
 const k8sCoreApi = kc.makeApiClient(k8s.CoreV1Api);
 
-function isK8sError(error: unknown): error is HttpError {
+function isK8sError(error: unknown): error is K8sHttpError {
 	return (
 		typeof error === "object" &&
 		error !== null &&
@@ -131,7 +135,7 @@ export const k8sAdapter = {
 		try {
 			// Create or update PVC
 			try {
-				await k8sCoreApi.createNamespacedPersistentVolumeClaim(namespace, pvc);
+				await k8sCoreApi.createNamespacedPersistentVolumeClaim({ namespace, body: pvc });
 				logger.info({ name: pvc.metadata?.name }, "Created PersistentVolumeClaim");
 			} catch (error) {
 				if (isK8sError(error) && error.statusCode === 409) {
@@ -144,7 +148,7 @@ export const k8sAdapter = {
 
 			// Create or update Deployment
 			try {
-				await k8sAppsApi.createNamespacedDeployment(namespace, deployment);
+				await k8sAppsApi.createNamespacedDeployment({ namespace, body: deployment });
 				logger.info({ name: deployment.metadata?.name }, "Created Deployment");
 			} catch (error) {
 				if (isK8sError(error) && error.statusCode === 409) {
@@ -153,7 +157,11 @@ export const k8sAdapter = {
 					if (!deploymentName) {
 						throw new Error("Deployment name is required");
 					}
-					await k8sAppsApi.replaceNamespacedDeployment(deploymentName, namespace, deployment);
+					await k8sAppsApi.replaceNamespacedDeployment({
+						name: deploymentName,
+						namespace,
+						body: deployment,
+					});
 					logger.info({ name: deploymentName }, "Updated Deployment");
 				} else {
 					throw error;
@@ -162,7 +170,7 @@ export const k8sAdapter = {
 
 			// Create or update Service
 			try {
-				await k8sCoreApi.createNamespacedService(namespace, service);
+				await k8sCoreApi.createNamespacedService({ namespace, body: service });
 				logger.info({ name: service.metadata?.name }, "Created Service");
 			} catch (error) {
 				if (isK8sError(error) && error.statusCode === 409) {
@@ -171,7 +179,11 @@ export const k8sAdapter = {
 					if (!serviceName) {
 						throw new Error("Service name is required");
 					}
-					await k8sCoreApi.replaceNamespacedService(serviceName, namespace, service);
+					await k8sCoreApi.replaceNamespacedService({
+						name: serviceName,
+						namespace,
+						body: service,
+					});
 					logger.info({ name: serviceName }, "Updated Service");
 				} else {
 					throw error;
@@ -186,19 +198,11 @@ export const k8sAdapter = {
 	async scaleDeployment(name: string, replicas: number): Promise<void> {
 		const namespace = config.K8S_NAMESPACE;
 		try {
-			await k8sAppsApi.patchNamespacedDeploymentScale(
-				name,
-				namespace,
-				{ spec: { replicas } },
-				undefined,
-				undefined,
-				undefined,
-				undefined,
-				undefined,
-				{
-					headers: { "Content-Type": "application/merge-patch+json" },
-				}
-			);
+			const deployment = await k8sAppsApi.readNamespacedDeployment({ name, namespace });
+			if (deployment.spec) {
+				deployment.spec.replicas = replicas;
+			}
+			await k8sAppsApi.replaceNamespacedDeployment({ name, namespace, body: deployment });
 			logger.info({ name, replicas, namespace }, "Scaled deployment");
 		} catch (error) {
 			logger.error({ error, name, replicas, namespace }, "Failed to scale deployment");
@@ -213,7 +217,7 @@ export const k8sAdapter = {
 		try {
 			// Delete Service
 			try {
-				await k8sCoreApi.deleteNamespacedService(name, namespace);
+				await k8sCoreApi.deleteNamespacedService({ name, namespace });
 				logger.info({ name, namespace }, "Deleted Service");
 			} catch (error) {
 				if (isK8sError(error) && error.statusCode !== 404) {
@@ -223,7 +227,7 @@ export const k8sAdapter = {
 
 			// Delete Deployment
 			try {
-				await k8sAppsApi.deleteNamespacedDeployment(name, namespace);
+				await k8sAppsApi.deleteNamespacedDeployment({ name, namespace });
 				logger.info({ name, namespace }, "Deleted Deployment");
 			} catch (error) {
 				if (isK8sError(error) && error.statusCode !== 404) {
@@ -233,7 +237,7 @@ export const k8sAdapter = {
 
 			// Delete PVC
 			try {
-				await k8sCoreApi.deleteNamespacedPersistentVolumeClaim(`${name}-data`, namespace);
+				await k8sCoreApi.deleteNamespacedPersistentVolumeClaim({ name: `${name}-data`, namespace });
 				logger.info({ name: `${name}-data`, namespace }, "Deleted PersistentVolumeClaim");
 			} catch (error) {
 				if (isK8sError(error) && error.statusCode !== 404) {
@@ -249,8 +253,8 @@ export const k8sAdapter = {
 	async getDeploymentStatus(name: string): Promise<{ replicas: number; ready: number } | null> {
 		const namespace = config.K8S_NAMESPACE;
 		try {
-			const response = await k8sAppsApi.readNamespacedDeploymentStatus(name, namespace);
-			const status = response.body.status;
+			const response = await k8sAppsApi.readNamespacedDeploymentStatus({ name, namespace });
+			const status = response.status;
 
 			return {
 				replicas: status?.replicas || 0,
