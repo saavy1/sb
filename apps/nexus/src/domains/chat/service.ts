@@ -1,19 +1,14 @@
 import { record } from "@elysiajs/opentelemetry";
 import { chatRepository } from "./repository";
+import type { MessagePartType, MessageWithPartsType } from "./types";
 
-export interface ConversationWithMessages {
+export type ConversationWithMessages = {
 	id: string;
 	title: string | null;
 	createdAt: string;
 	updatedAt: string;
-	messages: {
-		id: string;
-		role: string;
-		content: string | null;
-		parts: unknown[] | null;
-		createdAt: string;
-	}[];
-}
+	messages: MessageWithPartsType[];
+};
 
 export const chatService = {
 	listConversations() {
@@ -31,7 +26,7 @@ export const chatService = {
 				...conversation,
 				messages: messages.map((m) => ({
 					...m,
-					parts: m.parts ? JSON.parse(m.parts) : null,
+					parts: m.parts ? (JSON.parse(m.parts) as MessagePartType[]) : null,
 				})),
 			};
 		});
@@ -55,7 +50,7 @@ export const chatService = {
 		return record("db.deleteConversation", () => chatRepository.deleteConversation(id));
 	},
 
-	addMessage(data: { conversationId: string; role: string; content?: string; parts?: unknown[] }) {
+	addMessage(data: { conversationId: string; role: string; content?: string; parts?: MessagePartType[] }) {
 		return record("db.addMessage", () => {
 			const id = crypto.randomUUID();
 			return chatRepository.createMessage({

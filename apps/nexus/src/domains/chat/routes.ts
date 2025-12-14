@@ -3,16 +3,14 @@ import logger from "logger";
 import { generateConversationTitle } from "../../infra/ai";
 import { appEvents } from "../../infra/events";
 import { chatService } from "./service";
+import { type MessagePartType, MessagePartSchema } from "./types";
 
 const log = logger.child({ module: "chat" });
 
 // Helper to extract text content from message (content string or parts array)
-type MessageLike = {
-	content?: string | null;
-	parts?: { type: string; content?: string; text?: string }[] | null;
-};
-
-function extractTextContent(message: MessageLike | undefined): string {
+function extractTextContent(
+	message: { content?: string | null; parts?: MessagePartType[] | null } | undefined
+): string {
 	if (!message) return "";
 
 	// Try direct content first
@@ -29,19 +27,6 @@ function extractTextContent(message: MessageLike | undefined): string {
 
 	return "";
 }
-
-// Request body types
-const MessagePartSchema = t.Object({
-	type: t.String(),
-	content: t.Optional(t.String()),
-	text: t.Optional(t.String()),
-	id: t.Optional(t.String()),
-	name: t.Optional(t.String()),
-	toolName: t.Optional(t.String()),
-	toolCallId: t.Optional(t.String()),
-	arguments: t.Optional(t.String()),
-	state: t.Optional(t.String()),
-});
 
 export const chatRoutes = new Elysia({ prefix: "/conversations" })
 	.get(

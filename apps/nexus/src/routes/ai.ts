@@ -4,6 +4,7 @@ import { createOpenAI } from "@tanstack/ai-openai";
 import { Elysia, t } from "elysia";
 import logger from "logger";
 import { z } from "zod";
+import { MessagePartSchema } from "../domains/chat/types";
 import { gameServerService } from "../domains/game-servers/service";
 import { systemInfoService } from "../domains/system-info/service";
 import { config } from "../infra/config";
@@ -189,23 +190,11 @@ const getDrives = getDrivesDef.server(async () => {
 const allTools = [listServers, getServer, startServer, stopServer, getSystemStats, getDrives];
 
 // Request/response types for AI chat endpoint
-const MessagePart = t.Object({
-	type: t.String(),
-	content: t.Optional(t.String()),
-	text: t.Optional(t.String()),
-	id: t.Optional(t.String()),
-	name: t.Optional(t.String()),
-	toolName: t.Optional(t.String()),
-	toolCallId: t.Optional(t.String()),
-	arguments: t.Optional(t.String()),
-	state: t.Optional(t.String()),
-});
-
 const ChatMessage = t.Object({
 	id: t.Optional(t.String()),
 	role: t.Union([t.Literal("user"), t.Literal("assistant"), t.Literal("tool")]),
 	content: t.Optional(t.Union([t.String(), t.Null()])),
-	parts: t.Optional(t.Array(MessagePart)),
+	parts: t.Optional(t.Array(MessagePartSchema)),
 });
 
 const ChatRequestBody = t.Object({
@@ -234,7 +223,7 @@ export const aiRoutes = new Elysia({ prefix: "/ai" })
 	})
 	.post(
 		"/chat",
-		async ({ body, set, _request }) => {
+		async ({ body, set }) => {
 			log.debug({ body: JSON.stringify(body).slice(0, 1000) }, "received chat request body");
 			if (!config.OPENROUTER_API_KEY) {
 				log.error("OPENROUTER_API_KEY not configured");
@@ -249,6 +238,28 @@ export const aiRoutes = new Elysia({ prefix: "/ai" })
 					baseURL: "https://openrouter.ai/api/v1",
 				});
 
+				// Helper to extract text from message parts
+				const extractContent = (msg: (typeof body.messages)[number]): string => {
+					if (msg.content) return msg.content;
+					if (msg.parts) {
+						const textParts = msg.parts
+							.filter((p) => p.type === "text")
+							.map((p) => p.content || p.text || "")
+							.filter(Boolean);
+						if (textParts.length > 0) return textParts.join("\n");
+					}
+					return "";
+				};
+
+				// Transform messages to format expected by TanStack AI chat()
+				const transformedMessages = body.messages
+					.filter((msg) => msg.role !== "tool") // Filter out tool messages for now
+					.map((msg) => ({
+						role: msg.role as "user" | "assistant",
+						content: extractContent(msg),
+					}))
+					.filter((msg) => msg.content); // Filter out empty messages
+
 				// Build messages array with system prompt
 				const messagesWithSystem = [
 					{
@@ -259,7 +270,7 @@ export const aiRoutes = new Elysia({ prefix: "/ai" })
 						role: "assistant" as const,
 						content: "I understand. I'm The Machine, ready to help manage your Superbloom homelab.",
 					},
-					...body.messages,
+					...transformedMessages,
 				];
 
 				// Cast model for OpenRouter compatibility (supports non-OpenAI models)
