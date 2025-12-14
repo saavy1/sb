@@ -55,10 +55,4 @@ export const chatService = {
 			...data,
 		});
 	},
-
-	// Auto-generate title from first user message
-	generateTitleFromMessage(message: string): string {
-		const cleaned = message.trim().slice(0, 50);
-		return cleaned.length < message.trim().length ? `${cleaned}...` : cleaned;
-	},
 };

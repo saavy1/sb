@@ -1,4 +1,5 @@
 import { Elysia, t } from "elysia";
+import { generateConversationTitle } from "../../infra/ai";
 import { chatService } from "./service";
 
 const MessagePartSchema = t.Object({
@@ -77,7 +78,7 @@ export const chatRoutes = new Elysia({ prefix: "/conversations" })
 	)
 	.post(
 		"/:id/messages",
-		({ params, body }) => {
+		async ({ params, body }) => {
 			const conversation = chatService.getConversation(params.id);
 			if (!conversation) {
 				return { error: "Conversation not found" };
@@ -90,10 +91,20 @@ export const chatRoutes = new Elysia({ prefix: "/conversations" })
 				parts: body.parts,
 			});
 
-			// Auto-generate title from first user message if no title
-			if (!conversation.title && body.role === "user" && body.content) {
-				const title = chatService.generateTitleFromMessage(body.content);
-				chatService.updateConversationTitle(params.id, title);
+			// Auto-generate title after first assistant response
+			if (!conversation.title && body.role === "assistant") {
+				const userMessage = conversation.messages.find((m) => m.role === "user");
+				const userContent = userMessage?.content || "";
+				const assistantContent = body.content || "";
+
+				if (userContent && assistantContent) {
+					// Generate title async (don't block response)
+					generateConversationTitle(userContent, assistantContent).then((title) => {
+						if (title) {
+							chatService.updateConversationTitle(params.id, title);
+						}
+					});
+				}
 			}
 
 			return message;
