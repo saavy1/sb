@@ -1,19 +1,13 @@
+import type { AppEventName, AppEvents } from "@nexus/infra/events";
 import { useEffect, useRef } from "react";
 import { API_URL } from "./api";
 
-// Event types matching the backend
-type AppEvents = {
-	"conversation:updated": { id: string; title: string | null };
-	"conversation:created": { id: string };
-	"conversation:deleted": { id: string };
-};
-
-type EventMessage<K extends keyof AppEvents = keyof AppEvents> = {
+type EventMessage<K extends AppEventName = AppEventName> = {
 	event: K;
 	payload: AppEvents[K];
 };
 
-type EventHandler<K extends keyof AppEvents> = (payload: AppEvents[K]) => void;
+type EventHandler<K extends AppEventName> = (payload: AppEvents[K]) => void;
 
 // Convert HTTP URL to WebSocket URL
 function getWsUrl(): string {
@@ -23,7 +17,7 @@ function getWsUrl(): string {
 	return url.toString();
 }
 
-export function useEvents<K extends keyof AppEvents>(event: K, handler: EventHandler<K>) {
+export function useEvents<K extends AppEventName>(event: K, handler: EventHandler<K>) {
 	const wsRef = useRef<WebSocket | null>(null);
 	const handlerRef = useRef(handler);
 
