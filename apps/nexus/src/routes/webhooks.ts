@@ -37,32 +37,34 @@ async function verifySignature(
 export const webhookRoutes = new Elysia({ prefix: "/webhooks" }).post(
 	"/github",
 	async ({ body, headers, set, request }) => {
-		const rawBody = await request.clone().text();
 		const webhookSecret = config.GITHUB_WEBHOOK_SECRET;
 
-		// Verify signature
-		if (webhookSecret) {
-			const signature = headers["x-hub-signature-256"];
-			if (!signature) {
-				logger.warn("Webhook missing signature");
-				set.status = 401;
-				return { message: "Missing signature" };
-			}
-
-			const isValid = await verifySignature(rawBody, signature, webhookSecret);
-			if (!isValid) {
-				logger.warn("Webhook signature verification failed");
-				set.status = 401;
-				return { message: "Invalid signature" };
-			}
+		// Require webhook secret in production
+		if (!webhookSecret) {
+			logger.error("GITHUB_WEBHOOK_SECRET not configured");
+			set.status = 500;
+			return { message: "Webhook not configured" };
 		}
 
-		const payload = typeof body === "string" ? JSON.parse(body) : body;
-		const { trigger, actor } = payload;
+		// Verify signature using raw body
+		const rawBody = await request.clone().text();
+		const signature = headers["x-hub-signature-256"];
 
-		if (!trigger) {
-			return { message: "No trigger specified" };
+		if (!signature) {
+			logger.warn("Webhook missing signature");
+			set.status = 401;
+			return { message: "Missing signature" };
 		}
+
+		const isValid = await verifySignature(rawBody, signature, webhookSecret);
+		if (!isValid) {
+			logger.warn("Webhook signature verification failed");
+			set.status = 401;
+			return { message: "Invalid signature" };
+		}
+
+		// Body is already parsed and validated by Elysia
+		const { trigger, actor } = body;
 
 		// Dispatch based on trigger type
 		if (trigger === "nixos-rebuild") {
@@ -87,6 +89,8 @@ export const webhookRoutes = new Elysia({ prefix: "/webhooks" }).post(
 		}),
 		response: {
 			200: t.Object({ message: t.String() }),
+			401: t.Object({ message: t.String() }),
+			500: t.Object({ message: t.String() }),
 		},
 	}
 );

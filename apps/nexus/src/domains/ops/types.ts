@@ -42,31 +42,3 @@ export const LatestQueryParams = t.Object({
 export const ApiError = t.Object({
 	error: t.String(),
 });
-
-export const WebhookPayload = t.Object({
-	ref: t.Optional(t.String()),
-	repository: t.Optional(
-		t.Object({
-			full_name: t.Optional(t.String()),
-		})
-	),
-	commits: t.Optional(
-		t.Array(
-			t.Object({
-				modified: t.Optional(t.Array(t.String())),
-				added: t.Optional(t.Array(t.String())),
-			})
-		)
-	),
-	sender: t.Optional(
-		t.Object({
-			login: t.Optional(t.String()),
-		})
-	),
-});
-
-export const WebhookResponse = t.Object({
-	message: t.String(),
-	triggers: t.Optional(t.Array(t.String())),
-	changedFiles: t.Optional(t.Array(t.String())),
-});
