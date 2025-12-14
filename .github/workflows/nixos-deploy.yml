@@ -29,6 +29,6 @@ jobs:
               "commits": [{"modified": ${{ toJson(github.event.commits[0].modified || '[]') }}, "added": ${{ toJson(github.event.commits[0].added || '[]') }}}],
               "sender": {"login": "${{ github.actor }}"}
             }' \
-            https://nexus.superbloom.cloud/webhooks/github
+            https://nexus.saavylab.dev/internal/webhooks/k8s
         continue-on-error: true
         # Note: Will fail until Nexus is deployed. That's expected.
