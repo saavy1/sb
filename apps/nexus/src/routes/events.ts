@@ -1,6 +1,7 @@
 import { Elysia } from "elysia";
 import logger from "logger";
 import { type AppEventName, appEvents } from "../infra/events";
+import { autheliaMiddleware } from "../middleware/authelia";
 
 const log = logger.child({ module: "events-ws" });
 
@@ -34,13 +35,25 @@ function setupEventBroadcasting() {
 // Initialize broadcasting on module load
 setupEventBroadcasting();
 
-export const eventsRoutes = new Elysia({ prefix: "/events" }).ws("/", {
+export const eventsRoutes = new Elysia({ prefix: "/events" })
+	.use(autheliaMiddleware)
+	.ws("/", {
 	open(ws) {
-		log.info("client connected to events websocket");
+		const user = ws.data.user;
+
+		// Reject unauthenticated connections in production
+		if (!user && process.env.NODE_ENV === "production") {
+			log.warn("rejected unauthenticated websocket connection");
+			ws.close(4001, "Unauthorized");
+			return;
+		}
+
+		log.info({ username: user?.username ?? "dev" }, "client connected to events websocket");
 		clients.add(ws);
 	},
 	close(ws) {
-		log.info("client disconnected from events websocket");
+		const user = ws.data.user;
+		log.info({ username: user?.username ?? "dev" }, "client disconnected from events websocket");
 		clients.delete(ws);
 	},
 	message(_ws, message) {
