@@ -1,3 +1,4 @@
+import { record } from "@elysiajs/opentelemetry";
 import { chat, toolDefinition, toStreamResponse } from "@tanstack/ai";
 import { createOpenAI } from "@tanstack/ai-openai";
 import { Elysia, t } from "elysia";
@@ -33,14 +34,16 @@ const listServersDef = toolDefinition({
 });
 
 const listServers = listServersDef.server(async () => {
-	const servers = gameServerService.list();
-	return servers.map((s) => ({
-		name: s.name,
-		status: s.status,
-		modpack: s.modpack,
-		port: s.port,
-		memory: s.memory,
-	}));
+	return record("tool.list_game_servers", () => {
+		const servers = gameServerService.list();
+		return servers.map((s) => ({
+			name: s.name,
+			status: s.status,
+			modpack: s.modpack,
+			port: s.port,
+			memory: s.memory,
+		}));
+	});
 });
 
 const getServerDef = toolDefinition({
@@ -52,19 +55,21 @@ const getServerDef = toolDefinition({
 });
 
 const getServer = getServerDef.server(async ({ name }) => {
-	const server = gameServerService.get(name);
-	if (!server) {
-		return { error: `Server '${name}' not found` };
-	}
-	return {
-		name: server.name,
-		status: server.status,
-		modpack: server.modpack,
-		port: server.port,
-		memory: server.memory,
-		createdBy: server.createdBy,
-		createdAt: server.createdAt,
-	};
+	return record("tool.get_server", () => {
+		const server = gameServerService.get(name);
+		if (!server) {
+			return { error: `Server '${name}' not found` };
+		}
+		return {
+			name: server.name,
+			status: server.status,
+			modpack: server.modpack,
+			port: server.port,
+			memory: server.memory,
+			createdBy: server.createdBy,
+			createdAt: server.createdAt,
+		};
+	});
 });
 
 const startServerDef = toolDefinition({
@@ -76,19 +81,21 @@ const startServerDef = toolDefinition({
 });
 
 const startServer = startServerDef.server(async ({ name }) => {
-	try {
-		const server = await gameServerService.start(name);
-		return {
-			success: true,
-			message: `Server '${name}' is starting`,
-			status: server.status,
-		};
-	} catch (error) {
-		return {
-			success: false,
-			error: error instanceof Error ? error.message : "Failed to start server",
-		};
-	}
+	return await record("tool.start_server", async () => {
+		try {
+			const server = await gameServerService.start(name);
+			return {
+				success: true,
+				message: `Server '${name}' is starting`,
+				status: server.status,
+			};
+		} catch (error) {
+			return {
+				success: false,
+				error: error instanceof Error ? error.message : "Failed to start server",
+			};
+		}
+	});
 });
 
 const stopServerDef = toolDefinition({
@@ -100,19 +107,21 @@ const stopServerDef = toolDefinition({
 });
 
 const stopServer = stopServerDef.server(async ({ name }) => {
-	try {
-		const server = await gameServerService.stop(name);
-		return {
-			success: true,
-			message: `Server '${name}' is stopping`,
-			status: server.status,
-		};
-	} catch (error) {
-		return {
-			success: false,
-			error: error instanceof Error ? error.message : "Failed to stop server",
-		};
-	}
+	return await record("tool.stop_server", async () => {
+		try {
+			const server = await gameServerService.stop(name);
+			return {
+				success: true,
+				message: `Server '${name}' is stopping`,
+				status: server.status,
+			};
+		} catch (error) {
+			return {
+				success: false,
+				error: error instanceof Error ? error.message : "Failed to stop server",
+			};
+		}
+	});
 });
 
 const getSystemStatsDef = toolDefinition({
@@ -122,37 +131,39 @@ const getSystemStatsDef = toolDefinition({
 });
 
 const getSystemStats = getSystemStatsDef.server(async () => {
-	const stats = await systemInfoService.getSystemStats();
-	return {
-		cpu: {
-			usage: stats.cpu.usage,
-			coreCount: stats.cpu.coreCount,
-			model: stats.cpu.model,
-		},
-		memory: {
-			used: stats.memory.used,
-			total: stats.memory.total,
-			usagePercent: stats.memory.usagePercent,
-		},
-		gpu: stats.gpu.available
-			? {
-					name: stats.gpu.name,
-					usage: stats.gpu.usage,
-					temperature: stats.gpu.temperature,
-					memoryUsed: stats.gpu.memoryUsed,
-					memoryTotal: stats.gpu.memoryTotal,
-				}
-			: { available: false },
-		network: {
-			downloadSpeed: stats.network.totalRxSpeed,
-			uploadSpeed: stats.network.totalTxSpeed,
-		},
-		disk: {
-			readSpeed: stats.disk.readSpeed,
-			writeSpeed: stats.disk.writeSpeed,
-		},
-		uptime: stats.uptime.formatted,
-	};
+	return await record("tool.get_system_stats", async () => {
+		const stats = await systemInfoService.getSystemStats();
+		return {
+			cpu: {
+				usage: stats.cpu.usage,
+				coreCount: stats.cpu.coreCount,
+				model: stats.cpu.model,
+			},
+			memory: {
+				used: stats.memory.used,
+				total: stats.memory.total,
+				usagePercent: stats.memory.usagePercent,
+			},
+			gpu: stats.gpu.available
+				? {
+						name: stats.gpu.name,
+						usage: stats.gpu.usage,
+						temperature: stats.gpu.temperature,
+						memoryUsed: stats.gpu.memoryUsed,
+						memoryTotal: stats.gpu.memoryTotal,
+					}
+				: { available: false },
+			network: {
+				downloadSpeed: stats.network.totalRxSpeed,
+				uploadSpeed: stats.network.totalTxSpeed,
+			},
+			disk: {
+				readSpeed: stats.disk.readSpeed,
+				writeSpeed: stats.disk.writeSpeed,
+			},
+			uptime: stats.uptime.formatted,
+		};
+	});
 });
 
 const getDrivesDef = toolDefinition({
@@ -162,15 +173,17 @@ const getDrivesDef = toolDefinition({
 });
 
 const getDrives = getDrivesDef.server(async () => {
-	const drives = await systemInfoService.listDrivesWithStats();
-	return drives.map((d) => ({
-		label: d.label,
-		path: d.path,
-		mounted: d.mounted,
-		used: d.used,
-		total: d.total,
-		usagePercent: d.usagePercent,
-	}));
+	return await record("tool.get_drives", async () => {
+		const drives = await systemInfoService.listDrivesWithStats();
+		return drives.map((d) => ({
+			label: d.label,
+			path: d.path,
+			mounted: d.mounted,
+			used: d.used,
+			total: d.total,
+			usagePercent: d.usagePercent,
+		}));
+	});
 });
 
 const allTools = [listServers, getServer, startServer, stopServer, getSystemStats, getDrives];

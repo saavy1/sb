@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { cors } from "@elysiajs/cors";
 import { openapi } from "@elysiajs/openapi";
+import { opentelemetry } from "@elysiajs/opentelemetry";
 import { Elysia } from "elysia";
 import logger from "logger";
 import { config } from "./infra/config";
@@ -13,6 +14,7 @@ import { webhookRoutes } from "./routes/webhooks";
 const PUBLIC_DIR = "public";
 
 export const app = new Elysia()
+	.use(opentelemetry({ serviceName: "nexus" }))
 	.use(
 		cors({
 			origin: config.NODE_ENV === "development",
