@@ -1,3 +1,4 @@
+import { record } from "@elysiajs/opentelemetry";
 import logger from "logger";
 import { config } from "../../infra/config";
 import { generateMinecraftManifests, k8sAdapter } from "./k8s-adapter";
@@ -75,7 +76,7 @@ export const gameServerService = {
 
 		try {
 			log.info({ name: request.name }, "applying k8s manifests");
-			await k8sAdapter.applyManifests(manifests);
+			await record("k8s.applyManifests", () => k8sAdapter.applyManifests(manifests));
 			gameServerRepository.updateK8sDeployment(request.name, request.name);
 			gameServerRepository.updateStatus(request.name, "stopped", port);
 			log.info({ name: request.name, port }, "game server created successfully");
@@ -106,7 +107,7 @@ export const gameServerService = {
 		gameServerRepository.updateStatus(name, "starting");
 
 		try {
-			await k8sAdapter.scaleDeployment(name, 1);
+			await record("k8s.scaleDeployment", () => k8sAdapter.scaleDeployment(name, 1));
 			gameServerRepository.updateStatus(name, "running", server.port);
 			log.info({ name }, "game server started");
 			return { ...server, status: "running" };
@@ -134,7 +135,7 @@ export const gameServerService = {
 		gameServerRepository.updateStatus(name, "stopping");
 
 		try {
-			await k8sAdapter.scaleDeployment(name, 0);
+			await record("k8s.scaleDeployment", () => k8sAdapter.scaleDeployment(name, 0));
 			gameServerRepository.updateStatus(name, "stopped", server.port);
 			log.info({ name }, "game server stopped");
 			return { ...server, status: "stopped" };
@@ -157,12 +158,12 @@ export const gameServerService = {
 		// Stop first if running
 		if (server.status === "running") {
 			log.info({ name }, "stopping running server before deletion");
-			await k8sAdapter.scaleDeployment(name, 0);
+			await record("k8s.scaleDeployment", () => k8sAdapter.scaleDeployment(name, 0));
 		}
 
 		// Delete K8s resources
 		log.info({ name }, "deleting k8s resources");
-		await k8sAdapter.deleteResources(name);
+		await record("k8s.deleteResources", () => k8sAdapter.deleteResources(name));
 
 		// Delete from database
 		gameServerRepository.delete(name);
@@ -173,7 +174,9 @@ export const gameServerService = {
 		const server = gameServerRepository.findByName(name);
 		if (!server) return null;
 
-		const k8sStatus = await k8sAdapter.getDeploymentStatus(name);
+		const k8sStatus = await record("k8s.getDeploymentStatus", () =>
+			k8sAdapter.getDeploymentStatus(name)
+		);
 		if (!k8sStatus) return server;
 
 		let newStatus = server.status;
