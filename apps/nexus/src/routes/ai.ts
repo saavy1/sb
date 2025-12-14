@@ -234,53 +234,53 @@ export const aiRoutes = new Elysia({ prefix: "/ai" })
 	})
 	.post(
 		"/chat",
-		async ({ body, set, request }) => {
+		async ({ body, set, _request }) => {
 			log.debug({ body: JSON.stringify(body).slice(0, 1000) }, "received chat request body");
-		if (!config.OPENROUTER_API_KEY) {
-			log.error("OPENROUTER_API_KEY not configured");
-			set.status = 500;
-			return { error: "OPENROUTER_API_KEY not configured" };
+			if (!config.OPENROUTER_API_KEY) {
+				log.error("OPENROUTER_API_KEY not configured");
+				set.status = 500;
+				return { error: "OPENROUTER_API_KEY not configured" };
+			}
+
+			log.info({ messageCount: body.messages.length }, "processing chat request");
+
+			try {
+				const adapter = createOpenAI(config.OPENROUTER_API_KEY, {
+					baseURL: "https://openrouter.ai/api/v1",
+				});
+
+				// Build messages array with system prompt
+				const messagesWithSystem = [
+					{
+						role: "user" as const,
+						content: `[SYSTEM]\n${SYSTEM_PROMPT}\n[/SYSTEM]\n\nPlease acknowledge you understand these instructions.`,
+					},
+					{
+						role: "assistant" as const,
+						content: "I understand. I'm The Machine, ready to help manage your Superbloom homelab.",
+					},
+					...body.messages,
+				];
+
+				// Cast model for OpenRouter compatibility (supports non-OpenAI models)
+				const stream = chat({
+					adapter,
+					messages: messagesWithSystem,
+					model: config.AI_MODEL as string as (typeof adapter.models)[number],
+					tools: allTools,
+				});
+
+				log.info({ model: config.AI_MODEL }, "streaming chat response");
+				return toStreamResponse(stream);
+			} catch (err) {
+				log.error({ error: err }, "chat request failed");
+				set.status = 500;
+				return { error: err instanceof Error ? err.message : "Chat failed" };
+			}
+		},
+		{
+			body: ChatRequestBody,
+			response: { 500: ErrorResponse },
+			detail: { tags: ["AI"], summary: "Chat with The Machine AI assistant" },
 		}
-
-		log.info({ messageCount: body.messages.length }, "processing chat request");
-
-		try {
-			const adapter = createOpenAI(config.OPENROUTER_API_KEY, {
-				baseURL: "https://openrouter.ai/api/v1",
-			});
-
-			// Build messages array with system prompt
-			const messagesWithSystem = [
-				{
-					role: "user" as const,
-					content: `[SYSTEM]\n${SYSTEM_PROMPT}\n[/SYSTEM]\n\nPlease acknowledge you understand these instructions.`,
-				},
-				{
-					role: "assistant" as const,
-					content: "I understand. I'm The Machine, ready to help manage your Superbloom homelab.",
-				},
-				...body.messages,
-			];
-
-			// Cast model for OpenRouter compatibility (supports non-OpenAI models)
-			const stream = chat({
-				adapter,
-				messages: messagesWithSystem,
-				model: config.AI_MODEL as string as (typeof adapter.models)[number],
-				tools: allTools,
-			});
-
-			log.info({ model: config.AI_MODEL }, "streaming chat response");
-			return toStreamResponse(stream);
-		} catch (err) {
-			log.error({ error: err }, "chat request failed");
-			set.status = 500;
-			return { error: err instanceof Error ? err.message : "Chat failed" };
-		}
-	},
-	{
-		body: ChatRequestBody,
-		response: { 500: ErrorResponse },
-		detail: { tags: ["AI"], summary: "Chat with The Machine AI assistant" },
-	}
-);
+	);
