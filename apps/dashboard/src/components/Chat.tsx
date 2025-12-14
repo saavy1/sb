@@ -45,6 +45,7 @@ export function Chat({ conversationId, onConversationChange }: Props) {
 		conversationId ?? null
 	);
 	const lastMessageCountRef = useRef(0);
+	const isNewConversationRef = useRef(false);
 
 	const { messages, sendMessage, isLoading, error, setMessages } = useChat({
 		connection: fetchServerSentEvents(`${API_URL}/api/ai/chat`),
@@ -55,6 +56,12 @@ export function Chat({ conversationId, onConversationChange }: Props) {
 		if (!activeConversationId) {
 			setMessages([]);
 			lastMessageCountRef.current = 0;
+			return;
+		}
+
+		// Skip loading if we just created this conversation (messages are already local)
+		if (isNewConversationRef.current) {
+			isNewConversationRef.current = false;
 			return;
 		}
 
@@ -105,6 +112,7 @@ export function Chat({ conversationId, onConversationChange }: Props) {
 		if (!activeConversationId) {
 			const { data } = await client.api.conversations.post({});
 			if (data && "id" in data) {
+				isNewConversationRef.current = true;
 				setActiveConversationId(data.id);
 				onConversationChange?.(data.id);
 			}
