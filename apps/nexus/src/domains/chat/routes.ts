@@ -82,7 +82,10 @@ export const chatRoutes = new Elysia({ prefix: "/conversations" })
 	.post(
 		"/:id/messages",
 		async ({ params, body }) => {
-			log.info({ conversationId: params.id, role: body.role, hasContent: !!body.content }, "adding message to conversation");
+			log.info(
+				{ conversationId: params.id, role: body.role, hasContent: !!body.content },
+				"adding message to conversation"
+			);
 
 			const conversation = chatService.getConversation(params.id);
 			if (!conversation) {
@@ -97,7 +100,14 @@ export const chatRoutes = new Elysia({ prefix: "/conversations" })
 				parts: body.parts,
 			});
 
-			log.info({ messageId: message.id, conversationTitle: conversation.title, messageCount: conversation.messages.length }, "message added");
+			log.info(
+				{
+					messageId: message.id,
+					conversationTitle: conversation.title,
+					messageCount: conversation.messages.length,
+				},
+				"message added"
+			);
 
 			// Auto-generate title after first assistant response
 			if (!conversation.title && body.role === "assistant") {
@@ -105,7 +115,10 @@ export const chatRoutes = new Elysia({ prefix: "/conversations" })
 				const userContent = userMessage?.content || "";
 				const assistantContent = body.content || "";
 
-				log.info({ hasUserContent: !!userContent, hasAssistantContent: !!assistantContent }, "checking title generation conditions");
+				log.info(
+					{ hasUserContent: !!userContent, hasAssistantContent: !!assistantContent },
+					"checking title generation conditions"
+				);
 
 				if (userContent && assistantContent) {
 					log.info({ conversationId: params.id }, "triggering async title generation");
