@@ -73,10 +73,9 @@ function ChatPage() {
 	};
 
 	return (
-		// Break out of container constraints for full-width layout
-		<div className="-mx-4 -my-4 flex h-[calc(100vh-3rem)]">
+		<div className="flex h-[calc(100vh-4rem)]">
 			{/* Sidebar */}
-			<div className="w-64 flex-shrink-0 border-r border-zinc-800 flex flex-col bg-zinc-900/50">
+			<div className="w-64 flex-shrink-0 border-r border-zinc-800 flex flex-col">
 				<div className="p-3 border-b border-zinc-800">
 					<button
 						type="button"
