@@ -3,7 +3,7 @@ import logger from "logger";
 import { generateConversationTitle } from "../../infra/ai";
 import { appEvents } from "../../infra/events";
 import { chatService } from "./service";
-import { type MessagePartType, MessagePartSchema } from "./types";
+import { MessagePartSchema, type MessagePartType } from "./types";
 
 const log = logger.child({ module: "chat" });
 
