@@ -50,7 +50,12 @@ export const chatService = {
 		return record("db.deleteConversation", () => chatRepository.deleteConversation(id));
 	},
 
-	addMessage(data: { conversationId: string; role: string; content?: string; parts?: MessagePartType[] }) {
+	addMessage(data: {
+		conversationId: string;
+		role: string;
+		content?: string;
+		parts?: MessagePartType[];
+	}) {
 		return record("db.addMessage", () => {
 			const id = crypto.randomUUID();
 			return chatRepository.createMessage({
