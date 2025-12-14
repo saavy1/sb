@@ -1,7 +1,8 @@
 import { Elysia, t } from "elysia";
 import { config } from "../infra/config";
 
-export const publicRoutes = new Elysia({ prefix: "" }).get(
+export const publicRoutes = new Elysia({ prefix: "" })
+	.get(
 		"/health",
 		() => ({
 			status: "ok",

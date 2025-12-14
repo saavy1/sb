@@ -1,7 +1,7 @@
 import { Elysia, t } from "elysia";
 import logger from "logger";
-import { config } from "../infra/config";
 import { opsService } from "../domains/ops/service";
+import { config } from "../infra/config";
 
 // Timing-safe comparison to prevent timing attacks
 function timingSafeEqual(a: string, b: string): boolean {
