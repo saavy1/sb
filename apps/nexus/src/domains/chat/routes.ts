@@ -1,9 +1,34 @@
 import { Elysia, t } from "elysia";
 import logger from "logger";
 import { generateConversationTitle } from "../../infra/ai";
+import { appEvents } from "../../infra/events";
 import { chatService } from "./service";
 
 const log = logger.child({ module: "chat" });
+
+// Helper to extract text content from message (content string or parts array)
+type MessageLike = {
+	content?: string | null;
+	parts?: { type: string; content?: string; text?: string }[] | null;
+};
+
+function extractTextContent(message: MessageLike | undefined): string {
+	if (!message) return "";
+
+	// Try direct content first
+	if (message.content) return message.content;
+
+	// Try parts array - look for text parts
+	if (Array.isArray(message.parts)) {
+		const textParts = message.parts
+			.filter((p) => p.type === "text")
+			.map((p) => p.content || p.text || "")
+			.filter(Boolean);
+		if (textParts.length > 0) return textParts.join("\n");
+	}
+
+	return "";
+}
 
 // Request body types
 const MessagePartSchema = t.Object({
@@ -12,6 +37,7 @@ const MessagePartSchema = t.Object({
 	text: t.Optional(t.String()),
 	id: t.Optional(t.String()),
 	name: t.Optional(t.String()),
+	toolName: t.Optional(t.String()),
 	toolCallId: t.Optional(t.String()),
 	arguments: t.Optional(t.String()),
 	state: t.Optional(t.String()),
@@ -131,8 +157,8 @@ export const chatRoutes = new Elysia({ prefix: "/conversations" })
 			// Auto-generate title after first assistant response
 			if (!conversation.title && body.role === "assistant") {
 				const userMessage = conversation.messages.find((m) => m.role === "user");
-				const userContent = userMessage?.content || "";
-				const assistantContent = body.content || "";
+				const userContent = extractTextContent(userMessage);
+				const assistantContent = extractTextContent(body);
 
 				log.info(
 					{
@@ -149,6 +175,8 @@ export const chatRoutes = new Elysia({ prefix: "/conversations" })
 						if (title) {
 							log.info({ conversationId: params.id, title }, "updating conversation title");
 							chatService.updateConversationTitle(params.id, title);
+							// Emit event for real-time UI updates
+							appEvents.emit("conversation:updated", { id: params.id, title });
 						} else {
 							log.warn({ conversationId: params.id }, "title generation returned null");
 						}

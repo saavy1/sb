@@ -189,9 +189,23 @@ const getDrives = getDrivesDef.server(async () => {
 const allTools = [listServers, getServer, startServer, stopServer, getSystemStats, getDrives];
 
 // Request/response types for AI chat endpoint
+const MessagePart = t.Object({
+	type: t.String(),
+	content: t.Optional(t.String()),
+	text: t.Optional(t.String()),
+	id: t.Optional(t.String()),
+	name: t.Optional(t.String()),
+	toolName: t.Optional(t.String()),
+	toolCallId: t.Optional(t.String()),
+	arguments: t.Optional(t.String()),
+	state: t.Optional(t.String()),
+});
+
 const ChatMessage = t.Object({
-	role: t.Union([t.Literal("user"), t.Literal("assistant")]),
-	content: t.String(),
+	id: t.Optional(t.String()),
+	role: t.Union([t.Literal("user"), t.Literal("assistant"), t.Literal("tool")]),
+	content: t.Optional(t.Union([t.String(), t.Null()])),
+	parts: t.Optional(t.Array(MessagePart)),
 });
 
 const ChatRequestBody = t.Object({
@@ -202,9 +216,26 @@ const ErrorResponse = t.Object({
 	error: t.String(),
 });
 
-export const aiRoutes = new Elysia({ prefix: "/ai" }).post(
-	"/chat",
-	async ({ body, set }) => {
+export const aiRoutes = new Elysia({ prefix: "/ai" })
+	.onError(({ code, error, request, body }) => {
+		if (code === "VALIDATION") {
+			log.error(
+				{
+					code,
+					message: error.message,
+					url: request.url,
+					body: JSON.stringify(body).slice(0, 2000),
+					// Log the validation error details
+					all: JSON.stringify(error.all, null, 2),
+				},
+				"validation error in AI route"
+			);
+		}
+	})
+	.post(
+		"/chat",
+		async ({ body, set, request }) => {
+			log.debug({ body: JSON.stringify(body).slice(0, 1000) }, "received chat request body");
 		if (!config.OPENROUTER_API_KEY) {
 			log.error("OPENROUTER_API_KEY not configured");
 			set.status = 500;
