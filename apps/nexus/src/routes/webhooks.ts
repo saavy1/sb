@@ -84,7 +84,7 @@ export const webhookRoutes = new Elysia({ prefix: "/webhooks" }).post(
 	{
 		detail: { tags: ["Webhooks"], summary: "GitHub Actions webhook for deployments" },
 		body: t.Object({
-			trigger: t.String(),
+			trigger: t.Union([t.Literal("nixos-rebuild"), t.Literal("flux-reconcile")]),
 			actor: t.Optional(t.String()),
 		}),
 		response: {
