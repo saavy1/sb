@@ -1,3 +1,4 @@
+import type { GameServerType } from "@nexus/domains/game-servers/types";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
 	AlertTriangle,
@@ -21,14 +22,14 @@ export const Route = createFileRoute("/")({
 	component: HomePage,
 });
 
-type ServersResponse = Awaited<ReturnType<typeof client.api.gameServers.get>>["data"];
+// Drive suggestions don't have a shared type yet, so extract from API
 type SuggestedDrive = Awaited<
 	ReturnType<typeof client.api.systemInfo.drives.suggestions.get>
 >["data"];
 
 function HomePage() {
 	const { connected, systemInfo, cpuHistory, memHistory } = useConnection();
-	const [servers, setServers] = useState<NonNullable<ServersResponse>>([]);
+	const [servers, setServers] = useState<GameServerType[]>([]);
 	const [suggestions, setSuggestions] = useState<NonNullable<SuggestedDrive>>([]);
 	const [showNetDetails, setShowNetDetails] = useState(false);
 	const [currentTime, setCurrentTime] = useState(new Date());

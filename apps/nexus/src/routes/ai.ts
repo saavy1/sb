@@ -1,10 +1,13 @@
 import { chat, toolDefinition, toStreamResponse } from "@tanstack/ai";
 import { createOpenAI } from "@tanstack/ai-openai";
-import { Elysia } from "elysia";
+import { Elysia, t } from "elysia";
+import logger from "logger";
 import { z } from "zod";
 import { gameServerService } from "../domains/game-servers/service";
 import { systemInfoService } from "../domains/system-info/service";
 import { config } from "../infra/config";
+
+const log = logger.child({ module: "ai" });
 
 const SYSTEM_PROMPT = `You are The Machine, the AI assistant for Superbloom - a homelab server running NixOS with K3s.
 
@@ -172,46 +175,68 @@ const getDrives = getDrivesDef.server(async () => {
 
 const allTools = [listServers, getServer, startServer, stopServer, getSystemStats, getDrives];
 
-export const aiRoutes = new Elysia({ prefix: "/ai" }).post("/chat", async ({ request, set }) => {
-	if (!config.OPENROUTER_API_KEY) {
-		set.status = 500;
-		return { error: "OPENROUTER_API_KEY not configured" };
-	}
-
-	try {
-		const body = await request.json();
-		const { messages } = body as {
-			messages: Array<{ role: "user" | "assistant"; content: string }>;
-		};
-
-		const adapter = createOpenAI(config.OPENROUTER_API_KEY, {
-			baseURL: "https://openrouter.ai/api/v1",
-		});
-
-		// Build messages array with system prompt
-		const messagesWithSystem = [
-			{
-				role: "user" as const,
-				content: `[SYSTEM]\n${SYSTEM_PROMPT}\n[/SYSTEM]\n\nPlease acknowledge you understand these instructions.`,
-			},
-			{
-				role: "assistant" as const,
-				content: "I understand. I'm The Machine, ready to help manage your Superbloom homelab.",
-			},
-			...messages,
-		];
-
-		// Cast model for OpenRouter compatibility (supports non-OpenAI models)
-		const stream = chat({
-			adapter,
-			messages: messagesWithSystem,
-			model: config.AI_MODEL as string as (typeof adapter.models)[number],
-			tools: allTools,
-		});
-
-		return toStreamResponse(stream);
-	} catch (error) {
-		set.status = 500;
-		return { error: error instanceof Error ? error.message : "Chat failed" };
-	}
+// Request/response types for AI chat endpoint
+const ChatMessage = t.Object({
+	role: t.Union([t.Literal("user"), t.Literal("assistant")]),
+	content: t.String(),
 });
+
+const ChatRequestBody = t.Object({
+	messages: t.Array(ChatMessage),
+});
+
+const ErrorResponse = t.Object({
+	error: t.String(),
+});
+
+export const aiRoutes = new Elysia({ prefix: "/ai" }).post(
+	"/chat",
+	async ({ body, set }) => {
+		if (!config.OPENROUTER_API_KEY) {
+			log.error("OPENROUTER_API_KEY not configured");
+			set.status = 500;
+			return { error: "OPENROUTER_API_KEY not configured" };
+		}
+
+		log.info({ messageCount: body.messages.length }, "processing chat request");
+
+		try {
+			const adapter = createOpenAI(config.OPENROUTER_API_KEY, {
+				baseURL: "https://openrouter.ai/api/v1",
+			});
+
+			// Build messages array with system prompt
+			const messagesWithSystem = [
+				{
+					role: "user" as const,
+					content: `[SYSTEM]\n${SYSTEM_PROMPT}\n[/SYSTEM]\n\nPlease acknowledge you understand these instructions.`,
+				},
+				{
+					role: "assistant" as const,
+					content: "I understand. I'm The Machine, ready to help manage your Superbloom homelab.",
+				},
+				...body.messages,
+			];
+
+			// Cast model for OpenRouter compatibility (supports non-OpenAI models)
+			const stream = chat({
+				adapter,
+				messages: messagesWithSystem,
+				model: config.AI_MODEL as string as (typeof adapter.models)[number],
+				tools: allTools,
+			});
+
+			log.info({ model: config.AI_MODEL }, "streaming chat response");
+			return toStreamResponse(stream);
+		} catch (err) {
+			log.error({ error: err }, "chat request failed");
+			set.status = 500;
+			return { error: err instanceof Error ? err.message : "Chat failed" };
+		}
+	},
+	{
+		body: ChatRequestBody,
+		response: { 500: ErrorResponse },
+		detail: { tags: ["AI"], summary: "Chat with The Machine AI assistant" },
+	}
+);

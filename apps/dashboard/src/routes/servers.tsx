@@ -1,3 +1,4 @@
+import type { GameServerType } from "@nexus/domains/game-servers/types";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Play, Plus, RefreshCw, Square, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
@@ -9,10 +10,8 @@ export const Route = createFileRoute("/servers")({
 	component: ServersPage,
 });
 
-type ServerResponse = Awaited<ReturnType<typeof client.api.gameServers.get>>["data"];
-
 function ServersPage() {
-	const [servers, setServers] = useState<NonNullable<ServerResponse>>([]);
+	const [servers, setServers] = useState<GameServerType[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [selectedIndex, setSelectedIndex] = useState(0);

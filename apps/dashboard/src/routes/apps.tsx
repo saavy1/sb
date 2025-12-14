@@ -1,3 +1,4 @@
+import type { AppCategoryType, AppWithStatusType } from "@nexus/domains/apps/types";
 import { useForm } from "@tanstack/react-form";
 import { createFileRoute } from "@tanstack/react-router";
 import {
@@ -24,10 +25,6 @@ export const Route = createFileRoute("/apps")({
 	component: AppsPage,
 });
 
-type AppsResponse = Awaited<ReturnType<typeof client.api.apps.get>>["data"];
-type App = NonNullable<AppsResponse>[number];
-type AppCategory = App["category"];
-
 const categoryIcons: Record<string, React.ReactNode> = {
 	media: <Film size={14} />,
 	tools: <Hammer size={14} />,
@@ -45,7 +42,7 @@ const categoryLabels: Record<string, string> = {
 };
 
 function AppsPage() {
-	const [apps, setApps] = useState<NonNullable<AppsResponse>>([]);
+	const [apps, setApps] = useState<AppWithStatusType[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [showAddForm, setShowAddForm] = useState(false);
 
@@ -93,7 +90,7 @@ function AppsPage() {
 			acc[cat].push(app);
 			return acc;
 		},
-		{} as Record<string, App[]>
+		{} as Record<string, AppWithStatusType[]>
 	);
 
 	const categoryOrder = ["media", "tools", "monitoring", "development", "other"];
@@ -177,7 +174,7 @@ function AppCard({
 	onDelete,
 	onRefresh,
 }: {
-	app: App;
+	app: AppWithStatusType;
 	onDelete: () => void;
 	onRefresh: () => void;
 }) {
@@ -250,7 +247,7 @@ function AddAppForm({ onClose, onSuccess }: { onClose: () => void; onSuccess: ()
 			name: "",
 			url: "",
 			icon: "",
-			category: "other" as AppCategory,
+			category: "other" as AppCategoryType,
 			description: "",
 			healthCheckUrl: "",
 		},
@@ -358,7 +355,7 @@ function AddAppForm({ onClose, onSuccess }: { onClose: () => void; onSuccess: ()
 									id="category"
 									value={field.state.value}
 									onBlur={field.handleBlur}
-									onChange={(e) => field.handleChange(e.target.value as AppCategory)}
+									onChange={(e) => field.handleChange(e.target.value as AppCategoryType)}
 									className="w-full px-3 py-2 bg-background border border-border rounded text-sm focus:outline-none focus:border-accent"
 								>
 									<option value="media">Media</option>

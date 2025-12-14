@@ -1,24 +1,27 @@
 import { Client, Events, GatewayIntentBits, REST, Routes } from "discord.js";
+import logger from "logger";
 import { commands, handleCommand } from "./commands";
 import { config } from "./config";
+
+const log = logger.child({ module: "the-machine" });
 
 const client = new Client({
 	intents: [GatewayIntentBits.Guilds],
 });
 
 client.once(Events.ClientReady, async (readyClient) => {
-	console.log(`Bot ready as ${readyClient.user.tag}`);
+	log.info({ tag: readyClient.user.tag }, "bot ready");
 
 	// Register commands globally
 	const rest = new REST().setToken(config.DISCORD_TOKEN);
 	try {
-		console.log("Registering slash commands...");
+		log.info("registering slash commands");
 		await rest.put(Routes.applicationCommands(config.DISCORD_CLIENT_ID), {
 			body: commands.map((c) => c.toJSON()),
 		});
-		console.log("Slash commands registered.");
+		log.info({ commandCount: commands.length }, "slash commands registered");
 	} catch (error) {
-		console.error("Failed to register commands:", error);
+		log.error({ error }, "failed to register commands");
 	}
 
 	readyClient.user.setActivity("managing servers");
@@ -27,10 +30,14 @@ client.once(Events.ClientReady, async (readyClient) => {
 client.on(Events.InteractionCreate, async (interaction) => {
 	if (!interaction.isChatInputCommand()) return;
 
+	const commandName = interaction.commandName;
+	log.info({ command: commandName, user: interaction.user.tag }, "command received");
+
 	try {
 		await handleCommand(interaction);
+		log.info({ command: commandName }, "command completed");
 	} catch (error) {
-		console.error("Command error:", error);
+		log.error({ error, command: commandName }, "command error");
 		const content = "An error occurred while executing this command.";
 		if (interaction.deferred || interaction.replied) {
 			await interaction.followUp({ content, flags: 64 });

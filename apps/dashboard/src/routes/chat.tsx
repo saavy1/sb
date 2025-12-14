@@ -1,19 +1,16 @@
+import type { ConversationType } from "@nexus/domains/chat/types";
 import { createFileRoute } from "@tanstack/react-router";
 import { Check, MessageSquarePlus, Pencil, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Chat } from "../components/Chat";
 import { client } from "../lib/api";
 
-// Infer type from API
-type ConversationsResponse = Awaited<ReturnType<typeof client.api.conversations.get>>["data"];
-type Conversation = NonNullable<ConversationsResponse>[number];
-
 export const Route = createFileRoute("/chat")({
 	component: ChatPage,
 });
 
 function ChatPage() {
-	const [conversations, setConversations] = useState<Conversation[]>([]);
+	const [conversations, setConversations] = useState<ConversationType[]>([]);
 	const [activeId, setActiveId] = useState<string | null>(null);
 	const [editingId, setEditingId] = useState<string | null>(null);
 	const [editTitle, setEditTitle] = useState("");
@@ -34,7 +31,7 @@ function ChatPage() {
 		setActiveId(null);
 	};
 
-	const handleStartEdit = (conv: Conversation, e: React.MouseEvent) => {
+	const handleStartEdit = (conv: ConversationType, e: React.MouseEvent) => {
 		e.stopPropagation();
 		setEditingId(conv.id);
 		setEditTitle(conv.title || "");
