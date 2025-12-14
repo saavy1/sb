@@ -84,13 +84,13 @@ spec:
     clusterMetrics:
       enabled: true
       kepler:
-        enabled: true
+        enabled: false  # High cardinality, disable to save series
 
     annotationAutodiscovery:
-      enabled: true
+      enabled: false  # Disable auto-scraping to control series count
 
     prometheusOperatorObjects:
-      enabled: true
+      enabled: false  # Disable ServiceMonitor/PodMonitor scraping
 
     clusterEvents:
       enabled: true
@@ -121,19 +121,20 @@ spec:
         deliverTracesToApplicationObservability: true
 
     profiling:
-      enabled: true
+      enabled: false  # Disable to reduce resource usage
 
-    integrations:
-      alloy:
-        instances:
-          - name: alloy
-            labelSelectors:
-              app.kubernetes.io/name:
-                - alloy-metrics
-                - alloy-singleton
-                - alloy-logs
-                - alloy-receiver
-                - alloy-profiles
+    # Disable alloy self-monitoring to save metrics series
+    # integrations:
+    #   alloy:
+    #     instances:
+    #       - name: alloy
+    #         labelSelectors:
+    #           app.kubernetes.io/name:
+    #             - alloy-metrics
+    #             - alloy-singleton
+    #             - alloy-logs
+    #             - alloy-receiver
+    #             - alloy-profiles
 
     alloy-metrics:
       enabled: true
@@ -170,6 +171,6 @@ spec:
             protocol: TCP
 
     alloy-profiles:
-      enabled: true
+      enabled: false  # Disabled since profiling is off
       remoteConfig:
         enabled: false
