@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { drizzle } from "drizzle-orm/bun-sqlite";
 import * as coreSchema from "../domains/core/schema";
 import * as gameServerSchema from "../domains/game-servers/schema";
+import * as opsSchema from "../domains/ops/schema";
 import * as systemInfoSchema from "../domains/system-info/schema";
 import { config } from "./config";
 
@@ -18,11 +19,15 @@ const coreSqlite = new Database(join(dbPath, "core.sqlite"), {
 const systemInfoSqlite = new Database(join(dbPath, "system-info.sqlite"), {
 	create: true,
 });
+const opsSqlite = new Database(join(dbPath, "ops.sqlite"), {
+	create: true,
+});
 
 // Enable WAL mode for better concurrency
 minecraftSqlite.exec("PRAGMA journal_mode = WAL;");
 coreSqlite.exec("PRAGMA journal_mode = WAL;");
 systemInfoSqlite.exec("PRAGMA journal_mode = WAL;");
+opsSqlite.exec("PRAGMA journal_mode = WAL;");
 
 // Drizzle instances with schemas
 export const minecraftDb = drizzle(minecraftSqlite, {
@@ -32,13 +37,15 @@ export const coreDb = drizzle(coreSqlite, { schema: coreSchema });
 export const systemInfoDb = drizzle(systemInfoSqlite, {
 	schema: systemInfoSchema,
 });
+export const opsDb = drizzle(opsSqlite, { schema: opsSchema });
 
 // Export schemas for easy access
-export { gameServerSchema, coreSchema, systemInfoSchema };
+export { gameServerSchema, coreSchema, systemInfoSchema, opsSchema };
 
 // Graceful shutdown
 process.on("beforeExit", () => {
 	minecraftSqlite.close();
 	coreSqlite.close();
 	systemInfoSqlite.close();
+	opsSqlite.close();
 });

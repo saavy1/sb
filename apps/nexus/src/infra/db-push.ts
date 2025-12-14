@@ -107,4 +107,30 @@ systemInfoDb.run(sql`CREATE INDEX IF NOT EXISTS idx_drives_path ON drives(path)`
 logger.info({ database: "system-info" }, "Schema pushed");
 systemInfoSqlite.close();
 
+// Push ops schema
+logger.info({ database: "ops" }, "Pushing schema");
+const opsSqlite = new Database(join(dbPath, "ops.sqlite"), { create: true });
+opsSqlite.exec("PRAGMA journal_mode = WAL;");
+const opsDb = drizzle(opsSqlite);
+
+opsDb.run(sql`
+  CREATE TABLE IF NOT EXISTS operations (
+    id TEXT PRIMARY KEY,
+    type TEXT NOT NULL,
+    status TEXT NOT NULL,
+    triggered_by TEXT NOT NULL,
+    triggered_by_user TEXT,
+    output TEXT,
+    error_message TEXT,
+    started_at TEXT NOT NULL,
+    completed_at TEXT,
+    duration_ms INTEGER
+  )
+`);
+opsDb.run(sql`CREATE INDEX IF NOT EXISTS idx_operations_type ON operations(type)`);
+opsDb.run(sql`CREATE INDEX IF NOT EXISTS idx_operations_status ON operations(status)`);
+opsDb.run(sql`CREATE INDEX IF NOT EXISTS idx_operations_started_at ON operations(started_at)`);
+logger.info({ database: "ops" }, "Schema pushed");
+opsSqlite.close();
+
 logger.info("All schemas pushed successfully");

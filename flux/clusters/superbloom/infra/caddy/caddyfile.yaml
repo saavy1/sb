@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: caddyfile
+  namespace: caddy-system
+data:
+  Caddyfile: |
+    # Global options
+    {
+        email jayson@saavylab.com
+    }
+
+    # Authelia portal - no forward_auth (would cause redirect loop)
+    auth.saavylab.dev {
+        reverse_proxy authelia.authelia.svc.cluster.local:9091
+    }
+
+    # Nexus dashboard - protected with forward_auth
+    nexus.saavylab.dev {
+        forward_auth authelia.authelia.svc.cluster.local:9091 {
+            uri /api/authz/forward-auth
+            copy_headers Remote-User Remote-Groups Remote-Email Remote-Name
+        }
+        reverse_proxy nexus.nexus.svc.cluster.local:3000
+    }
+
+    # Health endpoint (optional - for k8s probes on the caddy service itself)
+    :80 {
+        respond /health 200
+    }

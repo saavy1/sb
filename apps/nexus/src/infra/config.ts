@@ -1,25 +1,32 @@
 export const config = {
-	PORT: Number(process.env.PORT) || 3000,
-	NODE_ENV: process.env.NODE_ENV || "development",
+	PORT: Number(Bun.env.PORT) || 3000,
+	NODE_ENV: Bun.env.NODE_ENV || "development",
 
 	// Database paths
-	DB_PATH: process.env.DB_PATH || "./db",
+	DB_PATH: Bun.env.DB_PATH || "./db",
 
 	// Internal API key for K8s svc-to-svc communication
-	INTERNAL_API_KEY: process.env.INTERNAL_API_KEY,
+	INTERNAL_API_KEY: Bun.env.INTERNAL_API_KEY,
 
 	// Kubernetes
-	K8S_NAMESPACE: process.env.K8S_NAMESPACE || "game-servers",
-	K8S_IN_CLUSTER: process.env.KUBERNETES_SERVICE_HOST !== undefined,
+	K8S_NAMESPACE: Bun.env.K8S_NAMESPACE || "game-servers",
+	K8S_IN_CLUSTER: Bun.env.KUBERNETES_SERVICE_HOST !== undefined,
 
 	// Minecraft defaults
-	MC_DEFAULT_MEMORY: process.env.MC_DEFAULT_MEMORY || "8Gi",
-	MC_DEFAULT_PORT: Number(process.env.MC_DEFAULT_PORT) || 25565,
-	MC_STORAGE_CLASS: process.env.MC_STORAGE_CLASS || "local-path",
-	MC_STORAGE_SIZE: process.env.MC_STORAGE_SIZE || "50Gi",
+	MC_DEFAULT_MEMORY: Bun.env.MC_DEFAULT_MEMORY || "8Gi",
+	MC_DEFAULT_PORT: Number(Bun.env.MC_DEFAULT_PORT) || 25565,
+	MC_STORAGE_CLASS: Bun.env.MC_STORAGE_CLASS || "local-path",
+	MC_STORAGE_SIZE: Bun.env.MC_STORAGE_SIZE || "50Gi",
 
 	// CurseForge API (for modpack metadata)
-	CURSEFORGE_API_KEY: process.env.CURSEFORGE_API_KEY,
+	CURSEFORGE_API_KEY: Bun.env.CURSEFORGE_API_KEY,
+
+	// Ops / Infrastructure automation (uses Tailscale SSH - no keys needed)
+	OPS_SSH_HOST: Bun.env.OPS_SSH_HOST || "superbloom",
+	OPS_SSH_USER: Bun.env.OPS_SSH_USER || "root",
+	OPS_FLAKE_PATH: Bun.env.OPS_FLAKE_PATH || "/home/saavy/dev/sb",
+	OPS_FLAKE_TARGET: Bun.env.OPS_FLAKE_TARGET || "superbloom",
+	GITHUB_WEBHOOK_SECRET: Bun.env.GITHUB_WEBHOOK_SECRET,
 } as const;
 
 export const isDev = config.NODE_ENV === "development";

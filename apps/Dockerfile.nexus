@@ -1,47 +1,45 @@
 FROM oven/bun:1 AS base
-WORKDIR /workspace
-
-# Copy entire workspace for dependency resolution
-COPY tsconfig.json package.json bun.lock ./
-COPY nexus/package.json nexus/tsconfig.json ./nexus/
-COPY the-machine/package.json ./the-machine/
-COPY dashboard/package.json dashboard/tsconfig.json ./dashboard/
-COPY logger ./logger/
-
-# Install all dependencies
-RUN bun install
-
-# Copy Nexus source (needed for dashboard types)
-FROM base AS build
-COPY nexus/src ./nexus/src
-
-# Build dashboard
-FROM build AS build-dashboard
-COPY dashboard ./dashboard/
-RUN cd dashboard && bun vite build
-
-# Runtime
-FROM oven/bun:1 AS runtime
 WORKDIR /app
 
-# Create db and public directories
-RUN mkdir -p /app/db /app/public && chown -R bun:bun /app/db /app/public
+# Copy package files for dependency resolution
+COPY package.json bun.lock ./
+COPY nexus/package.json ./nexus/
+COPY dashboard/package.json ./dashboard/
+COPY the-machine/package.json ./the-machine/
+COPY logger/package.json ./logger/
 
-# Copy built artifacts and dependencies
-COPY --from=base /workspace/nexus/node_modules ./node_modules
-COPY --from=build /workspace/nexus/src ./src
-COPY --from=build-dashboard /workspace/dashboard/dist ./public
-COPY --from=base /workspace/logger ./node_modules/logger
-COPY nexus/package.json ./
+# Install dependencies
+RUN bun install --frozen-lockfile
 
-# SQLite databases will be stored here
-VOLUME /app/db
+# Copy source code
+COPY tsconfig.json ./
+COPY logger ./logger/
+COPY nexus ./nexus/
+COPY dashboard ./dashboard/
+
+# Remove any stale compiled JS from nexus/dist (we run TypeScript directly with Bun)
+RUN rm -rf /app/nexus/dist
+
+# Build dashboard (skip tsc, typecheck runs in CI)
+RUN cd dashboard && bun vite build
+
+# Install SSH client for ops domain (Tailscale SSH handles auth)
+RUN apt-get update && apt-get install -y openssh-client && rm -rf /var/lib/apt/lists/*
+
+# Create db directory and copy dashboard build to nexus/public
+RUN mkdir -p /app/db /app/nexus/public && \
+    cp -r /app/dashboard/dist/* /app/nexus/public/
 
 ENV PORT=3000
 ENV DB_PATH=/app/db
 ENV NODE_ENV=production
 
+# Remove .env.example (we use Docker ENV instead)
+RUN rm -f /app/nexus/.env.example
+
 EXPOSE 3000
 
-USER bun
-CMD ["bun", "run", "src/index.ts"]
+WORKDIR /app/nexus
+
+# Start the server
+CMD ["bun", "src/index.ts"]
