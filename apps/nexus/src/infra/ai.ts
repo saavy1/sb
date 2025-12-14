@@ -17,7 +17,10 @@ export async function generateConversationTitle(
 	userMessage: string,
 	assistantResponse: string
 ): Promise<string | null> {
-	log.info({ userMessageLength: userMessage.length, assistantResponseLength: assistantResponse.length }, "generating conversation title");
+	log.info(
+		{ userMessageLength: userMessage.length, assistantResponseLength: assistantResponse.length },
+		"generating conversation title"
+	);
 
 	if (!config.OPENROUTER_API_KEY) {
 		log.warn("OPENROUTER_API_KEY not configured, skipping title generation");
@@ -49,7 +52,7 @@ export async function generateConversationTitle(
 
 		const data = (await response.json()) as OpenRouterResponse;
 		const title = data.choices[0]?.message?.content?.trim();
-		
+
 		log.info({ title }, "generated conversation title");
 		return title || null;
 	} catch (error) {
