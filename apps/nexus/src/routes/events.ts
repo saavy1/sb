@@ -35,9 +35,7 @@ function setupEventBroadcasting() {
 // Initialize broadcasting on module load
 setupEventBroadcasting();
 
-export const eventsRoutes = new Elysia({ prefix: "/events" })
-	.use(autheliaMiddleware)
-	.ws("/", {
+export const eventsRoutes = new Elysia({ prefix: "/events" }).use(autheliaMiddleware).ws("/", {
 	open(ws) {
 		const user = ws.data.user;
 
