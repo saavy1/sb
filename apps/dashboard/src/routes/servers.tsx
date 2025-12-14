@@ -22,7 +22,7 @@ function ServersPage() {
 		try {
 			const { data, error } = await client.api.gameServers.get();
 			if (error) throw error;
-			if (data) setServers(data);
+			if (Array.isArray(data)) setServers(data);
 			setError(null);
 		} catch {
 			setError("Failed to fetch servers");

@@ -12,6 +12,7 @@
       ./modules/tailscale.nix
       ./modules/k3s.nix
       ./modules/firewall.nix
+      ./modules/intel-gpu.nix
     ];
 
   # Bootloader.
