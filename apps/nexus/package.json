@@ -21,9 +21,12 @@
 		"@elysiajs/openapi": "^1.4.11",
 		"@elysiajs/static": "^1.1.1",
 		"@kubernetes/client-node": "^1.4.0",
+		"@tanstack/ai": "^0.0.3",
+		"@tanstack/ai-openai": "^0.0.3",
 		"drizzle-orm": "^0.45.1",
 		"elysia": "catalog:",
-		"logger": "workspace:*"
+		"logger": "workspace:*",
+		"zod": "^4.1.13"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "catalog:",

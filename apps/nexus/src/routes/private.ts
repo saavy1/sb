@@ -5,6 +5,7 @@ import { gameServerRoutes } from "../domains/game-servers/routes";
 import { opsRoutes } from "../domains/ops/routes";
 import { systemInfoRoutes } from "../domains/system-info/routes";
 import { autheliaMiddleware } from "../middleware/authelia";
+import { aiRoutes } from "./ai";
 
 export const privateRoutes = new Elysia({ prefix: "/api" })
 	.use(autheliaMiddleware)
@@ -12,6 +13,7 @@ export const privateRoutes = new Elysia({ prefix: "/api" })
 	.use(gameServerRoutes)
 	.use(systemInfoRoutes)
 	.use(opsRoutes)
+	.use(aiRoutes)
 	.onBeforeHandle(({ user, path }) => {
 		// In production with Authelia, user will always be set for /api/* routes
 		// because Authelia handles auth at the ingress level
