@@ -2,12 +2,42 @@ import { fetchServerSentEvents, useChat } from "@tanstack/ai-react";
 import { Bot, Loader2, Send, User } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import Markdown from "react-markdown";
+import { z } from "zod";
 import { API_URL, client } from "../lib/api";
 
-interface Props {
+// Zod schemas for TanStack AI message parts (loose types from library)
+const MessagePartSchema = z.object({
+	type: z.string(),
+	content: z.string().optional(),
+	text: z.string().optional(),
+	name: z.string().optional(),
+	toolName: z.string().optional(),
+	id: z.string().optional(),
+});
+
+const UIMessageSchema = z.object({
+	id: z.string(),
+	role: z.enum(["user", "assistant"]),
+	content: z.string().nullish(),
+	parts: z.array(MessagePartSchema).nullish(),
+});
+
+type MessagePart = z.infer<typeof MessagePartSchema>;
+type UIMessage = z.infer<typeof UIMessageSchema>;
+
+// Type for API message response
+type ApiMessage = {
+	id: string;
+	role: string;
+	content: string | null;
+	parts: unknown[] | null;
+	createdAt: string;
+};
+
+type Props = {
 	conversationId?: string;
 	onConversationChange?: (id: string | null) => void;
-}
+};
 
 export function Chat({ conversationId, onConversationChange }: Props) {
 	const [input, setInput] = useState("");
@@ -31,12 +61,13 @@ export function Chat({ conversationId, onConversationChange }: Props) {
 		const loadConversation = async () => {
 			const { data } = await client.api.conversations({ id: activeConversationId }).get();
 			if (data && "messages" in data && Array.isArray(data.messages)) {
-				const uiMessages = data.messages.map((m: any) => ({
+				const uiMessages = data.messages.map((m: ApiMessage) => ({
 					id: m.id,
-					role: m.role,
-					parts: m.parts || [{ type: "text", content: m.content }],
+					role: m.role as "user" | "assistant",
+					parts: (m.parts as MessagePart[]) || [{ type: "text", content: m.content ?? undefined }],
 				}));
-				setMessages(uiMessages);
+				// Cast needed due to TanStack AI's internal UIMessage type
+				setMessages(uiMessages as unknown as Parameters<typeof setMessages>[0]);
 				lastMessageCountRef.current = uiMessages.length;
 			}
 		};
@@ -51,10 +82,11 @@ export function Chat({ conversationId, onConversationChange }: Props) {
 		const saveNewMessages = async () => {
 			const newMessages = messages.slice(lastMessageCountRef.current);
 			for (const msg of newMessages) {
+				const typedMsg = msg as unknown as UIMessage;
 				await client.api.conversations({ id: activeConversationId }).messages.post({
 					role: msg.role,
-					content: (msg as any).content,
-					parts: (msg as any).parts,
+					content: typedMsg.content ?? undefined,
+					parts: typedMsg.parts ?? undefined,
 				});
 			}
 			lastMessageCountRef.current = messages.length;
@@ -161,7 +193,9 @@ export function Chat({ conversationId, onConversationChange }: Props) {
 	);
 }
 
-function MessageContent({ message }: { message: any }) {
+function MessageContent({ message: rawMessage }: { message: unknown }) {
+	// Cast to our local type - TanStack AI's internal types are complex
+	const message = rawMessage as UIMessage;
 	// Clean DeepSeek tool call markers from text
 	const cleanText = (text: string): string => {
 		return text
@@ -182,17 +216,17 @@ function MessageContent({ message }: { message: any }) {
 		if (Array.isArray(message.parts)) {
 			// Try type: "text" with content property (TanStack AI format)
 			let textParts = message.parts
-				.filter((p: any) => p.type === "text" && p.content)
-				.map((p: any) => cleanText(p.content))
-				.filter((t: string) => t)
+				.filter((p) => p.type === "text" && p.content)
+				.map((p) => cleanText(p.content ?? ""))
+				.filter((t) => t)
 				.join("\n\n");
 			if (textParts) return textParts;
 
 			// Try type: "text" with text property
 			textParts = message.parts
-				.filter((p: any) => p.type === "text" && p.text)
-				.map((p: any) => cleanText(p.text))
-				.filter((t: string) => t)
+				.filter((p) => p.type === "text" && p.text)
+				.map((p) => cleanText(p.text ?? ""))
+				.filter((t) => t)
 				.join("\n\n");
 			if (textParts) return textParts;
 		}
@@ -202,7 +236,7 @@ function MessageContent({ message }: { message: any }) {
 
 	const textContent = getTextContent();
 	const toolParts = Array.isArray(message.parts)
-		? message.parts.filter((p: any) => p.type === "tool-call" || p.type === "tool-result")
+		? message.parts.filter((p) => p.type === "tool-call" || p.type === "tool-result")
 		: [];
 
 	return (
@@ -212,10 +246,13 @@ function MessageContent({ message }: { message: any }) {
 					<Markdown>{textContent}</Markdown>
 				</div>
 			)}
-			{toolParts.map((part: any, i: number) => {
+			{toolParts.map((part) => {
 				if (part.type === "tool-call") {
 					return (
-						<div key={i} className="my-1 rounded bg-zinc-700/50 px-2 py-1 text-xs text-zinc-400">
+						<div
+							key={part.id ?? part.name ?? part.toolName}
+							className="my-1 rounded bg-zinc-700/50 px-2 py-1 text-xs text-zinc-400"
+						>
 							⚡ {part.name || part.toolName}
 						</div>
 					);
