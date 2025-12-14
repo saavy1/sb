@@ -5,6 +5,7 @@ import { chatService } from "./service";
 
 const log = logger.child({ module: "chat" });
 
+// Request body types
 const MessagePartSchema = t.Object({
 	type: t.String(),
 	content: t.Optional(t.String()),
@@ -17,9 +18,15 @@ const MessagePartSchema = t.Object({
 });
 
 export const chatRoutes = new Elysia({ prefix: "/conversations" })
-	.get("/", () => {
-		return chatService.listConversations();
-	})
+	.get(
+		"/",
+		() => {
+			return chatService.listConversations();
+		},
+		{
+			detail: { tags: ["Chat"], summary: "List all conversations" },
+		}
+	)
 	.post(
 		"/",
 		({ body }) => {
@@ -29,13 +36,15 @@ export const chatRoutes = new Elysia({ prefix: "/conversations" })
 			body: t.Object({
 				title: t.Optional(t.String()),
 			}),
+			detail: { tags: ["Chat"], summary: "Create a new conversation" },
 		}
 	)
 	.get(
 		"/:id",
-		({ params }) => {
+		({ params, set }) => {
 			const conversation = chatService.getConversation(params.id);
 			if (!conversation) {
+				set.status = 404;
 				return { error: "Conversation not found" };
 			}
 			return conversation;
@@ -44,13 +53,15 @@ export const chatRoutes = new Elysia({ prefix: "/conversations" })
 			params: t.Object({
 				id: t.String(),
 			}),
+			detail: { tags: ["Chat"], summary: "Get a conversation by ID" },
 		}
 	)
 	.patch(
 		"/:id",
-		({ params, body }) => {
+		({ params, body, set }) => {
 			const conversation = chatService.updateConversationTitle(params.id, body.title);
 			if (!conversation) {
+				set.status = 404;
 				return { error: "Conversation not found" };
 			}
 			return conversation;
@@ -62,13 +73,15 @@ export const chatRoutes = new Elysia({ prefix: "/conversations" })
 			body: t.Object({
 				title: t.String(),
 			}),
+			detail: { tags: ["Chat"], summary: "Update conversation title" },
 		}
 	)
 	.delete(
 		"/:id",
-		({ params }) => {
+		({ params, set }) => {
 			const deleted = chatService.deleteConversation(params.id);
 			if (!deleted) {
+				set.status = 404;
 				return { error: "Conversation not found" };
 			}
 			return { success: true };
@@ -77,19 +90,25 @@ export const chatRoutes = new Elysia({ prefix: "/conversations" })
 			params: t.Object({
 				id: t.String(),
 			}),
+			detail: { tags: ["Chat"], summary: "Delete a conversation" },
 		}
 	)
 	.post(
 		"/:id/messages",
-		async ({ params, body }) => {
+		async ({ params, body, set }) => {
 			log.info(
-				{ conversationId: params.id, role: body.role, hasContent: !!body.content },
+				{
+					conversationId: params.id,
+					role: body.role,
+					hasContent: !!body.content,
+				},
 				"adding message to conversation"
 			);
 
 			const conversation = chatService.getConversation(params.id);
 			if (!conversation) {
 				log.warn({ conversationId: params.id }, "conversation not found");
+				set.status = 404;
 				return { error: "Conversation not found" };
 			}
 
@@ -116,7 +135,10 @@ export const chatRoutes = new Elysia({ prefix: "/conversations" })
 				const assistantContent = body.content || "";
 
 				log.info(
-					{ hasUserContent: !!userContent, hasAssistantContent: !!assistantContent },
+					{
+						hasUserContent: !!userContent,
+						hasAssistantContent: !!assistantContent,
+					},
 					"checking title generation conditions"
 				);
 
@@ -147,5 +169,6 @@ export const chatRoutes = new Elysia({ prefix: "/conversations" })
 				content: t.Optional(t.String()),
 				parts: t.Optional(t.Array(MessagePartSchema)),
 			}),
+			detail: { tags: ["Chat"], summary: "Add a message to a conversation" },
 		}
 	);

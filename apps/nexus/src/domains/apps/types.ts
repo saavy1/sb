@@ -64,3 +64,8 @@ export const AppListResponse = t.Array(AppWithStatusResponse);
 export const ApiError = t.Object({
 	error: t.String(),
 });
+
+// TypeScript types for consumers (Dashboard, The Machine)
+export type AppCategoryType = typeof AppCategory.static;
+export type AppType = typeof AppResponse.static;
+export type AppWithStatusType = typeof AppWithStatusResponse.static;
