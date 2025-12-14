@@ -78,11 +78,23 @@ export const SystemStats = t.Object({
 	disk: DiskStats,
 	network: NetworkStats,
 	gpu: GpuStats,
+	uptime: t.Object({
+		seconds: t.Number(),
+		formatted: t.String(),
+	}),
+});
+
+export const DatabaseInfo = t.Object({
+	name: t.String(),
+	domain: t.String(),
+	sizeBytes: t.Number(),
+	sizeFormatted: t.String(),
 });
 
 export const SystemOverview = t.Object({
 	drives: t.Array(DriveWithStats),
 	stats: SystemStats,
+	databases: t.Array(DatabaseInfo),
 });
 
 export const CreateDriveRequest = t.Object({

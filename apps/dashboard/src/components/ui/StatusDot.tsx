@@ -12,21 +12,40 @@ const statusColors: Record<Status, string> = {
 	unknown: "bg-status-unknown",
 };
 
+const sizes = {
+	sm: "w-1.5 h-1.5",
+	md: "w-2 h-2",
+	lg: "w-2.5 h-2.5",
+};
+
 interface StatusDotProps {
 	status: Status;
 	pulse?: boolean;
+	size?: "sm" | "md" | "lg";
 	className?: string;
 }
 
-export function StatusDot({ status, pulse, className }: StatusDotProps) {
+export function StatusDot({ status, pulse, size = "md", className }: StatusDotProps) {
+	const isTransitioning = status === "starting" || status === "stopping";
+
 	return (
-		<span
-			className={cn(
-				"inline-block w-2 h-2 rounded-full",
-				statusColors[status],
-				pulse && "animate-pulse",
-				className
+		<span className={cn("relative inline-flex shrink-0", className)}>
+			<span
+				className={cn(
+					"inline-block rounded-full",
+					sizes[size],
+					statusColors[status],
+					(pulse || isTransitioning) && "animate-pulse"
+				)}
+			/>
+			{isTransitioning && (
+				<span
+					className={cn(
+						"absolute inline-flex h-full w-full rounded-full opacity-75 animate-ping",
+						statusColors[status]
+					)}
+				/>
 			)}
-		/>
+		</span>
 	);
 }

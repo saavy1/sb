@@ -1,14 +1,17 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync, statSync } from "node:fs";
 import os from "node:os";
+import { join } from "node:path";
 import { $ } from "bun";
 import { eq } from "drizzle-orm";
 import type { Static } from "elysia";
 import logger from "logger";
+import { config } from "../../infra/config";
 import { systemInfoDb } from "../../infra/db";
 import type { DriveRecord } from "./schema";
 import { drives } from "./schema";
 import type {
 	CpuStats,
+	DatabaseInfo,
 	DiskStats,
 	GpuStats,
 	MemoryStats,
@@ -33,6 +36,7 @@ interface RawSample {
 	diskWrites: number;
 	netRx: number;
 	netTx: number;
+	netInterfaces: Map<string, { rx: number; tx: number }>;
 }
 
 class SystemInfoService {
@@ -81,6 +85,7 @@ class SystemInfoService {
 		// Read network stats from /proc/net/dev
 		let netRx = 0;
 		let netTx = 0;
+		const netInterfaces = new Map<string, { rx: number; tx: number }>();
 		try {
 			const netdev = readFileSync("/proc/net/dev", "utf-8");
 			for (const line of netdev.split("\n").slice(2)) {
@@ -89,8 +94,11 @@ class SystemInfoService {
 				const iface = parts[0].replace(":", "");
 				// Skip loopback
 				if (iface === "lo") continue;
-				netRx += parseInt(parts[1], 10);
-				netTx += parseInt(parts[9], 10);
+				const rx = parseInt(parts[1], 10);
+				const tx = parseInt(parts[9], 10);
+				netRx += rx;
+				netTx += tx;
+				netInterfaces.set(iface, { rx, tx });
 			}
 		} catch {
 			// /proc/net/dev not available
@@ -103,6 +111,7 @@ class SystemInfoService {
 			diskWrites,
 			netRx,
 			netTx,
+			netInterfaces,
 		};
 	}
 
@@ -123,7 +132,27 @@ class SystemInfoService {
 			disk: this.calculateDiskStats(current, previous, deltaSec),
 			network: this.calculateNetworkStats(current, previous, deltaSec),
 			gpu: await this.getGpuStats(),
+			uptime: this.getUptime(),
 		};
+	}
+
+	private getUptime(): { seconds: number; formatted: string } {
+		try {
+			const uptime = readFileSync("/proc/uptime", "utf-8");
+			const seconds = Math.floor(parseFloat(uptime.split(" ")[0]));
+			const days = Math.floor(seconds / 86400);
+			const hours = Math.floor((seconds % 86400) / 3600);
+			const minutes = Math.floor((seconds % 3600) / 60);
+
+			const parts = [];
+			if (days > 0) parts.push(`${days}d`);
+			if (hours > 0) parts.push(`${hours}h`);
+			parts.push(`${minutes}m`);
+
+			return { seconds, formatted: parts.join(" ") };
+		} catch {
+			return { seconds: 0, formatted: "unknown" };
+		}
 	}
 
 	private async getGpuStats(): Promise<Static<typeof GpuStats>> {
@@ -408,9 +437,25 @@ class SystemInfoService {
 		const totalRxSpeed = Math.round((rxBytes / deltaSec / 1024 / 1024) * 10) / 10;
 		const totalTxSpeed = Math.round((txBytes / deltaSec / 1024 / 1024) * 10) / 10;
 
-		// For now, just report totals - could expand to per-interface later
+		// Calculate per-interface speeds
+		const interfaces: Array<{ name: string; rxSpeed: number; txSpeed: number }> = [];
+		for (const [name, curr] of current.netInterfaces) {
+			const prev = previous.netInterfaces.get(name);
+			if (prev) {
+				const ifaceRx = curr.rx - prev.rx;
+				const ifaceTx = curr.tx - prev.tx;
+				interfaces.push({
+					name,
+					rxSpeed: Math.round((ifaceRx / deltaSec / 1024 / 1024) * 100) / 100,
+					txSpeed: Math.round((ifaceTx / deltaSec / 1024 / 1024) * 100) / 100,
+				});
+			}
+		}
+		// Sort by total traffic descending
+		interfaces.sort((a, b) => b.rxSpeed + b.txSpeed - (a.rxSpeed + a.txSpeed));
+
 		return {
-			interfaces: [],
+			interfaces,
 			totalRxSpeed,
 			totalTxSpeed,
 		};
@@ -538,11 +583,67 @@ class SystemInfoService {
 	}
 
 	async getSystemOverview() {
-		const [drivesWithStats, stats] = await Promise.all([
+		const [drivesWithStats, stats, databases] = await Promise.all([
 			this.listDrivesWithStats(),
 			this.getSystemStats(),
+			this.getDatabaseInfo(),
 		]);
-		return { drives: drivesWithStats, stats };
+		return { drives: drivesWithStats, stats, databases };
+	}
+
+	async getDatabaseInfo(): Promise<Static<typeof DatabaseInfo>[]> {
+		const dbPath = config.DB_PATH;
+		const databases: Static<typeof DatabaseInfo>[] = [];
+
+		const dbFiles: Array<{ name: string; domain: string }> = [
+			{ name: "minecraft.sqlite", domain: "game-servers" },
+			{ name: "core.sqlite", domain: "core" },
+			{ name: "system-info.sqlite", domain: "system-info" },
+			{ name: "ops.sqlite", domain: "ops" },
+		];
+
+		for (const { name, domain } of dbFiles) {
+			try {
+				const filePath = join(dbPath, name);
+				const stat = statSync(filePath);
+				databases.push({
+					name,
+					domain,
+					sizeBytes: stat.size,
+					sizeFormatted: this.formatBytes(stat.size),
+				});
+			} catch {
+				// File doesn't exist yet, skip
+			}
+		}
+
+		// Also check for WAL files and add them
+		try {
+			const files = readdirSync(dbPath);
+			for (const file of files) {
+				if (file.endsWith("-wal") || file.endsWith("-shm")) {
+					const baseName = file.replace(/-wal$|-shm$/, "");
+					const dbEntry = databases.find((d) => d.name === baseName);
+					if (dbEntry) {
+						const stat = statSync(join(dbPath, file));
+						dbEntry.sizeBytes += stat.size;
+						dbEntry.sizeFormatted = this.formatBytes(dbEntry.sizeBytes);
+					}
+				}
+			}
+		} catch {
+			// Directory doesn't exist
+		}
+
+		return databases;
+	}
+
+	private formatBytes(bytes: number): string {
+		if (bytes === 0) return "0 B";
+		const k = 1024;
+		const sizes = ["B", "KB", "MB", "GB"];
+		const i = Math.floor(Math.log(bytes) / Math.log(k));
+		return `${parseFloat((bytes / k ** i).toFixed(1))} ${sizes[i]}`;
 	}
 }
 

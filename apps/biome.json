@@ -39,7 +39,8 @@
 			},
 			"suspicious": {
 				"noExplicitAny": "warn",
-				"noUnknownAtRules": "off"
+				"noUnknownAtRules": "off",
+				"noArrayIndexKey": "warn"
 			},
 			"correctness": {
 				"noUnusedVariables": "error",

@@ -1,7 +1,7 @@
 import { createRouter, RouterProvider } from "@tanstack/react-router";
 import { StrictMode } from "react";
 import ReactDOM from "react-dom/client";
-
+import { ConnectionProvider } from "./lib/ConnectionContext";
 // Import the generated route tree
 import { routeTree } from "./routeTree.gen";
 
@@ -31,7 +31,9 @@ if (rootElement && !rootElement.innerHTML) {
 	const root = ReactDOM.createRoot(rootElement);
 	root.render(
 		<StrictMode>
-			<RouterProvider router={router} />
+			<ConnectionProvider>
+				<RouterProvider router={router} />
+			</ConnectionProvider>
 		</StrictMode>
 	);
 }

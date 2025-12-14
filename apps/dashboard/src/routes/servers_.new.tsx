@@ -1,18 +1,9 @@
 import { useForm } from "@tanstack/react-form";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft, Loader2 } from "lucide-react";
-import { useState } from "react";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { Loader2 } from "lucide-react";
+import { useEffect, useState } from "react";
 import { z } from "zod";
-import {
-	Button,
-	Card,
-	CardContent,
-	CardHeader,
-	CardTitle,
-	Input,
-	Label,
-	PageHeader,
-} from "../components/ui";
+import { Input, Label, Panel } from "../components/ui";
 import { client } from "../lib/api";
 
 export const Route = createFileRoute("/servers_/new")({
@@ -24,7 +15,7 @@ const createServerSchema = z.object({
 		.string()
 		.min(1, "Name is required")
 		.max(32, "Name must be 32 characters or less")
-		.regex(/^[a-z0-9-]+$/, "Name must contain only lowercase letters, numbers, and hyphens"),
+		.regex(/^[a-z0-9-]+$/, "Lowercase letters, numbers, and hyphens only"),
 	modpack: z.string().min(1, "Modpack is required"),
 	memory: z.string().min(1),
 	createdBy: z.string().min(1, "Creator is required"),
@@ -42,6 +33,20 @@ function NewServerPage() {
 	const navigate = useNavigate();
 	const [error, setError] = useState<string | null>(null);
 	const [isSubmitting, setIsSubmitting] = useState(false);
+
+	// Escape to go back (only when not focused on inputs)
+	useEffect(() => {
+		const isEditable = (el: Element | null) =>
+			el?.tagName === "INPUT" || el?.tagName === "TEXTAREA" || el?.tagName === "SELECT";
+
+		const handler = (e: KeyboardEvent) => {
+			if (e.key === "Escape" && !isSubmitting && !isEditable(document.activeElement)) {
+				navigate({ to: "/servers" });
+			}
+		};
+		window.addEventListener("keydown", handler);
+		return () => window.removeEventListener("keydown", handler);
+	}, [navigate, isSubmitting]);
 
 	const form = useForm({
 		defaultValues: {
@@ -71,7 +76,6 @@ function NewServerPage() {
 					return;
 				}
 
-				// Success! Navigate to servers list
 				navigate({ to: "/servers" });
 			} catch (e) {
 				setError(e instanceof Error ? e.message : "Failed to create server");
@@ -81,161 +85,188 @@ function NewServerPage() {
 	});
 
 	return (
-		<div>
-			<PageHeader
-				title="Create New Server"
-				description="Set up a new Minecraft game server"
-				actions={
-					<Button variant="outline" onClick={() => navigate({ to: "/servers" })}>
-						<ArrowLeft size={16} />
-						Back to Servers
-					</Button>
-				}
-			/>
+		<div className="space-y-4 max-w-xl">
+			{/* Header Strip */}
+			<div className="flex items-center justify-between px-3 py-2 bg-surface border border-border rounded text-xs">
+				<div className="flex items-center gap-4">
+					<span className="text-text-secondary uppercase tracking-wider">New Server</span>
+					<span className="text-text-tertiary">Configure a new game server</span>
+				</div>
+				<Link
+					to="/servers"
+					className="text-text-tertiary hover:text-text-primary transition-colors"
+				>
+					<kbd className="bg-background px-1.5 py-0.5 rounded text-[10px]">esc</kbd>
+					<span className="ml-1.5">Cancel</span>
+				</Link>
+			</div>
 
-			<Card className="max-w-2xl">
-				<CardHeader>
-					<CardTitle>Server Configuration</CardTitle>
-				</CardHeader>
-				<CardContent>
-					<form
-						onSubmit={(e) => {
-							e.preventDefault();
-							e.stopPropagation();
-							form.handleSubmit();
-						}}
-						className="space-y-6"
-					>
-						{/* Name Field */}
-						<form.Field
-							name="name"
-							children={(field) => (
-								<div className="space-y-2">
-									<Label htmlFor="name">Server Name</Label>
-									<Input
-										id="name"
-										type="text"
-										placeholder="my-awesome-server"
-										value={field.state.value}
-										onBlur={field.handleBlur}
-										onChange={(e) => field.handleChange(e.target.value)}
-									/>
-									{field.state.meta.errors.length > 0 && (
-										<p className="text-error text-sm">
-											{getErrorMessage(field.state.meta.errors[0])}
-										</p>
-									)}
-									{field.state.meta.errors.length === 0 && (
-										<p className="text-text-tertiary text-xs">
-											Lowercase letters, numbers, and hyphens only
-										</p>
-									)}
-								</div>
-							)}
-						/>
-
-						{/* Modpack Field */}
-						<form.Field
-							name="modpack"
-							children={(field) => (
-								<div className="space-y-2">
-									<Label htmlFor="modpack">Modpack</Label>
-									<Input
-										id="modpack"
-										type="text"
-										placeholder="all-the-mods-10"
-										value={field.state.value}
-										onBlur={field.handleBlur}
-										onChange={(e) => field.handleChange(e.target.value)}
-									/>
-									{field.state.meta.errors.length > 0 && (
-										<p className="text-error text-sm">
-											{getErrorMessage(field.state.meta.errors[0])}
-										</p>
-									)}
-									{field.state.meta.errors.length === 0 && (
-										<p className="text-text-tertiary text-xs">The modpack identifier or name</p>
-									)}
-								</div>
-							)}
-						/>
-
-						{/* Memory Field */}
-						<form.Field
-							name="memory"
-							children={(field) => (
-								<div className="space-y-2">
-									<Label htmlFor="memory">Memory Allocation</Label>
-									<Input
-										id="memory"
-										type="text"
-										placeholder="4G"
-										value={field.state.value}
-										onBlur={field.handleBlur}
-										onChange={(e) => field.handleChange(e.target.value)}
-									/>
-									{field.state.meta.errors.length > 0 && (
-										<p className="text-error text-sm">
-											{getErrorMessage(field.state.meta.errors[0])}
-										</p>
-									)}
-									{field.state.meta.errors.length === 0 && (
-										<p className="text-text-tertiary text-xs">
-											e.g., 2G, 4G, 8G (optional, defaults to 4G)
-										</p>
-									)}
-								</div>
-							)}
-						/>
-
-						{/* Created By Field */}
-						<form.Field
-							name="createdBy"
-							children={(field) => (
-								<div className="space-y-2">
-									<Label htmlFor="createdBy">Created By</Label>
-									<Input
-										id="createdBy"
-										type="text"
-										placeholder="@username"
-										value={field.state.value}
-										onBlur={field.handleBlur}
-										onChange={(e) => field.handleChange(e.target.value)}
-									/>
-									{field.state.meta.errors.length > 0 && (
-										<p className="text-error text-sm">
-											{getErrorMessage(field.state.meta.errors[0])}
-										</p>
-									)}
-								</div>
-							)}
-						/>
-
-						{/* Error Message */}
-						{error && (
-							<div className="p-4 rounded-md bg-error-bg border border-error">
-								<p className="text-error text-sm">{error}</p>
-							</div>
-						)}
-
-						{/* Submit Buttons */}
-						<div className="flex items-center gap-3 pt-4">
-							<Button type="submit" disabled={isSubmitting}>
-								{isSubmitting && <Loader2 size={16} className="animate-spin" />}
-								{isSubmitting ? "Creating..." : "Create Server"}
-							</Button>
-							<Button
-								type="button"
-								variant="outline"
-								onClick={() => navigate({ to: "/servers" })}
-								disabled={isSubmitting}
+			{/* Form Panel */}
+			<Panel title="Server Configuration">
+				<form
+					onSubmit={(e) => {
+						e.preventDefault();
+						e.stopPropagation();
+						form.handleSubmit();
+					}}
+					className="space-y-4"
+				>
+					{/* Name Field */}
+					<form.Field
+						name="name"
+						children={(field) => (
+							<FormField
+								label="Name"
+								hint="lowercase, numbers, hyphens"
+								error={
+									field.state.meta.errors.length > 0
+										? getErrorMessage(field.state.meta.errors[0])
+										: undefined
+								}
 							>
-								Cancel
-							</Button>
+								<Input
+									id="name"
+									type="text"
+									placeholder="my-server"
+									value={field.state.value}
+									onBlur={field.handleBlur}
+									onChange={(e) => field.handleChange(e.target.value)}
+									className="font-mono"
+								/>
+							</FormField>
+						)}
+					/>
+
+					{/* Modpack Field */}
+					<form.Field
+						name="modpack"
+						children={(field) => (
+							<FormField
+								label="Modpack"
+								hint="modpack identifier"
+								error={
+									field.state.meta.errors.length > 0
+										? getErrorMessage(field.state.meta.errors[0])
+										: undefined
+								}
+							>
+								<Input
+									id="modpack"
+									type="text"
+									placeholder="all-the-mods-10"
+									value={field.state.value}
+									onBlur={field.handleBlur}
+									onChange={(e) => field.handleChange(e.target.value)}
+									className="font-mono"
+								/>
+							</FormField>
+						)}
+					/>
+
+					{/* Memory Field */}
+					<form.Field
+						name="memory"
+						children={(field) => (
+							<FormField
+								label="Memory"
+								hint="e.g., 4G, 8G, 16G"
+								error={
+									field.state.meta.errors.length > 0
+										? getErrorMessage(field.state.meta.errors[0])
+										: undefined
+								}
+							>
+								<Input
+									id="memory"
+									type="text"
+									placeholder="4G"
+									value={field.state.value}
+									onBlur={field.handleBlur}
+									onChange={(e) => field.handleChange(e.target.value)}
+									className="font-mono w-24"
+								/>
+							</FormField>
+						)}
+					/>
+
+					{/* Created By Field */}
+					<form.Field
+						name="createdBy"
+						children={(field) => (
+							<FormField
+								label="Created By"
+								error={
+									field.state.meta.errors.length > 0
+										? getErrorMessage(field.state.meta.errors[0])
+										: undefined
+								}
+							>
+								<Input
+									id="createdBy"
+									type="text"
+									placeholder="@username"
+									value={field.state.value}
+									onBlur={field.handleBlur}
+									onChange={(e) => field.handleChange(e.target.value)}
+								/>
+							</FormField>
+						)}
+					/>
+
+					{/* Error Message */}
+					{error && (
+						<div className="px-3 py-2 rounded bg-error-bg border border-error text-error text-sm">
+							{error}
 						</div>
-					</form>
-				</CardContent>
-			</Card>
+					)}
+
+					{/* Actions */}
+					<div className="flex items-center gap-3 pt-2 border-t border-border">
+						<button
+							type="submit"
+							disabled={isSubmitting}
+							className="flex items-center gap-2 px-4 py-2 rounded bg-accent text-white text-sm hover:bg-accent-hover disabled:opacity-50 transition-colors"
+						>
+							{isSubmitting && <Loader2 size={14} className="animate-spin" />}
+							{isSubmitting ? "Creating..." : "Create Server"}
+						</button>
+						<button
+							type="button"
+							onClick={() => navigate({ to: "/servers" })}
+							disabled={isSubmitting}
+							className="px-4 py-2 rounded border border-border text-text-secondary text-sm hover:bg-surface-elevated disabled:opacity-50 transition-colors"
+						>
+							Cancel
+						</button>
+					</div>
+				</form>
+			</Panel>
+		</div>
+	);
+}
+
+function FormField({
+	label,
+	hint,
+	error,
+	children,
+}: {
+	label: string;
+	hint?: string;
+	error?: string;
+	children: React.ReactNode;
+}) {
+	return (
+		<div className="grid grid-cols-1 md:grid-cols-4 gap-2 md:gap-4 items-start">
+			<div className="md:text-right">
+				<Label className="text-sm text-text-secondary">{label}</Label>
+				{hint && <p className="text-[10px] text-text-tertiary hidden md:block">{hint}</p>}
+			</div>
+			<div className="md:col-span-3">
+				{children}
+				{error && <p className="text-error text-xs mt-1">{error}</p>}
+				{hint && !error && <p className="text-[10px] text-text-tertiary mt-1 md:hidden">{hint}</p>}
+			</div>
 		</div>
 	);
 }
