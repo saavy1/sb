@@ -50,3 +50,13 @@ export const agentThreads = agentSchema.table(
 
 export type AgentThread = typeof agentThreads.$inferSelect;
 export type NewAgentThread = typeof agentThreads.$inferInsert;
+
+// Global settings (key-value store) - shared between API and workers
+export const settings = agentSchema.table("settings", {
+	key: text("key").primaryKey(),
+	value: text("value").notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type Setting = typeof settings.$inferSelect;
+export type NewSetting = typeof settings.$inferInsert;

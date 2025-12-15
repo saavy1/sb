@@ -20,20 +20,6 @@ spec:
         replicas: 1
         serviceAccount:
           name: nexus
-        initContainers:
-          db-migrate:
-            image:
-              repository: ghcr.io/saavy1/nexus
-              tag: latest
-            command:
-              - bun
-              - run
-              - src/infra/migrate.ts
-            env:
-              DB_PATH: /app/db
-            envFrom:
-              - secretRef:
-                  name: nexus-env
         containers:
           main:
             image:
@@ -82,12 +68,10 @@ spec:
       main:
         enabled: false
     persistence:
+      # SQLite DBs initialized at startup but not used by worker (settings now in Postgres)
       db:
         enabled: true
-        type: persistentVolumeClaim
-        accessMode: ReadWriteOnce
-        size: 1Gi
-        storageClass: local-path
+        type: emptyDir
         globalMounts:
           - path: /app/db
       dri:
