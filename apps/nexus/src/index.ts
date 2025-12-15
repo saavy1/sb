@@ -4,33 +4,46 @@ import { startAgentWorker } from "./domains/agent/worker";
 import { config } from "./infra/config";
 import { closeQueues } from "./infra/queue";
 
-const server = app.listen(config.PORT);
+// Conditional startup based on MODE
+let server: ReturnType<typeof app.listen> | null = null;
+let agentWorker: Awaited<ReturnType<typeof startAgentWorker>> | null = null;
 
-// Start the agent wake worker
-const agentWorker = startAgentWorker();
+// Start API server if MODE is "api" or "both"
+if (config.MODE === "api" || config.MODE === "both") {
+	server = app.listen(config.PORT);
+	logger.info(
+		{
+			mode: config.MODE,
+			hostname: server.server?.hostname,
+			port: server.server?.port,
+			openapi: `/openapi`,
+		},
+		"API server started"
+	);
+	logger.info(`API running at http://${server.server?.hostname}:${server.server?.port}`);
+	logger.info(`OpenAPI docs at http://${server.server?.hostname}:${server.server?.port}/openapi`);
+}
 
-logger.info(
-	{
-		hostname: server.server?.hostname,
-		port: server.server?.port,
-		openapi: `/openapi`,
-	},
-	"Homelab API started"
-);
-logger.info(`Homelab API running at http://${server.server?.hostname}:${server.server?.port}`);
-logger.info(`OpenAPI docs at http://${server.server?.hostname}:${server.server?.port}/openapi`);
+// Start worker if MODE is "worker" or "both"
+if (config.MODE === "worker" || config.MODE === "both") {
+	agentWorker = startAgentWorker();
+	logger.info({ mode: config.MODE }, "Agent worker started");
+}
+
+logger.info({ mode: config.MODE }, "Nexus started");
 
 // Graceful shutdown
-process.on("SIGTERM", async () => {
-	logger.info("Received SIGTERM, shutting down...");
-	await agentWorker.close();
+async function shutdown(signal: string) {
+	logger.info(`Received ${signal}, shutting down...`);
+	if (agentWorker) {
+		await agentWorker.close();
+	}
 	await closeQueues();
+	if (server) {
+		server.stop();
+	}
 	process.exit(0);
-});
+}
 
-process.on("SIGINT", async () => {
-	logger.info("Received SIGINT, shutting down...");
-	await agentWorker.close();
-	await closeQueues();
-	process.exit(0);
-});
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("SIGINT", () => shutdown("SIGINT"));

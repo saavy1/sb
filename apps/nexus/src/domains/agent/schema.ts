@@ -1,6 +1,13 @@
-import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { jsonb, pgSchema, text, timestamp } from "drizzle-orm/pg-core";
+import type { ThreadMessageType } from "./types";
 
-export const agentThreads = sqliteTable("agent_threads", {
+// Postgres schema for agent tables
+export const agentSchema = pgSchema("agent");
+
+// Context type for JSONB column
+export type ThreadContext = Record<string, unknown>;
+
+export const agentThreads = agentSchema.table("threads", {
 	id: text("id").primaryKey(),
 
 	// Thread status
@@ -12,26 +19,22 @@ export const agentThreads = sqliteTable("agent_threads", {
 	title: text("title"),
 
 	// Origin tracking
-	source: text("source", { enum: ["chat", "discord", "event", "scheduled"] }).notNull(),
+	source: text("source", { enum: ["chat", "discord", "event", "scheduled", "alert"] }).notNull(),
 	sourceId: text("source_id"), // conversation id, discord channel, event type, etc.
 
-	// Conversation state (JSON)
-	messages: text("messages").notNull().default("[]"),
+	// Conversation state (JSONB - automatically serialized/deserialized)
+	messages: jsonb("messages").$type<ThreadMessageType[]>().notNull().default([]),
 
 	// Arbitrary context the agent persists across sleep/wake
-	context: text("context").notNull().default("{}"),
+	context: jsonb("context").$type<ThreadContext>().notNull().default({}),
 
 	// Wake scheduling
 	wakeJobId: text("wake_job_id"), // BullMQ job ID for cancellation
 	wakeReason: text("wake_reason"), // Injected into prompt on wake
 
 	// Metadata
-	createdAt: integer("created_at", { mode: "timestamp" })
-		.notNull()
-		.$defaultFn(() => new Date()),
-	updatedAt: integer("updated_at", { mode: "timestamp" })
-		.notNull()
-		.$defaultFn(() => new Date()),
+	createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+	updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 export type AgentThread = typeof agentThreads.$inferSelect;

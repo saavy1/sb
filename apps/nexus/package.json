@@ -32,6 +32,7 @@
 		"elysia": "catalog:",
 		"ioredis": "^5.8.2",
 		"logger": "workspace:*",
+		"postgres": "^3.4.7",
 		"zod": "^4.1.13"
 	},
 	"devDependencies": {

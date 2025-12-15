@@ -2,8 +2,12 @@ export const config = {
 	PORT: Number(Bun.env.PORT) || 3000,
 	NODE_ENV: Bun.env.NODE_ENV || "development",
 
-	// Database paths
-	DB_PATH: Bun.env.DB_PATH || "./db",
+	// Run mode: "api" | "worker" | "both"
+	MODE: (Bun.env.MODE as "api" | "worker" | "both") || "both",
+
+	// Database
+	DB_PATH: Bun.env.DB_PATH || "./db", // SQLite databases (ops, game-servers, etc.)
+	DATABASE_URL: Bun.env.DATABASE_URL, // Postgres for agent state
 
 	// Internal API key for K8s svc-to-svc communication
 	INTERNAL_API_KEY: Bun.env.INTERNAL_API_KEY,
