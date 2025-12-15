@@ -651,7 +651,9 @@ The Machine
 **Technology:**
 - Bun runtime
 - Elysia framework
-- SQLite for persistence (app configs, activity log)
+- SQLite for domain data (app configs, game servers, etc.)
+- PostgreSQL for agent state (concurrent workers)
+- Valkey + BullMQ for background job queues
 - Eden Treaty for type-safe client
 
 ### Frontend (React + TanStack Router)
@@ -672,17 +674,24 @@ The Machine
 - Tailwind CSS
 - Eden Treaty client
 
-### Database (SQLite)
+### Databases
 
-**Tables:**
+**SQLite (per-domain, embedded):**
 - `applications`: User-configured apps in launcher
-- `activity_log`: Recent events (last 1000 entries)
+- `activity_log`: Recent events
 - `settings`: User preferences
-- `game_servers`: Server configurations (or from K8s state?)
+- `game_servers`: Server configurations
+- `ops`: Operations and automation state
+
+**PostgreSQL (shared, external):**
+- `conversations`: Agent chat history
+- `messages`: Agent message content and parts
+- Supports concurrent access from multiple workers
 
 **Notes:**
-- Lightweight, embedded, no separate DB server needed
-- Persisted in K3s PVC or host path
+- SQLite is lightweight and embedded, persisted in K3s PVC
+- PostgreSQL handles agent state requiring concurrency
+- Valkey provides BullMQ queue backend
 
 ### Integration Points
 
@@ -845,20 +854,24 @@ The Machine
 ## Deployment
 
 ### Installation
-- Docker image published to GHCR
-- Deployed via Flux (like other apps)
-- SQLite database in PVC
+- Docker images published to GHCR (nexus API and worker)
+- Deployed via Flux (separate deployments for API and worker)
+- SQLite databases in PVC
+- PostgreSQL via CloudNativePG operator
+- Valkey for BullMQ queues
 - Environment variables for config
 
 ### Configuration
 ```yaml
 env:
-  - name: ELYSIA_API_URL
-    value: http://localhost:3000
-  - name: DATABASE_PATH
-    value: /data/machine.db
-  - name: K3S_CONFIG
-    value: /etc/rancher/k3s/k3s.yaml
+  - name: MODE
+    value: api  # or "worker" for nexus-worker
+  - name: DB_PATH
+    value: /data
+  - name: DATABASE_URL
+    value: postgresql://nexus:xxx@postgres:5432/nexus
+  - name: VALKEY_URL
+    value: redis://valkey:6379
 ```
 
 ### Updates

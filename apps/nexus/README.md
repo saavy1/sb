@@ -5,7 +5,8 @@ Central Elysia API control plane for Superbloom homelab automation. Built with E
 ## Features
 
 - **Game Servers** - Create, start, stop, delete Minecraft servers in K8s
-- **Multi-DB SQLite** - Separate databases per domain (minecraft, core)
+- **Agent System** - AI-powered autonomous agents with BullMQ job queues
+- **Multi-Database** - SQLite per domain + PostgreSQL for agent state
 - **DDD Architecture** - Domain-driven design with clear boundaries
 - **OpenAPI** - Auto-generated docs at `/openapi`
 - **Auth Ready** - Authelia header extraction for forward auth
@@ -32,11 +33,15 @@ bun run dev
 |----------|-------------|---------|
 | `PORT` | Server port | 3000 |
 | `NODE_ENV` | Environment | development |
+| `MODE` | Run mode: `api`, `worker`, or `both` | both |
 | `DB_PATH` | SQLite database directory | ./db |
+| `DATABASE_URL` | PostgreSQL connection URL (for agent state) | - |
+| `VALKEY_URL` | Valkey/Redis URL (for BullMQ queues) | redis://localhost:6379 |
 | `INTERNAL_API_KEY` | Key for internal K8s routes | - |
 | `K8S_NAMESPACE` | K8s namespace for game servers | game-servers |
 | `MC_DEFAULT_MEMORY` | Default Minecraft memory | 8Gi |
 | `CURSEFORGE_API_KEY` | CurseForge API key | - |
+| `OPENROUTER_API_KEY` | OpenRouter API key for AI agents | - |
 
 ## API Routes
 
@@ -115,7 +120,8 @@ spec:
 
 - [Bun](https://bun.sh) runtime
 - [Elysia](https://elysiajs.com) web framework
-- [Drizzle ORM](https://orm.drizzle.team) with bun:sqlite
+- [Drizzle ORM](https://orm.drizzle.team) with bun:sqlite + postgres-js
+- [BullMQ](https://docs.bullmq.io) job queues with Valkey (Redis-compatible)
 - [@kubernetes/client-node](https://github.com/kubernetes-client/javascript) for K8s API
 - TypeScript
 
@@ -126,8 +132,9 @@ src/
 ├── index.ts                    # App entry
 ├── infra/
 │   ├── config.ts              # Environment config
-│   ├── db.ts                  # Drizzle + SQLite setup
-│   ├── db-push.ts             # Schema push script
+│   ├── db.ts                  # Database connections (SQLite + PostgreSQL)
+│   ├── queue.ts               # BullMQ queues and workers
+│   ├── events.ts              # WebSocket event emitter
 │   └── migrate.ts             # Migration runner
 ├── middleware/
 │   ├── authelia.ts            # Authelia header extraction
@@ -137,28 +144,46 @@ src/
 │   ├── private.ts             # Auth-protected routes
 │   └── internal.ts            # K8s internal routes
 └── domains/
-    ├── game-servers/
+    ├── agent/                 # AI agent system (PostgreSQL)
+    │   ├── schema.ts          # PostgreSQL tables (conversations, messages)
+    │   ├── worker.ts          # BullMQ job processor
+    │   └── routes.ts          # Chat API routes
+    ├── game-servers/          # Game server management (SQLite)
     │   ├── schema.ts          # Drizzle table definition
     │   ├── types.ts           # Elysia t.* schemas
-    │   ├── repository.ts      # Database queries
     │   ├── service.ts         # Business logic
     │   ├── k8s-adapter.ts     # K8s manifest generation
     │   └── routes.ts          # API routes
-    └── core/
-        └── schema.ts          # jobs, users, permissions tables
+    ├── ops/                   # Operations & automation (SQLite)
+    ├── apps/                  # App launcher config (SQLite)
+    ├── system-info/           # System metrics (SQLite)
+    └── core/                  # Core tables (SQLite)
 ```
 
 ## Database
 
-Uses separate SQLite databases per domain:
+Nexus uses a hybrid database approach:
 
+### SQLite (per-domain, file-based)
 - `db/minecraft.sqlite` - Game server metadata
 - `db/core.sqlite` - Jobs, users, permissions
+- `db/ops.sqlite` - Operations and automation
+- `db/apps.sqlite` - App launcher configuration
+- `db/system-info.sqlite` - System metrics
+
+### PostgreSQL (shared, for concurrency)
+- Agent conversations, messages, and state
+- Required for concurrent worker processes
+
+### Valkey + BullMQ (job queues)
+- `agent-wakes` - AI agent wake/processing jobs
+- `events-system` - System event processing
 
 ```bash
-# Push schema changes to database
+# Push schema changes to all databases
 bun run db:push
 
 # Generate migrations (for version control)
-bun run db:generate
+bun run db:generate          # All schemas
+bun run db:generate:agent    # Agent schema only (PostgreSQL)
 ```

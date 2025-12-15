@@ -54,8 +54,8 @@ sb/
 │   └── clusters/
 │       └── superbloom/     # Cluster-specific manifests
 │           ├── flux-system/ # Flux bootstrap
-│           └── apps/       # Application deployments
-│               └── infra/  # Infrastructure apps (caddy, authelia, ddns)
+│           ├── infra/       # Infrastructure (caddy, authelia, ddns, alloy)
+│           └── apps/        # Applications (nexus, nexus-worker, postgres, valkey)
 │
 ├── apps/                    # Bun workspace for custom applications
 │   ├── nexus/              # Elysia API control plane
@@ -73,10 +73,13 @@ sb/
 
 ### Nexus
 The core Elysia API control plane providing multi-domain backend services:
-- Multiple SQLite databases (one per domain)
-- Domain-driven architecture (game-servers, launcher, etc.)
+- **SQLite databases** (one per domain) for game-servers, ops, apps, system-info, core
+- **PostgreSQL** for agent state (supports concurrent workers)
+- **Valkey + BullMQ** for background job queues
+- Domain-driven architecture with clear boundaries
 - Kubernetes integration for dynamic workload management
 - OpenAPI/Swagger documentation
+- Runs in two modes: `api` (HTTP server) and `worker` (job processor)
 
 ### The Machine
 Discord bot for managing game servers. Thin client consuming the game-servers domain from Nexus via Eden Treaty (type-safe RPC).
@@ -88,7 +91,8 @@ React web dashboard consuming multiple domains from Nexus API. Built with TanSta
 
 ### Kubernetes/Flux
 
-- Apps are organized under `flux/clusters/<cluster>/apps/`
+- Infrastructure apps are under `flux/clusters/<cluster>/infra/`
+- Application deployments are under `flux/clusters/<cluster>/apps/`
 - Each app has its own directory with `kustomization.yaml`, `release.yaml` (HelmRelease), and optional `secrets.yaml`
 - Namespaces are defined in `ns.yaml` files
 - Use bjw-s app-template Helm chart where applicable
@@ -113,7 +117,9 @@ React web dashboard consuming multiple domains from Nexus API. Built with TanSta
 
 ### Adding a new Kubernetes app
 
-1. Create directory under `flux/clusters/superbloom/apps/infra/` (or appropriate category)
+1. Create directory under appropriate category:
+   - `flux/clusters/superbloom/infra/` for infrastructure (ingress, auth, logging)
+   - `flux/clusters/superbloom/apps/` for applications (services, databases)
 2. Add `ns.yaml` (namespace), `release.yaml` (HelmRelease), `kustomization.yaml`
 3. Reference in parent `kustomization.yaml`
 4. Commit and push - Flux will reconcile
