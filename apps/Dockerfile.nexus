@@ -25,15 +25,17 @@ RUN cd dashboard && bun vite build
 FROM oven/bun:1 AS production
 WORKDIR /app
 
-# Copy package files
+# Copy package files (all workspaces needed for bun to resolve, even if not used at runtime)
 COPY package.json bun.lock ./
 COPY nexus/package.json ./nexus/
+COPY dashboard/package.json ./dashboard/
+COPY the-machine/package.json ./the-machine/
 COPY logger/package.json ./logger/
 
 # Install production dependencies only (skip devDeps that may lack arm64 binaries)
 RUN bun install --frozen-lockfile --production
 
-# Copy source code (no dashboard source needed, just the built assets)
+# Copy source code (only nexus and logger needed at runtime)
 COPY logger ./logger/
 COPY nexus ./nexus/
 
