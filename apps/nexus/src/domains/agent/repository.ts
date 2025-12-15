@@ -1,8 +1,15 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { agentDb } from "../../infra/db";
 import type { AgentThread, NewAgentThread, ThreadContext } from "./schema";
 import { agentThreads } from "./schema";
 import type { ThreadMessageType, ThreadSourceType, ThreadStatusType } from "./types";
+
+export class OptimisticLockError extends Error {
+	constructor(id: string) {
+		super(`Optimistic lock conflict on thread ${id}`);
+		this.name = "OptimisticLockError";
+	}
+}
 
 export const agentRepository = {
 	async create(data: NewAgentThread): Promise<AgentThread> {
@@ -40,6 +47,41 @@ export const agentRepository = {
 		return query.orderBy(desc(agentThreads.updatedAt)).limit(options?.limit ?? 50);
 	},
 
+	/**
+	 * Update with optimistic locking - use when concurrent modifications are possible.
+	 * Throws OptimisticLockError if version mismatch.
+	 */
+	async updateWithLock(
+		id: string,
+		expectedVersion: number,
+		data: Partial<{
+			status: ThreadStatusType;
+			title: string;
+			messages: ThreadMessageType[];
+			context: ThreadContext;
+			wakeJobId: string | null;
+			wakeReason: string | null;
+		}>
+	): Promise<AgentThread> {
+		const [thread] = await agentDb
+			.update(agentThreads)
+			.set({
+				...data,
+				version: sql`${agentThreads.version} + 1`,
+				updatedAt: new Date(),
+			})
+			.where(and(eq(agentThreads.id, id), eq(agentThreads.version, expectedVersion)))
+			.returning();
+
+		if (!thread) {
+			throw new OptimisticLockError(id);
+		}
+		return thread;
+	},
+
+	/**
+	 * Simple update without locking - use for non-critical updates.
+	 */
 	async update(
 		id: string,
 		data: Partial<{
@@ -53,7 +95,11 @@ export const agentRepository = {
 	): Promise<AgentThread | null> {
 		const [thread] = await agentDb
 			.update(agentThreads)
-			.set({ ...data, updatedAt: new Date() })
+			.set({
+				...data,
+				version: sql`${agentThreads.version} + 1`,
+				updatedAt: new Date(),
+			})
 			.where(eq(agentThreads.id, id))
 			.returning();
 		return thread ?? null;
@@ -71,6 +117,7 @@ export const agentRepository = {
 				status: "sleeping",
 				wakeJobId,
 				wakeReason,
+				version: sql`${agentThreads.version} + 1`,
 				updatedAt: new Date(),
 			})
 			.where(eq(agentThreads.id, id))
@@ -85,6 +132,7 @@ export const agentRepository = {
 				status: "active",
 				wakeJobId: null,
 				wakeReason: null,
+				version: sql`${agentThreads.version} + 1`,
 				updatedAt: new Date(),
 			})
 			.where(eq(agentThreads.id, id))
