@@ -1,5 +1,11 @@
 import { Elysia, t } from "elysia";
-import { getLatestOperation, getOperation, listOperations, triggerOperation } from "./functions";
+import {
+	getLatestOperation,
+	getOperation,
+	listOperations,
+	testConnection,
+	triggerOperation,
+} from "./functions";
 import {
 	ApiError,
 	LatestQueryParams,
@@ -70,5 +76,21 @@ export const opsRoutes = new Elysia({ prefix: "/ops" })
 			detail: { tags: ["Ops"], summary: "Get latest operation" },
 			query: LatestQueryParams,
 			response: { 200: Operation, 404: ApiError },
+		}
+	)
+	.get(
+		"/test-connection",
+		async () => {
+			return testConnection();
+		},
+		{
+			detail: { tags: ["Ops"], summary: "Test SSH/kubectl/flux connectivity" },
+			response: {
+				200: t.Object({
+					ssh: t.Object({ success: t.Boolean(), message: t.String() }),
+					kubectl: t.Object({ success: t.Boolean(), message: t.String() }),
+					flux: t.Object({ success: t.Boolean(), message: t.String() }),
+				}),
+			},
 		}
 	);

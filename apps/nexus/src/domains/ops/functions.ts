@@ -302,9 +302,212 @@ export const listRecentOperationsTool = withTool(
 	}
 );
 
+// === Kubectl/Flux helpers ===
+
+async function executeKubectl(command: string): Promise<CommandResultType> {
+	const fullCommand = `kubectl ${command}`;
+	if (config.K8S_IN_CLUSTER) {
+		return executeLocal(fullCommand);
+	}
+	return executeSSH(fullCommand);
+}
+
+async function executeFlux(command: string): Promise<CommandResultType> {
+	const fullCommand = `flux ${command}`;
+	if (config.K8S_IN_CLUSTER) {
+		return executeLocal(fullCommand);
+	}
+	return executeSSH(fullCommand);
+}
+
+// === Connection test ===
+
+export async function testConnection(): Promise<{
+	ssh: { success: boolean; message: string };
+	kubectl: { success: boolean; message: string };
+	flux: { success: boolean; message: string };
+}> {
+	const results = {
+		ssh: { success: false, message: "" },
+		kubectl: { success: false, message: "" },
+		flux: { success: false, message: "" },
+	};
+
+	// Test SSH (skip if in-cluster)
+	if (config.K8S_IN_CLUSTER) {
+		results.ssh = { success: true, message: "In-cluster mode, SSH not needed" };
+	} else {
+		const sshTest = await executeSSH("echo 'SSH connection successful'");
+		results.ssh = {
+			success: sshTest.success,
+			message: sshTest.success
+				? `Connected to ${sshUser}@${sshHost}`
+				: sshTest.errorMessage || "SSH connection failed",
+		};
+	}
+
+	// Test kubectl
+	const kubectlTest = await executeKubectl("cluster-info --request-timeout=5s");
+	results.kubectl = {
+		success: kubectlTest.success,
+		message: kubectlTest.success
+			? "kubectl connected to cluster"
+			: kubectlTest.errorMessage || "kubectl failed",
+	};
+
+	// Test flux
+	const fluxTest = await executeFlux("version --client");
+	results.flux = {
+		success: fluxTest.success,
+		message: fluxTest.success
+			? "flux CLI available"
+			: fluxTest.errorMessage || "flux CLI not found",
+	};
+
+	return results;
+}
+
+// === Kubectl/Flux query tools ===
+
+export const getPodsTool = withTool(
+	{
+		name: "get_pods",
+		description:
+			"List Kubernetes pods with their status, restarts, and age. Use when user asks 'what pods are running', 'show me pod status', 'are all pods healthy', or to investigate cluster issues.",
+		input: z.object({
+			namespace: z
+				.string()
+				.optional()
+				.describe("Namespace to list pods from (default: all namespaces)"),
+			allNamespaces: z
+				.boolean()
+				.optional()
+				.describe("List pods from all namespaces (default: true)"),
+		}),
+	},
+	async ({ namespace, allNamespaces = true }) => {
+		let cmd = "get pods -o wide";
+		if (namespace) {
+			cmd += ` -n ${namespace}`;
+		} else if (allNamespaces) {
+			cmd += " -A";
+		}
+
+		const result = await executeKubectl(cmd);
+		if (!result.success) {
+			return { error: result.errorMessage, output: result.output };
+		}
+		return { success: true, output: result.output };
+	}
+);
+
+export const getPodLogsTool = withTool(
+	{
+		name: "get_pod_logs",
+		description:
+			"Get logs from a Kubernetes pod. Use when user asks to 'show logs for X', 'what's happening in pod Y', or to debug pod issues.",
+		input: z.object({
+			pod: z.string().describe("Name of the pod"),
+			namespace: z.string().describe("Namespace the pod is in"),
+			container: z.string().optional().describe("Container name (if pod has multiple containers)"),
+			tail: z.number().optional().describe("Number of lines to show (default: 100)"),
+			previous: z
+				.boolean()
+				.optional()
+				.describe("Show logs from previous container instance (for crash debugging)"),
+		}),
+	},
+	async ({ pod, namespace, container, tail = 100, previous = false }) => {
+		let cmd = `logs ${pod} -n ${namespace} --tail=${tail}`;
+		if (container) {
+			cmd += ` -c ${container}`;
+		}
+		if (previous) {
+			cmd += " --previous";
+		}
+
+		const result = await executeKubectl(cmd);
+		if (!result.success) {
+			return { error: result.errorMessage, output: result.output };
+		}
+		return { success: true, output: result.output };
+	}
+);
+
+export const getEventsTool = withTool(
+	{
+		name: "get_events",
+		description:
+			"Get recent Kubernetes cluster events. Use when debugging issues, user asks 'what events happened', 'why did pod X fail', or 'show cluster activity'.",
+		input: z.object({
+			namespace: z.string().optional().describe("Namespace to filter events (default: all)"),
+			limit: z.number().optional().describe("Number of events to show (default: 50)"),
+		}),
+	},
+	async ({ namespace, limit = 50 }) => {
+		let cmd = `get events --sort-by='.lastTimestamp'`;
+		if (namespace) {
+			cmd += ` -n ${namespace}`;
+		} else {
+			cmd += " -A";
+		}
+		// kubectl doesn't have a --tail for events, we'll pipe through tail
+		const result = await executeKubectl(cmd);
+		if (!result.success) {
+			return { error: result.errorMessage, output: result.output };
+		}
+
+		// Limit output to most recent events
+		const lines = result.output.split("\n");
+		const header = lines[0];
+		const events = lines.slice(1, limit + 1);
+		return { success: true, output: [header, ...events].join("\n") };
+	}
+);
+
+export const getFluxStatusTool = withTool(
+	{
+		name: "get_flux_status",
+		description:
+			"Get Flux GitOps status including Kustomizations and HelmReleases. Use when user asks 'is flux healthy', 'what's the deployment status', 'show GitOps status'.",
+		input: z.object({
+			type: z
+				.enum(["all", "kustomizations", "helmreleases", "sources"])
+				.optional()
+				.describe("Type of Flux resources to show (default: all)"),
+		}),
+	},
+	async ({ type = "all" }) => {
+		let cmd: string;
+		switch (type) {
+			case "kustomizations":
+				cmd = "get kustomizations -A";
+				break;
+			case "helmreleases":
+				cmd = "get helmreleases -A";
+				break;
+			case "sources":
+				cmd = "get sources all -A";
+				break;
+			default:
+				cmd = "get all -A";
+		}
+
+		const result = await executeFlux(cmd);
+		if (!result.success) {
+			return { error: result.errorMessage, output: result.output };
+		}
+		return { success: true, output: result.output };
+	}
+);
+
 export const opsTools = [
 	triggerNixosRebuildTool.tool,
 	triggerFluxReconcileTool.tool,
 	getOperationStatusTool.tool,
 	listRecentOperationsTool.tool,
+	getPodsTool.tool,
+	getPodLogsTool.tool,
+	getEventsTool.tool,
+	getFluxStatusTool.tool,
 ];
