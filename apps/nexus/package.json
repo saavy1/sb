@@ -24,8 +24,10 @@
 		"@kubernetes/client-node": "^1.4.0",
 		"@tanstack/ai": "^0.0.3",
 		"@tanstack/ai-openai": "^0.0.3",
+		"bullmq": "^5.66.0",
 		"drizzle-orm": "^0.45.1",
 		"elysia": "catalog:",
+		"ioredis": "^5.8.2",
 		"logger": "workspace:*",
 		"zod": "^4.1.13"
 	},
