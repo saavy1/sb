@@ -1,4 +1,5 @@
-FROM oven/bun:1 AS base
+# Build stage - needs devDependencies for vite/typescript
+FROM oven/bun:1 AS builder
 WORKDIR /app
 
 # Copy package files for dependency resolution
@@ -8,7 +9,7 @@ COPY dashboard/package.json ./dashboard/
 COPY the-machine/package.json ./the-machine/
 COPY logger/package.json ./logger/
 
-# Install dependencies
+# Install ALL dependencies (including dev) for build
 RUN bun install --frozen-lockfile
 
 # Copy source code
@@ -17,18 +18,36 @@ COPY logger ./logger/
 COPY nexus ./nexus/
 COPY dashboard ./dashboard/
 
-# Remove any stale compiled JS from nexus/dist (we run TypeScript directly with Bun)
-RUN rm -rf /app/nexus/dist
-
-# Build dashboard (skip tsc, typecheck runs in CI)
+# Build dashboard
 RUN cd dashboard && bun vite build
+
+# Production stage - smaller image with only runtime deps
+FROM oven/bun:1 AS production
+WORKDIR /app
+
+# Copy package files
+COPY package.json bun.lock ./
+COPY nexus/package.json ./nexus/
+COPY logger/package.json ./logger/
+
+# Install production dependencies only (skip devDeps that may lack arm64 binaries)
+RUN bun install --frozen-lockfile --production
+
+# Copy source code (no dashboard source needed, just the built assets)
+COPY logger ./logger/
+COPY nexus ./nexus/
+
+# Copy built dashboard from builder stage
+COPY --from=builder /app/dashboard/dist ./nexus/public/
+
+# Remove any stale compiled JS
+RUN rm -rf /app/nexus/dist
 
 # Install SSH client for ops domain (Tailscale SSH handles auth)
 RUN apt-get update && apt-get install -y openssh-client && rm -rf /var/lib/apt/lists/*
 
-# Create db directory and copy dashboard build to nexus/public
-RUN mkdir -p /app/db /app/nexus/public && \
-    cp -r /app/dashboard/dist/* /app/nexus/public/
+# Create db directory
+RUN mkdir -p /app/db
 
 ENV PORT=3000
 ENV DB_PATH=/app/db
