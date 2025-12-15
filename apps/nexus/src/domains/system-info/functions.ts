@@ -551,6 +551,7 @@ export async function getDatabaseInfo(): Promise<Static<typeof DatabaseInfo>[]> 
 		{ name: "core.sqlite", domain: "core" },
 		{ name: "system-info.sqlite", domain: "system-info" },
 		{ name: "ops.sqlite", domain: "ops" },
+		{ name: "agent.sqlite", domain: "agent" },
 		{ name: "apps.sqlite", domain: "apps" },
 	];
 

@@ -14,6 +14,12 @@ function setupEventBroadcasting() {
 		"conversation:updated",
 		"conversation:created",
 		"conversation:deleted",
+		"queue:job:added",
+		"queue:job:completed",
+		"queue:job:failed",
+		"queue:stats:updated",
+		"thread:updated",
+		"thread:message",
 	];
 
 	for (const eventName of eventNames) {

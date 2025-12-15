@@ -1,0 +1,94 @@
+import { and, desc, eq } from "drizzle-orm";
+import { agentDb } from "../../infra/db";
+import type { AgentThread, NewAgentThread } from "./schema";
+import { agentThreads } from "./schema";
+import type { ThreadSourceType, ThreadStatusType } from "./types";
+
+export const agentRepository = {
+	async create(data: NewAgentThread): Promise<AgentThread> {
+		const [thread] = await agentDb.insert(agentThreads).values(data).returning();
+		return thread;
+	},
+
+	async findById(id: string): Promise<AgentThread | null> {
+		const [thread] = await agentDb.select().from(agentThreads).where(eq(agentThreads.id, id));
+		return thread ?? null;
+	},
+
+	async findBySourceId(source: ThreadSourceType, sourceId: string): Promise<AgentThread | null> {
+		const [thread] = await agentDb
+			.select()
+			.from(agentThreads)
+			.where(and(eq(agentThreads.source, source), eq(agentThreads.sourceId, sourceId)));
+		return thread ?? null;
+	},
+
+	async findAll(options?: {
+		status?: ThreadStatusType;
+		source?: ThreadSourceType;
+		limit?: number;
+	}): Promise<AgentThread[]> {
+		let query = agentDb.select().from(agentThreads);
+
+		if (options?.status) {
+			query = query.where(eq(agentThreads.status, options.status)) as typeof query;
+		}
+		if (options?.source) {
+			query = query.where(eq(agentThreads.source, options.source)) as typeof query;
+		}
+
+		return query.orderBy(desc(agentThreads.updatedAt)).limit(options?.limit ?? 50);
+	},
+
+	async update(
+		id: string,
+		data: Partial<{
+			status: ThreadStatusType;
+			title: string;
+			messages: string;
+			context: string;
+			wakeJobId: string | null;
+			wakeReason: string | null;
+		}>
+	): Promise<AgentThread | null> {
+		const [thread] = await agentDb
+			.update(agentThreads)
+			.set({ ...data, updatedAt: new Date() })
+			.where(eq(agentThreads.id, id))
+			.returning();
+		return thread ?? null;
+	},
+
+	async delete(id: string): Promise<boolean> {
+		const result = await agentDb.delete(agentThreads).where(eq(agentThreads.id, id)).returning();
+		return result.length > 0;
+	},
+
+	async setWake(id: string, wakeJobId: string, wakeReason: string): Promise<AgentThread | null> {
+		const [thread] = await agentDb
+			.update(agentThreads)
+			.set({
+				status: "sleeping",
+				wakeJobId,
+				wakeReason,
+				updatedAt: new Date(),
+			})
+			.where(eq(agentThreads.id, id))
+			.returning();
+		return thread ?? null;
+	},
+
+	async clearWake(id: string): Promise<AgentThread | null> {
+		const [thread] = await agentDb
+			.update(agentThreads)
+			.set({
+				status: "active",
+				wakeJobId: null,
+				wakeReason: null,
+				updatedAt: new Date(),
+			})
+			.where(eq(agentThreads.id, id))
+			.returning();
+		return thread ?? null;
+	},
+};

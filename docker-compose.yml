@@ -1,0 +1,19 @@
+# Local development services
+# Run: docker-compose up -d
+
+services:
+  valkey:
+    image: valkey/valkey:9.0.1-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - valkey-data:/data
+    command: valkey-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  valkey-data:

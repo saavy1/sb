@@ -1,156 +1,211 @@
-import { fetchServerSentEvents, useChat } from "@tanstack/ai-react";
-import { Bot, Loader2, Send, User } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { Bell, Bot, Loader2, Send, User } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Markdown from "react-markdown";
-import { z } from "zod";
-import { API_URL, client } from "../lib/api";
+import { client } from "../lib/api";
+import { useEvents } from "../lib/useEvents";
 
-// Zod schemas for TanStack AI message parts (loose types from library)
-const MessagePartSchema = z.object({
-	type: z.string(),
-	content: z.string().optional(),
-	text: z.string().optional(),
-	name: z.string().optional(),
-	toolName: z.string().optional(),
-	id: z.string().optional(),
-});
-
-const UIMessageSchema = z.object({
-	id: z.string(),
-	role: z.enum(["user", "assistant"]),
-	content: z.string().nullish(),
-	parts: z.array(MessagePartSchema).nullish(),
-});
-
-type MessagePart = z.infer<typeof MessagePartSchema>;
-type UIMessage = z.infer<typeof UIMessageSchema>;
-
-// Type for API message response
-type ApiMessage = {
+// Message type matching what comes from the server
+type Message = {
 	id: string;
-	role: string;
-	content: string | null;
-	parts: unknown[] | null;
-	createdAt: string;
+	role: "user" | "assistant" | "system";
+	content: string;
 };
 
 type Props = {
-	conversationId?: string;
-	onConversationChange?: (id: string | null) => void;
+	threadId?: string;
+	onThreadChange?: (id: string | null) => void;
 };
 
-export function Chat({ conversationId, onConversationChange }: Props) {
+export function Chat({ threadId: propThreadId, onThreadChange }: Props) {
 	const [input, setInput] = useState("");
-	const [activeConversationId, setActiveConversationId] = useState<string | null>(
-		conversationId ?? null
-	);
-	const lastMessageCountRef = useRef(0);
-	const isNewConversationRef = useRef(false);
+	const [messages, setMessages] = useState<Message[]>([]);
+	const [activeThreadId, setActiveThreadId] = useState<string | null>(propThreadId ?? null);
+	const [isLoading, setIsLoading] = useState(false);
+	const [error, setError] = useState<string | null>(null);
 	const inputRef = useRef<HTMLInputElement>(null);
-	const wasLoadingRef = useRef(false);
+	const messagesEndRef = useRef<HTMLDivElement>(null);
 
-	const { messages, sendMessage, isLoading, error, setMessages } = useChat({
-		connection: fetchServerSentEvents(`${API_URL}/api/ai/chat`),
-	});
-
-	// Sync prop to state when parent changes conversationId (clicking sidebar)
+	// Use ref for threadId to avoid stale closure in event handler
+	const activeThreadIdRef = useRef<string | null>(activeThreadId);
+	// Track if we just created a thread (skip loading, messages come via WebSocket)
+	const justCreatedThreadRef = useRef(false);
 	useEffect(() => {
-		setActiveConversationId(conversationId ?? null);
-		// Focus input when switching conversations
+		activeThreadIdRef.current = activeThreadId;
+	}, [activeThreadId]);
+
+	// Sync prop to state when parent changes threadId (clicking sidebar)
+	useEffect(() => {
+		setActiveThreadId(propThreadId ?? null);
 		setTimeout(() => inputRef.current?.focus(), 100);
-	}, [conversationId]);
+	}, [propThreadId]);
 
 	// Focus input on mount
 	useEffect(() => {
 		inputRef.current?.focus();
 	}, []);
 
-	// Load conversation messages when switching
+	// Load thread messages when switching threads
 	useEffect(() => {
-		if (!activeConversationId) {
+		if (!activeThreadId) {
 			setMessages([]);
-			lastMessageCountRef.current = 0;
 			return;
 		}
 
-		// Skip loading if we just created this conversation (messages are already local)
-		if (isNewConversationRef.current) {
-			isNewConversationRef.current = false;
+		// Skip loading if we just created this thread - messages will come via WebSocket
+		if (justCreatedThreadRef.current) {
+			justCreatedThreadRef.current = false;
 			return;
 		}
 
-		const loadConversation = async () => {
-			const { data } = await client.api.conversations({ id: activeConversationId }).get();
+		const loadThread = async () => {
+			const { data } = await client.api.agent.threads({ id: activeThreadId }).get();
 			if (data && "messages" in data && Array.isArray(data.messages)) {
-				const uiMessages = data.messages.map((m: ApiMessage) => ({
-					id: m.id,
-					role: m.role as "user" | "assistant",
-					parts: (m.parts as MessagePart[]) || [{ type: "text", content: m.content ?? undefined }],
-				}));
-				// Cast needed due to TanStack AI's internal UIMessage type
-				setMessages(uiMessages as unknown as Parameters<typeof setMessages>[0]);
-				lastMessageCountRef.current = uiMessages.length;
+				setMessages(
+					data.messages.map((m: { id: string; role: string; content?: string | null }) => ({
+						id: m.id,
+						role: m.role as "user" | "assistant" | "system",
+						content: m.content || "",
+					}))
+				);
 			}
 		};
 
-		loadConversation();
-	}, [activeConversationId, setMessages]);
+		loadThread();
+	}, [activeThreadId]);
 
-	// Save new messages to backend
+	// Scroll to bottom when messages change
 	useEffect(() => {
-		if (!activeConversationId || messages.length <= lastMessageCountRef.current) return;
+		messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+	}, [messages]);
 
-		const saveNewMessages = async () => {
-			const newMessages = messages.slice(lastMessageCountRef.current);
+	// Handle WebSocket message events - this is the primary way we receive updates
+	const handleMessageEvent = useCallback(
+		(payload: {
+			threadId: string;
+			messageId: string;
+			role: string;
+			content: string;
+			done: boolean;
+		}) => {
+			// Use ref to get current threadId (avoids stale closure)
+			const currentThreadId = activeThreadIdRef.current;
 
-			for (const msg of newMessages) {
-				const typedMsg = msg as unknown as UIMessage;
-				await client.api.conversations({ id: activeConversationId }).messages.post({
-					role: msg.role,
-					content: typedMsg.content ?? undefined,
-					parts: typedMsg.parts ?? undefined,
-				});
+			console.log("[Chat] Received event:", {
+				payloadThreadId: payload.threadId,
+				currentThreadId,
+				messageId: payload.messageId,
+				role: payload.role,
+				contentLength: payload.content.length,
+				done: payload.done,
+			});
+
+			// Only process events for the active thread
+			if (payload.threadId !== currentThreadId) {
+				console.log("[Chat] Ignoring event - threadId mismatch");
+				return;
 			}
-			lastMessageCountRef.current = messages.length;
-		};
 
-		if (!isLoading) {
-			saveNewMessages();
-		}
-	}, [messages, isLoading, activeConversationId]);
+			setMessages((prev) => {
+				const existingIdx = prev.findIndex((m) => m.id === payload.messageId);
 
-	// Focus input when model finishes replying
-	useEffect(() => {
-		if (wasLoadingRef.current && !isLoading) {
-			// Loading just finished
-			setTimeout(() => inputRef.current?.focus(), 100);
-		}
-		wasLoadingRef.current = isLoading;
-	}, [isLoading]);
+				const newMessage: Message = {
+					id: payload.messageId,
+					role: payload.role as "user" | "assistant" | "system",
+					content: payload.content,
+				};
+
+				if (existingIdx >= 0) {
+					// Update existing message (streaming update)
+					const updated = [...prev];
+					updated[existingIdx] = newMessage;
+					return updated;
+				}
+
+				// For user messages, check if we already added it optimistically (temp ID)
+				if (payload.role === "user") {
+					const tempIdx = prev.findIndex(
+						(m) => m.role === "user" && m.id.startsWith("temp-") && m.content === payload.content
+					);
+					if (tempIdx >= 0) {
+						// Replace temp message with real one from server
+						const updated = [...prev];
+						updated[tempIdx] = newMessage;
+						return updated;
+					}
+				}
+
+				// Add new message
+				return [...prev, newMessage];
+			});
+
+			// Clear loading state when we get a done assistant message
+			if (payload.done && payload.role === "assistant") {
+				setIsLoading(false);
+				setTimeout(() => inputRef.current?.focus(), 100);
+			}
+		},
+		[] // No dependencies - uses ref instead
+	);
+
+	useEvents("thread:message", handleMessageEvent);
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 		if (!input.trim() || isLoading) return;
 
-		// Create conversation if none active
-		if (!activeConversationId) {
-			const { data } = await client.api.conversations.post({});
-			if (data && "id" in data) {
-				isNewConversationRef.current = true;
-				setActiveConversationId(data.id);
-				onConversationChange?.(data.id);
-			}
-		}
-
-		sendMessage(input);
+		const messageContent = input.trim();
 		setInput("");
+		setIsLoading(true);
+		setError(null);
+
+		console.log("[Chat] Submitting message:", { messageContent, activeThreadId });
+
+		try {
+			// Create thread if none active
+			let threadId = activeThreadId;
+			if (!threadId) {
+				console.log("[Chat] Creating new thread...");
+				const { data } = await client.api.agent.threads.post({ source: "chat" });
+				console.log("[Chat] Thread created:", data);
+				if (data && "id" in data) {
+					threadId = data.id;
+					// Update refs immediately so event handler can use them
+					activeThreadIdRef.current = threadId;
+					justCreatedThreadRef.current = true; // Skip loading effect, messages via WebSocket
+					setActiveThreadId(threadId);
+					onThreadChange?.(threadId);
+				} else {
+					throw new Error("Failed to create thread");
+				}
+			}
+
+			console.log("[Chat] Sending message to thread:", threadId);
+
+			// Add user message optimistically (don't wait for WebSocket)
+			const tempUserMsgId = `temp-${Date.now()}`;
+			setMessages((prev) => [
+				...prev,
+				{ id: tempUserMsgId, role: "user", content: messageContent },
+			]);
+
+			// Send message - assistant response will come via WebSocket
+			const result = await client.api.agent.chat.post(
+				{ messages: [{ role: "user", content: messageContent }] },
+				{ query: { threadId } }
+			);
+			console.log("[Chat] Message sent, result:", result);
+		} catch (err) {
+			console.error("[Chat] Error:", err);
+			setError(err instanceof Error ? err.message : "Failed to send message");
+			setIsLoading(false);
+		}
 	};
 
 	return (
 		<div className="flex h-full flex-col">
 			{/* Messages area */}
 			<div className="flex-1 space-y-4 overflow-y-auto p-4">
-				{messages.length === 0 && (
+				{messages.length === 0 && !isLoading && (
 					<div className="flex h-full flex-col items-center justify-center text-zinc-500">
 						<Bot className="mb-4 h-12 w-12" />
 						<p className="text-lg font-medium">The Machine</p>
@@ -158,34 +213,48 @@ export function Chat({ conversationId, onConversationChange }: Props) {
 					</div>
 				)}
 
-				{messages.map((message) => (
-					<div
-						key={message.id}
-						className={`flex gap-3 ${message.role === "user" ? "justify-end" : "justify-start"}`}
-					>
-						{message.role === "assistant" && (
-							<div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-500/20">
-								<Bot className="h-4 w-4 text-emerald-400" />
+				{messages.map((message) => {
+					// System messages (wake notifications) get special centered styling
+					if (message.role === "system") {
+						return (
+							<div key={message.id} className="flex justify-center">
+								<div className="flex items-center gap-2 rounded-full bg-amber-500/10 px-4 py-2 text-sm text-amber-400">
+									<Bell className="h-4 w-4" />
+									<span>{message.content}</span>
+								</div>
 							</div>
-						)}
+						);
+					}
 
+					return (
 						<div
-							className={`max-w-[80%] rounded-lg px-4 py-2 ${
-								message.role === "user" ? "bg-zinc-700 text-white" : "bg-zinc-800 text-zinc-100"
-							}`}
+							key={message.id}
+							className={`flex gap-3 ${message.role === "user" ? "justify-end" : "justify-start"}`}
 						>
-							<MessageContent message={message} />
-						</div>
+							{message.role === "assistant" && (
+								<div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-500/20">
+									<Bot className="h-4 w-4 text-emerald-400" />
+								</div>
+							)}
 
-						{message.role === "user" && (
-							<div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-zinc-600">
-								<User className="h-4 w-4 text-zinc-300" />
+							<div
+								className={`max-w-[80%] rounded-lg px-4 py-2 ${
+									message.role === "user" ? "bg-zinc-700 text-white" : "bg-zinc-800 text-zinc-100"
+								}`}
+							>
+								<MessageContent content={message.content} />
 							</div>
-						)}
-					</div>
-				))}
 
-				{isLoading && messages.length > 0 && messages[messages.length - 1]?.role === "user" && (
+							{message.role === "user" && (
+								<div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-zinc-600">
+									<User className="h-4 w-4 text-zinc-300" />
+								</div>
+							)}
+						</div>
+					);
+				})}
+
+				{isLoading && (messages.length === 0 || messages[messages.length - 1]?.role === "user") && (
 					<div className="flex gap-3">
 						<div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-500/20">
 							<Loader2 className="h-4 w-4 animate-spin text-emerald-400" />
@@ -195,10 +264,10 @@ export function Chat({ conversationId, onConversationChange }: Props) {
 				)}
 
 				{error && (
-					<div className="rounded-lg bg-red-900/20 px-4 py-2 text-red-400">
-						Error: {error.message}
-					</div>
+					<div className="rounded-lg bg-red-900/20 px-4 py-2 text-red-400">Error: {error}</div>
 				)}
+
+				<div ref={messagesEndRef} />
 			</div>
 
 			{/* Input area */}
@@ -226,9 +295,7 @@ export function Chat({ conversationId, onConversationChange }: Props) {
 	);
 }
 
-function MessageContent({ message: rawMessage }: { message: unknown }) {
-	// Cast to our local type - TanStack AI's internal types are complex
-	const message = rawMessage as UIMessage;
+function MessageContent({ content }: { content: string }) {
 	// Clean DeepSeek tool call markers from text
 	const cleanText = (text: string): string => {
 		return text
@@ -238,61 +305,12 @@ function MessageContent({ message: rawMessage }: { message: unknown }) {
 			.trim();
 	};
 
-	// Extract text content from various possible formats
-	const getTextContent = (): string | null => {
-		// Direct content string
-		if (typeof message.content === "string" && message.content) {
-			return cleanText(message.content);
-		}
-
-		// Parts array - check for text parts
-		if (Array.isArray(message.parts)) {
-			// Try type: "text" with content property (TanStack AI format)
-			let textParts = message.parts
-				.filter((p) => p.type === "text" && p.content)
-				.map((p) => cleanText(p.content ?? ""))
-				.filter((t) => t)
-				.join("\n\n");
-			if (textParts) return textParts;
-
-			// Try type: "text" with text property
-			textParts = message.parts
-				.filter((p) => p.type === "text" && p.text)
-				.map((p) => cleanText(p.text ?? ""))
-				.filter((t) => t)
-				.join("\n\n");
-			if (textParts) return textParts;
-		}
-
-		return null;
-	};
-
-	const textContent = getTextContent();
-	const toolParts = Array.isArray(message.parts)
-		? message.parts.filter((p) => p.type === "tool-call" || p.type === "tool-result")
-		: [];
+	const cleaned = cleanText(content);
+	if (!cleaned) return <span className="text-zinc-500">...</span>;
 
 	return (
-		<>
-			{textContent && (
-				<div className="prose prose-invert prose-sm max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-pre:bg-zinc-900 prose-pre:border prose-pre:border-zinc-700 prose-code:text-emerald-400 prose-code:before:content-none prose-code:after:content-none">
-					<Markdown>{textContent}</Markdown>
-				</div>
-			)}
-			{toolParts.map((part) => {
-				if (part.type === "tool-call") {
-					return (
-						<div
-							key={part.id ?? part.name ?? part.toolName}
-							className="my-1 rounded bg-zinc-700/50 px-2 py-1 text-xs text-zinc-400"
-						>
-							⚡ {part.name || part.toolName}
-						</div>
-					);
-				}
-				return null;
-			})}
-			{!textContent && toolParts.length === 0 && <p className="text-zinc-500">...</p>}
-		</>
+		<div className="prose prose-invert prose-sm max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-pre:bg-zinc-900 prose-pre:border prose-pre:border-zinc-700 prose-code:text-emerald-400 prose-code:before:content-none prose-code:after:content-none">
+			<Markdown>{cleaned}</Markdown>
+		</div>
 	);
 }

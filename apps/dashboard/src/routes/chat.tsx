@@ -1,6 +1,5 @@
-import type { ConversationType } from "@nexus/domains/chat/types";
 import { createFileRoute } from "@tanstack/react-router";
-import { Check, MessageSquarePlus, Pencil, Trash2, X } from "lucide-react";
+import { MessageSquarePlus } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Chat } from "../components/Chat";
 import { client } from "../lib/api";
@@ -10,28 +9,39 @@ export const Route = createFileRoute("/chat")({
 	component: ChatPage,
 });
 
-function ChatPage() {
-	const [conversations, setConversations] = useState<ConversationType[]>([]);
-	const [activeId, setActiveId] = useState<string | null>(null);
-	const [editingId, setEditingId] = useState<string | null>(null);
-	const [editTitle, setEditTitle] = useState("");
-	const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+// Thread type from agent domain
+type AgentThread = {
+	id: string;
+	status: "active" | "sleeping" | "complete" | "failed";
+	source: "chat" | "discord" | "event" | "scheduled";
+	sourceId: string | null;
+	title: string | null;
+	messageCount: number;
+	context: Record<string, unknown>;
+	wakeReason: string | null;
+	createdAt: string;
+	updatedAt: string;
+};
 
-	const fetchConversations = useCallback(async () => {
-		const { data } = await client.api.conversations.get();
+function ChatPage() {
+	const [threads, setThreads] = useState<AgentThread[]>([]);
+	const [activeId, setActiveId] = useState<string | null>(null);
+
+	const fetchThreads = useCallback(async () => {
+		const { data } = await client.api.agent.threads.get({ query: { source: "chat" } });
 		if (Array.isArray(data)) {
-			setConversations(data);
+			setThreads(data);
 		}
 	}, []);
 
 	useEffect(() => {
-		fetchConversations();
-	}, [fetchConversations]);
+		fetchThreads();
+	}, [fetchThreads]);
 
-	// Listen for real-time conversation updates (e.g., title generation)
-	useEvents("conversation:updated", (payload) => {
-		setConversations((prev) =>
-			prev.map((c) => (c.id === payload.id ? { ...c, title: payload.title } : c))
+	// Listen for real-time thread title updates
+	useEvents("thread:updated", (payload) => {
+		setThreads((prev) =>
+			prev.map((t) => (t.id === payload.id ? { ...t, title: payload.title } : t))
 		);
 	});
 
@@ -39,42 +49,24 @@ function ChatPage() {
 		setActiveId(null);
 	};
 
-	const handleStartEdit = (conv: ConversationType, e: React.MouseEvent) => {
-		e.stopPropagation();
-		setEditingId(conv.id);
-		setEditTitle(conv.title || "");
-	};
-
-	const handleSaveTitle = async (id: string) => {
-		if (editTitle.trim()) {
-			await client.api.conversations({ id }).patch({ title: editTitle.trim() });
-			fetchConversations();
-		}
-		setEditingId(null);
-	};
-
-	const handleCancelEdit = () => {
-		setEditingId(null);
-		setEditTitle("");
-	};
-
-	const handleDeleteClick = (id: string, e: React.MouseEvent) => {
-		e.stopPropagation();
-		setDeleteConfirmId(id);
-	};
-
-	const handleConfirmDelete = async () => {
-		if (deleteConfirmId) {
-			await client.api.conversations({ id: deleteConfirmId }).delete();
-			if (activeId === deleteConfirmId) setActiveId(null);
-			setDeleteConfirmId(null);
-			fetchConversations();
-		}
-	};
-
-	const handleConversationChange = (id: string | null) => {
+	const handleThreadChange = (id: string | null) => {
 		setActiveId(id);
-		fetchConversations();
+		fetchThreads();
+	};
+
+	// Generate a display name from thread
+	const getThreadTitle = (thread: AgentThread) => {
+		// Use generated title if available
+		if (thread.title) {
+			return thread.title;
+		}
+		// Fallback: "Chat from Dec 14" or show status if sleeping
+		const date = new Date(thread.createdAt);
+		const dateStr = date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+		if (thread.status === "sleeping") {
+			return `Sleeping (${thread.wakeReason?.slice(0, 20) || dateStr})`;
+		}
+		return `Chat from ${dateStr}`;
 	};
 
 	return (
@@ -92,74 +84,28 @@ function ChatPage() {
 					</button>
 				</div>
 				<div className="flex-1 overflow-y-auto p-2 space-y-1">
-					{conversations.length === 0 ? (
-						<p className="text-xs text-zinc-500 text-center py-4">No conversations yet</p>
+					{threads.length === 0 ? (
+						<p className="text-xs text-zinc-500 text-center py-4">No threads yet</p>
 					) : (
-						conversations.map((conv) => (
+						threads.map((thread) => (
 							<button
 								type="button"
-								key={conv.id}
-								onClick={() => !editingId && setActiveId(conv.id)}
+								key={thread.id}
+								onClick={() => setActiveId(thread.id)}
 								className={`w-full text-left px-3 py-2 rounded-lg text-sm group flex items-center justify-between cursor-pointer ${
-									activeId === conv.id
+									activeId === thread.id
 										? "bg-zinc-700 text-white"
 										: "text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
 								}`}
 							>
-								{editingId === conv.id ? (
-									<div
-										className="flex items-center gap-1 flex-1"
-										onClick={(e) => e.stopPropagation()}
-										onKeyDown={(e) => e.stopPropagation()}
-										role="group"
-									>
-										<input
-											type="text"
-											value={editTitle}
-											onChange={(e) => setEditTitle(e.target.value)}
-											onKeyDown={(e) => {
-												if (e.key === "Enter") handleSaveTitle(conv.id);
-												if (e.key === "Escape") handleCancelEdit();
-											}}
-											className="flex-1 bg-zinc-800 border border-zinc-600 rounded px-2 py-0.5 text-sm text-white focus:outline-none focus:border-emerald-500"
-											// biome-ignore lint/a11y/noAutofocus: needed for inline edit UX
-											autoFocus
-										/>
-										<button
-											type="button"
-											onClick={() => handleSaveTitle(conv.id)}
-											className="p-1 hover:text-emerald-400"
-										>
-											<Check size={14} />
-										</button>
-										<button
-											type="button"
-											onClick={handleCancelEdit}
-											className="p-1 hover:text-zinc-200"
-										>
-											<X size={14} />
-										</button>
-									</div>
-								) : (
-									<>
-										<span className="truncate flex-1">{conv.title || "New conversation"}</span>
-										<div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-											<button
-												type="button"
-												onClick={(e) => handleStartEdit(conv, e)}
-												className="p-1 hover:text-emerald-400"
-											>
-												<Pencil size={12} />
-											</button>
-											<button
-												type="button"
-												onClick={(e) => handleDeleteClick(conv.id, e)}
-												className="p-1 hover:text-red-400"
-											>
-												<Trash2 size={12} />
-											</button>
-										</div>
-									</>
+								<span className="truncate flex-1">{getThreadTitle(thread)}</span>
+								{thread.status === "sleeping" && (
+									<span className="ml-2 px-1.5 py-0.5 text-xs bg-amber-500/20 text-amber-400 rounded">
+										zzz
+									</span>
+								)}
+								{thread.messageCount > 0 && thread.status !== "sleeping" && (
+									<span className="ml-2 text-xs text-zinc-500">{thread.messageCount}</span>
 								)}
 							</button>
 						))
@@ -174,46 +120,9 @@ function ChatPage() {
 					<p className="text-sm text-zinc-400">AI assistant for your homelab</p>
 				</div>
 				<div className="flex-1 overflow-hidden">
-					<Chat
-						conversationId={activeId ?? undefined}
-						onConversationChange={handleConversationChange}
-					/>
+					<Chat threadId={activeId ?? undefined} onThreadChange={handleThreadChange} />
 				</div>
 			</div>
-
-			{/* Delete confirmation modal */}
-			{deleteConfirmId && (
-				<div className="fixed inset-0 z-50 flex items-center justify-center">
-					<button
-						type="button"
-						className="fixed inset-0 bg-black/60 cursor-default"
-						onClick={() => setDeleteConfirmId(null)}
-						aria-label="Close modal"
-					/>
-					<div className="relative bg-zinc-900 border border-zinc-700 rounded-lg p-6 max-w-sm mx-4 shadow-xl">
-						<h3 className="text-lg font-semibold text-white mb-2">Delete conversation?</h3>
-						<p className="text-sm text-zinc-400 mb-4">
-							This will permanently delete this conversation and all its messages.
-						</p>
-						<div className="flex gap-2 justify-end">
-							<button
-								type="button"
-								onClick={() => setDeleteConfirmId(null)}
-								className="px-4 py-2 text-sm text-zinc-400 hover:text-white transition-colors"
-							>
-								Cancel
-							</button>
-							<button
-								type="button"
-								onClick={handleConfirmDelete}
-								className="px-4 py-2 text-sm bg-red-600 hover:bg-red-500 text-white rounded-lg transition-colors"
-							>
-								Delete
-							</button>
-						</div>
-					</div>
-				</div>
-			)}
 		</div>
 	);
 }

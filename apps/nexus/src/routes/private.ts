@@ -1,22 +1,22 @@
 import { Elysia } from "elysia";
 import logger from "logger";
-import { aiRoutes } from "../domains/ai/routes";
+import { agentRoutes } from "../domains/agent/routes";
 import { appRoutes } from "../domains/apps/routes";
-import { chatRoutes } from "../domains/chat/routes";
 import { gameServerRoutes } from "../domains/game-servers/routes";
 import { opsRoutes } from "../domains/ops/routes";
 import { systemInfoRoutes } from "../domains/system-info/routes";
 import { autheliaMiddleware } from "../middleware/authelia";
+import { debugRoutes } from "./debug";
 import { eventsRoutes } from "./events";
 
 export const privateRoutes = new Elysia({ prefix: "/api" })
 	.use(autheliaMiddleware)
 	.use(appRoutes)
-	.use(chatRoutes)
 	.use(gameServerRoutes)
 	.use(systemInfoRoutes)
 	.use(opsRoutes)
-	.use(aiRoutes)
+	.use(agentRoutes)
+	.use(debugRoutes)
 	.use(eventsRoutes)
 	.onBeforeHandle(({ user, path }) => {
 		// In production with Authelia, user will always be set for /api/* routes

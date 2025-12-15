@@ -47,6 +47,7 @@ spec:
               OPS_FLAKE_PATH: /home/saavy/dev/sb
               OPS_FLAKE_TARGET: superbloom
               OTEL_EXPORTER_OTLP_ENDPOINT: http://grafana-k8s-monitoring-alloy-receiver.alloy:4318
+              VALKEY_URL: redis://localhost:6379
             envFrom:
               - secretRef:
                   name: nexus-env
@@ -67,6 +68,32 @@ spec:
                   httpGet:
                     path: /health
                     port: 3000
+                  initialDelaySeconds: 5
+                  periodSeconds: 5
+          # Valkey (Redis-compatible) for BullMQ queues
+          valkey:
+            image:
+              repository: valkey/valkey
+              tag: 9.0.1-alpine
+            command:
+              - valkey-server
+              - --appendonly
+              - "yes"
+            probes:
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  exec:
+                    command: ["valkey-cli", "ping"]
+                  initialDelaySeconds: 5
+                  periodSeconds: 10
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  exec:
+                    command: ["valkey-cli", "ping"]
                   initialDelaySeconds: 5
                   periodSeconds: 5
           # Tailscale sidecar for network access
@@ -124,3 +151,13 @@ spec:
         type: emptyDir
         globalMounts:
           - path: /var/run/tailscale
+      valkey-data:
+        enabled: true
+        type: persistentVolumeClaim
+        accessMode: ReadWriteOnce
+        size: 1Gi
+        storageClass: local-path
+        advancedMounts:
+          main:
+            valkey:
+              - path: /data

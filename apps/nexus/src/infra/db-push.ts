@@ -158,39 +158,39 @@ appsDb.run(sql`CREATE INDEX IF NOT EXISTS idx_apps_sort_order ON apps(sort_order
 logger.info({ database: "apps" }, "Schema pushed");
 appsSqlite.close();
 
-// Push chat schema
-logger.info({ database: "chat" }, "Pushing schema");
-const chatSqlite = new Database(join(dbPath, "chat.sqlite"), { create: true });
-chatSqlite.exec("PRAGMA journal_mode = WAL;");
-const chatDb = drizzle(chatSqlite);
+// Push agent schema
+logger.info({ database: "agent" }, "Pushing schema");
+const agentSqlite = new Database(join(dbPath, "agent.sqlite"), { create: true });
+agentSqlite.exec("PRAGMA journal_mode = WAL;");
+const agentDb = drizzle(agentSqlite);
 
-chatDb.run(sql`
-  CREATE TABLE IF NOT EXISTS conversations (
+agentDb.run(sql`
+  CREATE TABLE IF NOT EXISTS agent_threads (
     id TEXT PRIMARY KEY,
+    status TEXT NOT NULL DEFAULT 'active',
     title TEXT,
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
+    source TEXT NOT NULL,
+    source_id TEXT,
+    messages TEXT NOT NULL DEFAULT '[]',
+    context TEXT NOT NULL DEFAULT '{}',
+    wake_job_id TEXT,
+    wake_reason TEXT,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
   )
 `);
-chatDb.run(
-	sql`CREATE INDEX IF NOT EXISTS idx_conversations_updated_at ON conversations(updated_at)`
+// Add title column if it doesn't exist (migration for existing DBs)
+try {
+	agentDb.run(sql`ALTER TABLE agent_threads ADD COLUMN title TEXT`);
+} catch {
+	// Column already exists
+}
+agentDb.run(sql`CREATE INDEX IF NOT EXISTS idx_agent_threads_status ON agent_threads(status)`);
+agentDb.run(sql`CREATE INDEX IF NOT EXISTS idx_agent_threads_source ON agent_threads(source)`);
+agentDb.run(
+	sql`CREATE INDEX IF NOT EXISTS idx_agent_threads_updated_at ON agent_threads(updated_at)`
 );
-
-chatDb.run(sql`
-  CREATE TABLE IF NOT EXISTS messages (
-    id TEXT PRIMARY KEY,
-    conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
-    role TEXT NOT NULL,
-    content TEXT,
-    parts TEXT,
-    created_at TEXT NOT NULL
-  )
-`);
-chatDb.run(
-	sql`CREATE INDEX IF NOT EXISTS idx_messages_conversation_id ON messages(conversation_id)`
-);
-chatDb.run(sql`CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at)`);
-logger.info({ database: "chat" }, "Schema pushed");
-chatSqlite.close();
+logger.info({ database: "agent" }, "Schema pushed");
+agentSqlite.close();
 
 logger.info("All schemas pushed successfully");
