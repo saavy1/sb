@@ -1,4 +1,4 @@
-import { jsonb, pgSchema, text, timestamp } from "drizzle-orm/pg-core";
+import { index, integer, jsonb, pgSchema, text, timestamp } from "drizzle-orm/pg-core";
 import type { ThreadMessageType } from "./types";
 
 // Postgres schema for agent tables
@@ -7,35 +7,46 @@ export const agentSchema = pgSchema("agent");
 // Context type for JSONB column
 export type ThreadContext = Record<string, unknown>;
 
-export const agentThreads = agentSchema.table("threads", {
-	id: text("id").primaryKey(),
+export const agentThreads = agentSchema.table(
+	"threads",
+	{
+		id: text("id").primaryKey(),
 
-	// Thread status
-	status: text("status", { enum: ["active", "sleeping", "complete", "failed"] })
-		.notNull()
-		.default("active"),
+		// Optimistic locking
+		version: integer("version").notNull().default(1),
 
-	// Display title (auto-generated from first exchange)
-	title: text("title"),
+		// Thread status
+		status: text("status", { enum: ["active", "sleeping", "complete", "failed"] })
+			.notNull()
+			.default("active"),
 
-	// Origin tracking
-	source: text("source", { enum: ["chat", "discord", "event", "scheduled", "alert"] }).notNull(),
-	sourceId: text("source_id"), // conversation id, discord channel, event type, etc.
+		// Display title (auto-generated from first exchange)
+		title: text("title"),
 
-	// Conversation state (JSONB - automatically serialized/deserialized)
-	messages: jsonb("messages").$type<ThreadMessageType[]>().notNull().default([]),
+		// Origin tracking
+		source: text("source", { enum: ["chat", "discord", "event", "scheduled", "alert"] }).notNull(),
+		sourceId: text("source_id"), // conversation id, discord channel, event type, etc.
 
-	// Arbitrary context the agent persists across sleep/wake
-	context: jsonb("context").$type<ThreadContext>().notNull().default({}),
+		// Conversation state (JSONB - automatically serialized/deserialized)
+		messages: jsonb("messages").$type<ThreadMessageType[]>().notNull().default([]),
 
-	// Wake scheduling
-	wakeJobId: text("wake_job_id"), // BullMQ job ID for cancellation
-	wakeReason: text("wake_reason"), // Injected into prompt on wake
+		// Arbitrary context the agent persists across sleep/wake
+		context: jsonb("context").$type<ThreadContext>().notNull().default({}),
 
-	// Metadata
-	createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-	updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-});
+		// Wake scheduling
+		wakeJobId: text("wake_job_id"), // BullMQ job ID for cancellation
+		wakeReason: text("wake_reason"), // Injected into prompt on wake
+
+		// Metadata
+		createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+		updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+	},
+	(table) => [
+		index("idx_threads_status").on(table.status),
+		index("idx_threads_source").on(table.source, table.sourceId),
+		index("idx_threads_updated").on(table.updatedAt),
+	]
+);
 
 export type AgentThread = typeof agentThreads.$inferSelect;
 export type NewAgentThread = typeof agentThreads.$inferInsert;
