@@ -1,4 +1,5 @@
 import { Database } from "bun:sqlite";
+import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { drizzle } from "drizzle-orm/bun-sqlite";
 import { migrate } from "drizzle-orm/bun-sqlite/migrator";
@@ -7,36 +8,49 @@ import { config } from "./config";
 
 const dbPath = config.DB_PATH;
 
-// Migrate minecraft database
-logger.info({ database: "minecraft" }, "Running migrations");
-const minecraftSqlite = new Database(join(dbPath, "minecraft.sqlite"), {
-	create: true,
-});
-minecraftSqlite.exec("PRAGMA journal_mode = WAL;");
-const minecraftDb = drizzle(minecraftSqlite);
+// Ensure db directory exists
+mkdirSync(dbPath, { recursive: true });
 
-try {
-	migrate(minecraftDb, {
-		migrationsFolder: join(dbPath, "migrations/minecraft"),
-	});
-	logger.info({ database: "minecraft" }, "Migrations complete");
-} catch (_e) {
-	logger.info({ database: "minecraft" }, "No migrations found or already up to date");
+// Domain configurations: maps domain name to database file and migrations folder
+const domains = [
+	{ name: "agent", dbFile: "agent.sqlite", migrationsFolder: "agent" },
+	{ name: "apps", dbFile: "apps.sqlite", migrationsFolder: "apps" },
+	{ name: "core", dbFile: "core.sqlite", migrationsFolder: "core" },
+	{ name: "game-servers", dbFile: "minecraft.sqlite", migrationsFolder: "game-servers" },
+	{ name: "ops", dbFile: "ops.sqlite", migrationsFolder: "ops" },
+	{ name: "system-info", dbFile: "system-info.sqlite", migrationsFolder: "system-info" },
+] as const;
+
+// Run migrations for all domains
+for (const domain of domains) {
+	logger.info({ database: domain.name }, "Running migrations");
+
+	const sqlite = new Database(join(dbPath, domain.dbFile), { create: true });
+	sqlite.exec("PRAGMA journal_mode = WAL;");
+	const db = drizzle(sqlite);
+
+	try {
+		migrate(db, {
+			migrationsFolder: join(
+				import.meta.dir,
+				"../../drizzle",
+				domain.migrationsFolder,
+				"migrations"
+			),
+		});
+		logger.info({ database: domain.name }, "Migrations complete");
+	} catch (e) {
+		const error = e as Error;
+		// "No migrations found" is expected for new domains without migrations yet
+		if (error.message?.includes("No config.json found")) {
+			logger.info({ database: domain.name }, "No migrations found, skipping");
+		} else {
+			logger.error({ database: domain.name, error: error.message }, "Migration failed");
+			throw e;
+		}
+	} finally {
+		sqlite.close();
+	}
 }
-minecraftSqlite.close();
-
-// Migrate core database
-logger.info({ database: "core" }, "Running migrations");
-const coreSqlite = new Database(join(dbPath, "core.sqlite"), { create: true });
-coreSqlite.exec("PRAGMA journal_mode = WAL;");
-const coreDb = drizzle(coreSqlite);
-
-try {
-	migrate(coreDb, { migrationsFolder: join(dbPath, "migrations/core") });
-	logger.info({ database: "core" }, "Migrations complete");
-} catch (_e) {
-	logger.info({ database: "core" }, "No migrations found or already up to date");
-}
-coreSqlite.close();
 
 logger.info("All migrations complete");
