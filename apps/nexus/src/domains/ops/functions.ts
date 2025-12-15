@@ -501,6 +501,93 @@ export const getFluxStatusTool = withTool(
 	}
 );
 
+export const describeResourceTool = withTool(
+	{
+		name: "describe_resource",
+		description:
+			"Get detailed information about a Kubernetes resource including events, conditions, and status. Use when debugging issues like CrashLoopBackOff, ImagePullBackOff, or when user asks 'why is X failing', 'describe pod Y', 'what's wrong with Z'.",
+		input: z.object({
+			kind: z
+				.enum(["pod", "deployment", "service", "statefulset", "configmap", "secret", "pvc", "node"])
+				.describe("Type of resource to describe"),
+			name: z.string().describe("Name of the resource"),
+			namespace: z.string().optional().describe("Namespace (not needed for nodes)"),
+		}),
+	},
+	async ({ kind, name, namespace }) => {
+		let cmd = `describe ${kind} ${name}`;
+		if (namespace && kind !== "node") {
+			cmd += ` -n ${namespace}`;
+		}
+
+		const result = await executeKubectl(cmd);
+		if (!result.success) {
+			return { error: result.errorMessage, output: result.output };
+		}
+		return { success: true, output: result.output };
+	}
+);
+
+export const rolloutRestartTool = withTool(
+	{
+		name: "rollout_restart",
+		description:
+			"Restart a Kubernetes deployment or statefulset by triggering a rolling restart. Use when user asks to 'restart X', 'bounce the pods', or to apply config changes that require a restart.",
+		input: z.object({
+			name: z.string().describe("Name of the deployment or statefulset"),
+			namespace: z.string().describe("Namespace the resource is in"),
+			kind: z
+				.enum(["deployment", "statefulset"])
+				.optional()
+				.describe("Resource kind (default: deployment)"),
+		}),
+	},
+	async ({ name, namespace, kind = "deployment" }) => {
+		const cmd = `rollout restart ${kind}/${name} -n ${namespace}`;
+		const result = await executeKubectl(cmd);
+		if (!result.success) {
+			return { error: result.errorMessage, output: result.output };
+		}
+		return {
+			success: true,
+			message: `Rolling restart initiated for ${kind}/${name} in ${namespace}`,
+			output: result.output,
+		};
+	}
+);
+
+export const helmRollbackTool = withTool(
+	{
+		name: "helm_rollback",
+		description:
+			"Rollback a Helm release to a previous revision. Use when user asks to 'rollback X', 'revert the deploy', or to undo a failed deployment.",
+		input: z.object({
+			release: z.string().describe("Name of the Helm release"),
+			namespace: z.string().describe("Namespace the release is in"),
+			revision: z
+				.number()
+				.optional()
+				.describe("Revision number to rollback to (default: previous revision)"),
+		}),
+	},
+	async ({ release, namespace, revision }) => {
+		let cmd = `helm rollback ${release} -n ${namespace}`;
+		if (revision !== undefined) {
+			cmd = `helm rollback ${release} ${revision} -n ${namespace}`;
+		}
+
+		const result = config.K8S_IN_CLUSTER ? await executeLocal(cmd) : await executeSSH(cmd);
+		if (!result.success) {
+			return { error: result.errorMessage, output: result.output };
+		}
+		return {
+			success: true,
+			message: `Helm rollback initiated for ${release} in ${namespace}`,
+			output: result.output,
+		};
+	}
+);
+
 export const opsTools = [
 	triggerNixosRebuildTool.tool,
 	triggerFluxReconcileTool.tool,
@@ -510,4 +597,7 @@ export const opsTools = [
 	getPodLogsTool.tool,
 	getEventsTool.tool,
 	getFluxStatusTool.tool,
+	describeResourceTool.tool,
+	rolloutRestartTool.tool,
+	helmRollbackTool.tool,
 ];
