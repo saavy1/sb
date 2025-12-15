@@ -145,12 +145,25 @@ import { MessagePartSchema } from "./types";
 
 ## Commands
 
+**All commands run from `sb/apps/` workspace root:**
+
 ```bash
+# Development
 bun run dev:api        # Nexus on :3000
 bun run dev:dashboard  # Dashboard on :3001
-bun run typecheck      # All packages
-bun run lint           # Biome
+
+# Quality checks (runs on all packages via --filter '*')
+bun run typecheck      # TypeScript check all packages
+bun run lint           # Biome lint all packages
+bun run check          # Biome check all packages
+
+# Drizzle migrations (from nexus directory or use --cwd)
+bun --cwd nexus run db:generate      # Generate all migrations
+bun --cwd nexus run db:generate:agent  # Generate agent schema migration
+bun --cwd nexus run db:migrate       # Run migrations
 ```
+
+**Note:** Use `bash -c 'cd /path/to/apps && bun run <script>'` if `cd` is aliased (e.g., zoxide).
 
 ## Shell Tools
 

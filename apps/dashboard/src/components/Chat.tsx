@@ -82,6 +82,7 @@ export function Chat({ threadId: propThreadId, onThreadChange }: Props) {
 	}, [activeThreadId]);
 
 	// Scroll to bottom when messages change
+	// biome-ignore lint/correctness/useExhaustiveDependencies: intentional trigger on messages change
 	useEffect(() => {
 		messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
 	}, [messages]);
@@ -200,6 +201,7 @@ export function Chat({ threadId: propThreadId, onThreadChange }: Props) {
 	}, [isLoading]);
 
 	// Clear tool calls when switching threads
+	// biome-ignore lint/correctness/useExhaustiveDependencies: intentional trigger on thread change
 	useEffect(() => {
 		setActiveToolCalls(new Map());
 	}, [activeThreadId]);
