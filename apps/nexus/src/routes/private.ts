@@ -2,6 +2,7 @@ import { Elysia } from "elysia";
 import logger from "logger";
 import { agentRoutes } from "../domains/agent/routes";
 import { appRoutes } from "../domains/apps/routes";
+import { settingsRoutes } from "../domains/core/routes";
 import { gameServerRoutes } from "../domains/game-servers/routes";
 import { opsRoutes } from "../domains/ops/routes";
 import { systemInfoRoutes } from "../domains/system-info/routes";
@@ -16,6 +17,7 @@ export const privateRoutes = new Elysia({ prefix: "/api" })
 	.use(systemInfoRoutes)
 	.use(opsRoutes)
 	.use(agentRoutes)
+	.use(settingsRoutes)
 	.use(debugRoutes)
 	.use(eventsRoutes)
 	.onBeforeHandle(({ user, path }) => {

@@ -3,6 +3,7 @@ import logger from "logger";
 import { z } from "zod";
 import { config } from "../../infra/config";
 import { withTool } from "../../infra/tools";
+import { getMcDefaultMemory, getMcDefaultStorage } from "../core/functions";
 import { generateMinecraftManifests, k8sAdapter } from "./k8s-adapter";
 import { gameServerRepository } from "./repository";
 import type { CreateServerRequestType, GameServerType } from "./types";
@@ -54,9 +55,13 @@ export async function create(request: CreateServerRequestType): Promise<GameServ
 
 	const id = generateId();
 	const port = allocatePort();
-	const memory = request.memory || config.MC_DEFAULT_MEMORY;
 
-	log.info({ id, port, memory }, "allocated resources for server");
+	// Get defaults from settings (falls back to env vars)
+	const defaultMemory = await getMcDefaultMemory();
+	const defaultStorage = await getMcDefaultStorage();
+	const memory = request.memory || defaultMemory;
+
+	log.info({ id, port, memory, storage: defaultStorage }, "allocated resources for server");
 
 	const server = gameServerRepository.create({
 		id,
@@ -71,6 +76,7 @@ export async function create(request: CreateServerRequestType): Promise<GameServ
 		namespace: config.K8S_NAMESPACE,
 		modpack: request.modpack,
 		memory,
+		storage: defaultStorage,
 		port,
 		cfApiKey: config.CURSEFORGE_API_KEY,
 	});

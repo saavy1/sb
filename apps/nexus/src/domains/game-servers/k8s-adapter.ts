@@ -7,6 +7,7 @@ interface K8sDeploymentSpec {
 	namespace: string;
 	modpack: string;
 	memory: string;
+	storage: string;
 	port: number;
 	cfApiKey?: string;
 }
@@ -41,7 +42,7 @@ function isK8sError(error: unknown): error is K8sHttpError {
 }
 
 export function generateMinecraftManifests(spec: K8sDeploymentSpec) {
-	const { name, namespace, modpack, memory, port, cfApiKey } = spec;
+	const { name, namespace, modpack, memory, storage, port, cfApiKey } = spec;
 	const labels = {
 		app: name,
 		"app.kubernetes.io/name": name,
@@ -56,7 +57,7 @@ export function generateMinecraftManifests(spec: K8sDeploymentSpec) {
 		spec: {
 			accessModes: ["ReadWriteOnce"],
 			storageClassName: config.MC_STORAGE_CLASS,
-			resources: { requests: { storage: config.MC_STORAGE_SIZE } },
+			resources: { requests: { storage } },
 		},
 	};
 

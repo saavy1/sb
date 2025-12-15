@@ -31,6 +31,7 @@ export const config = {
 	// AI / OpenRouter
 	OPENROUTER_API_KEY: Bun.env.OPENROUTER_API_KEY,
 	AI_MODEL: Bun.env.AI_MODEL || "deepseek/deepseek-chat",
+	AI_MODELS: Bun.env.AI_MODELS, // Additional models (format: "id:name:provider,id:name:provider")
 
 	// Valkey (Redis-compatible) for BullMQ queues
 	VALKEY_URL: Bun.env.VALKEY_URL || "redis://localhost:6379",

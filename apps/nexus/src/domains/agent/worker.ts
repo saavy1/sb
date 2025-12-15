@@ -32,11 +32,7 @@ export function startAgentWorker() {
 					},
 					"Wake job completed"
 				);
-
-				// TODO: Send response to appropriate channel based on thread source
-				// - chat: no-op (user will see it when they open the thread)
-				// - discord: send message to channel
-				// - event: log or notify
+				// Agent uses send_notification tool when it needs to notify the user
 			} catch (err) {
 				log.error({ err, jobId: job.id, threadId }, "Wake job failed");
 

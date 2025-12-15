@@ -43,3 +43,13 @@ export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type Permission = typeof permissions.$inferSelect;
 export type NewPermission = typeof permissions.$inferInsert;
+
+// Global settings (key-value store)
+export const settings = sqliteTable("settings", {
+	key: text("key").primaryKey(),
+	value: text("value").notNull(),
+	updatedAt: text("updated_at").notNull(),
+});
+
+export type Setting = typeof settings.$inferSelect;
+export type NewSetting = typeof settings.$inferInsert;
