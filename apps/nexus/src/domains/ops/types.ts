@@ -38,8 +38,8 @@ export const Operation = t.Object({
 	triggeredByUser: t.Nullable(t.String()),
 	output: t.Nullable(t.String()),
 	errorMessage: t.Nullable(t.String()),
-	startedAt: t.String(),
-	completedAt: t.Nullable(t.String()),
+	startedAt: t.Date(),
+	completedAt: t.Nullable(t.Date()),
 	durationMs: t.Nullable(t.Number()),
 });
 

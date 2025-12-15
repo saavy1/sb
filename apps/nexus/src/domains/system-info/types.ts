@@ -45,8 +45,8 @@ export const Drive = t.Object({
 	path: t.String(),
 	label: t.String(),
 	expectedCapacity: t.Nullable(t.Number()),
-	createdAt: t.String(),
-	updatedAt: t.String(),
+	createdAt: t.Date(),
+	updatedAt: t.Date(),
 });
 
 export const DriveWithStats = t.Object({
@@ -54,8 +54,8 @@ export const DriveWithStats = t.Object({
 	path: t.String(),
 	label: t.String(),
 	expectedCapacity: t.Nullable(t.Number()),
-	createdAt: t.String(),
-	updatedAt: t.String(),
+	createdAt: t.Date(),
+	updatedAt: t.Date(),
 	// Current stats (only present if drive is mounted)
 	mounted: t.Boolean(),
 	used: t.Optional(t.Number()), // GB

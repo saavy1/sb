@@ -189,7 +189,7 @@ async function executeOperation(id: string, type: OperationTypeValue): Promise<v
 			};
 	}
 
-	const completedAt = new Date().toISOString();
+	const completedAt = new Date();
 	await opsDb
 		.update(operations)
 		.set({
@@ -215,7 +215,7 @@ export async function triggerOperation(
 	user?: string
 ): Promise<OperationRecord> {
 	const id = crypto.randomUUID().slice(0, 8);
-	const now = new Date().toISOString();
+	const now = new Date();
 
 	const newOp: NewOperationRecord = {
 		id,
@@ -238,7 +238,7 @@ export async function triggerOperation(
 				.set({
 					status: "failed",
 					errorMessage: err?.message || "Unexpected error",
-					completedAt: new Date().toISOString(),
+					completedAt: new Date(),
 				})
 				.where(eq(operations.id, id));
 		} catch (dbErr) {
@@ -247,8 +247,12 @@ export async function triggerOperation(
 	});
 
 	return {
-		...newOp,
-		triggeredByUser: newOp.triggeredByUser ?? null,
+		id,
+		type,
+		status: "running",
+		triggeredBy: source,
+		triggeredByUser: user || null,
+		startedAt: now,
 		output: null,
 		errorMessage: null,
 		completedAt: null,

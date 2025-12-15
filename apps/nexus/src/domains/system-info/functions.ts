@@ -510,7 +510,7 @@ export async function createDrive(data: {
 	expectedCapacity?: number;
 }) {
 	const id = crypto.randomUUID().slice(0, 8);
-	const now = new Date().toISOString();
+	const now = new Date();
 	const newDrive: DriveRecord = {
 		id,
 		path: data.path,
@@ -524,7 +524,7 @@ export async function createDrive(data: {
 }
 
 export async function updateDrive(id: string, data: { label?: string; expectedCapacity?: number }) {
-	const now = new Date().toISOString();
+	const now = new Date();
 	await systemInfoDb
 		.update(drives)
 		.set({ ...data, updatedAt: now })
