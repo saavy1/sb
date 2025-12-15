@@ -24,12 +24,17 @@ flux/
 │       │   ├── gotk-components.yaml    # Flux controllers
 │       │   ├── gotk-sync.yaml          # GitRepository + Kustomization
 │       │   └── kustomization.yaml
+│       ├── infra/          # Infrastructure services
+│       │   ├── caddy/              # Ingress controller
+│       │   ├── authelia/           # SSO/authentication
+│       │   ├── ddns/               # Cloudflare DDNS
+│       │   ├── alloy/              # Grafana Alloy (logging)
+│       │   └── kustomization.yaml
 │       └── apps/           # Application deployments
-│           ├── infra/      # Infrastructure applications
-│           │   ├── caddy/              # Ingress controller
-│           │   ├── authelia/           # SSO/authentication
-│           │   ├── ddns/               # Cloudflare DDNS
-│           │   └── kustomization.yaml
+│           ├── nexus/              # Nexus API
+│           ├── nexus-worker/       # Nexus background worker
+│           ├── postgres/           # PostgreSQL database
+│           ├── valkey/             # Valkey (Redis-compatible)
 │           └── kustomization.yaml
 └── README.md
 ```
@@ -40,9 +45,19 @@ flux/
 
 | Application | Purpose | Chart |
 |-------------|---------|-------|
-| **Caddy** | Ingress controller and reverse proxy | bjw-s/app-template v1.1.0 |
-| **Authelia** | Single sign-on and authentication | authelia/authelia v0.9.12 |
+| **Caddy** | Ingress controller and reverse proxy | bjw-s/app-template |
+| **Authelia** | Single sign-on and authentication | authelia/authelia |
 | **DDNS** | Dynamic DNS for Cloudflare | favonia/cloudflare-ddns |
+| **Alloy** | Log collection and forwarding | grafana/alloy |
+
+### Applications (apps/)
+
+| Application | Purpose | Notes |
+|-------------|---------|-------|
+| **Nexus** | Elysia API control plane | API mode deployment |
+| **Nexus Worker** | Background job processor | Worker mode deployment |
+| **PostgreSQL** | Agent state database | CloudNativePG operator |
+| **Valkey** | Redis-compatible queue backend | For BullMQ job queues |
 
 ## How It Works
 
@@ -61,21 +76,26 @@ flux/
 │ └─ notification-controller (reports status)                 │
 └─────────────────────────────────┬───────────────────────────┘
                                   │
-                    ┌─────────────┼─────────────┐
-                    ▼             ▼             ▼
-            ┌──────────────┐ ┌──────────┐ ┌─────────┐
-            │ Caddy        │ │ Authelia │ │  DDNS   │
-            │ (caddy-system)│ │(authelia)│ │ (ddns)  │
-            └──────────────┘ └──────────┘ └─────────┘
+        ┌─────────────────────────┴─────────────────────────┐
+        │                                                   │
+        ▼ Infrastructure                                    ▼ Applications
+┌──────────────────────────┐              ┌────────────────────────────────┐
+│ Caddy • Authelia • DDNS  │              │ Nexus API • Nexus Worker       │
+│ Alloy                    │              │ PostgreSQL • Valkey            │
+└──────────────────────────┘              └────────────────────────────────┘
 ```
 
 ## Common Tasks
 
 ### Adding a New Application
 
-1. Create a new directory under `apps/infra/` (or appropriate category):
+1. Create a new directory under the appropriate category:
    ```bash
-   mkdir -p flux/clusters/superbloom/apps/infra/my-app
+   # For infrastructure (ingress, auth, etc.)
+   mkdir -p flux/clusters/superbloom/infra/my-app
+
+   # For applications (Nexus services, databases, etc.)
+   mkdir -p flux/clusters/superbloom/apps/my-app
    ```
 
 2. Create the necessary manifests:
@@ -86,7 +106,7 @@ flux/
 
 3. Add the app to the parent kustomization:
    ```yaml
-   # flux/clusters/superbloom/apps/infra/kustomization.yaml
+   # flux/clusters/superbloom/apps/kustomization.yaml (or infra/)
    resources:
      - my-app/
    ```

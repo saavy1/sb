@@ -36,7 +36,7 @@ bun run typecheck
 | `typecheck:api` | Type check Nexus only |
 | `typecheck:bot` | Type check The Machine only |
 | `typecheck:dashboard` | Type check Dashboard only |
-| `db:push` | Push Drizzle schema to SQLite |
+| `db:push` | Push Drizzle schemas to databases |
 
 ## Container Images
 
@@ -54,9 +54,14 @@ docker pull ghcr.io/saavy1/dashboard:latest
 The Machine (Discord) ──┐
                         ├──► Nexus API ──► K8s API
 Dashboard (Web UI) ─────┘       │
-                                ▼
-                           SQLite DBs
-                    (multiple per domain)
+                                ├──► SQLite DBs (ops, game-servers, apps, etc.)
+                                ├──► PostgreSQL (agent state)
+                                └──► Valkey + BullMQ (job queues)
 ```
 
-**Nexus** is the core Elysia control plane providing multi-domain APIs. **The Machine** (Discord bot) and **Dashboard** (web UI) are thin clients that consume Nexus APIs via Eden Treaty.
+**Nexus** is the core Elysia control plane providing multi-domain APIs. It uses:
+- **SQLite** for domain-specific data (game-servers, ops, apps, etc.)
+- **PostgreSQL** for agent state (supports concurrent workers)
+- **Valkey + BullMQ** for background job processing
+
+**The Machine** (Discord bot) and **Dashboard** (web UI) are thin clients that consume Nexus APIs via Eden Treaty.
