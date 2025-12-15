@@ -15,9 +15,6 @@ const dbPath = config.DB_PATH;
 
 // === SQLite databases (to be migrated to Postgres) ===
 
-const minecraftSqlite = new Database(join(dbPath, "minecraft.sqlite"), {
-	create: true,
-});
 const systemInfoSqlite = new Database(join(dbPath, "system-info.sqlite"), {
 	create: true,
 });
@@ -26,14 +23,10 @@ const opsSqlite = new Database(join(dbPath, "ops.sqlite"), {
 });
 
 // Enable WAL mode for better concurrency
-minecraftSqlite.exec("PRAGMA journal_mode = WAL;");
 systemInfoSqlite.exec("PRAGMA journal_mode = WAL;");
 opsSqlite.exec("PRAGMA journal_mode = WAL;");
 
 // SQLite Drizzle instances
-export const minecraftDb = drizzleSqlite(minecraftSqlite, {
-	schema: gameServerSchema,
-});
 export const systemInfoDb = drizzleSqlite(systemInfoSqlite, {
 	schema: systemInfoSchema,
 });
@@ -59,13 +52,13 @@ const pgClient = postgres(databaseUrl, {
 export const agentDb = drizzlePostgres(pgClient, { schema: agentSchema });
 export const appsDb = drizzlePostgres(pgClient, { schema: appsSchema });
 export const coreDb = drizzlePostgres(pgClient, { schema: coreSchema });
+export const gameServersDb = drizzlePostgres(pgClient, { schema: gameServerSchema });
 
 // Export schemas for easy access
 export { agentSchema, appsSchema, coreSchema, gameServerSchema, opsSchema, systemInfoSchema };
 
 // Graceful shutdown
 process.on("beforeExit", async () => {
-	minecraftSqlite.close();
 	systemInfoSqlite.close();
 	opsSqlite.close();
 	await pgClient.end();

@@ -16,7 +16,7 @@ export const GameServer = t.Object({
 	status: GameServerStatus,
 	port: t.Optional(t.Number()),
 	createdBy: t.String(),
-	createdAt: t.String(),
+	createdAt: t.Date(),
 	memory: t.Optional(t.String()),
 	k8sDeployment: t.Optional(t.String()),
 });

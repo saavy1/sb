@@ -5,8 +5,8 @@ import { ApiError, CreateServerRequest, GameServer, ServerNameParam } from "./ty
 export const gameServerRoutes = new Elysia({ prefix: "/gameServers" })
 	.get(
 		"/",
-		() => {
-			return list();
+		async () => {
+			return await list();
 		},
 		{
 			detail: { tags: ["Game Servers"], summary: "List all game servers" },
@@ -15,8 +15,8 @@ export const gameServerRoutes = new Elysia({ prefix: "/gameServers" })
 	)
 	.get(
 		"/:name",
-		({ params, set }) => {
-			const server = get(params.name);
+		async ({ params, set }) => {
+			const server = await get(params.name);
 			if (!server) {
 				set.status = 404;
 				return { error: "Server not found" };

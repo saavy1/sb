@@ -28,6 +28,7 @@ const postgresSchemas = [
 	{ name: "agent", migrationsFolder: "agent" },
 	{ name: "apps", migrationsFolder: "apps-pg" },
 	{ name: "core", migrationsFolder: "core-pg" },
+	{ name: "game-servers", migrationsFolder: "game-servers-pg" },
 ] as const;
 
 for (const schema of postgresSchemas) {
@@ -59,7 +60,6 @@ await pgClient.end();
 // === SQLite migrations (to be migrated to Postgres) ===
 
 const sqliteDomains = [
-	{ name: "game-servers", dbFile: "minecraft.sqlite", migrationsFolder: "game-servers" },
 	{ name: "ops", dbFile: "ops.sqlite", migrationsFolder: "ops" },
 	{ name: "system-info", dbFile: "system-info.sqlite", migrationsFolder: "system-info" },
 ] as const;

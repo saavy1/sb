@@ -1,6 +1,9 @@
-import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { index, integer, pgSchema, text, timestamp } from "drizzle-orm/pg-core";
 
-export const servers = sqliteTable(
+// Postgres schema for game-servers tables
+export const gameServersSchema = pgSchema("game_servers");
+
+export const servers = gameServersSchema.table(
 	"servers",
 	{
 		id: text("id").primaryKey(),
@@ -10,7 +13,7 @@ export const servers = sqliteTable(
 		status: text("status").notNull().default("stopped"),
 		port: integer("port"),
 		createdBy: text("created_by").notNull(),
-		createdAt: text("created_at").notNull(),
+		createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 		memory: text("memory"),
 		k8sDeployment: text("k8s_deployment"),
 	},

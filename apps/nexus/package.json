@@ -13,7 +13,7 @@
 		"db:generate:agent": "drizzle-kit generate --config=./drizzle/agent/drizzle.config.ts",
 		"db:generate:apps": "drizzle-kit generate --config=./drizzle/apps-pg/drizzle.config.ts",
 		"db:generate:core": "drizzle-kit generate --config=./drizzle/core-pg/drizzle.config.ts",
-		"db:generate:game-servers": "drizzle-kit generate --config=./drizzle/game-servers/drizzle.config.ts",
+		"db:generate:game-servers": "drizzle-kit generate --config=./drizzle/game-servers-pg/drizzle.config.ts",
 		"db:generate:ops": "drizzle-kit generate --config=./drizzle/ops/drizzle.config.ts",
 		"db:generate:system-info": "drizzle-kit generate --config=./drizzle/system-info/drizzle.config.ts",
 		"db:generate": "bun run db:generate:agent && bun run db:generate:apps && bun run db:generate:core && bun run db:generate:game-servers && bun run db:generate:ops && bun run db:generate:system-info",

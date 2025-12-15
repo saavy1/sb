@@ -1,5 +1,5 @@
 import { desc, eq } from "drizzle-orm";
-import { minecraftDb } from "../../infra/db";
+import { gameServersDb } from "../../infra/db";
 import { type Server, servers } from "./schema";
 import type { GameServerStatusType, GameServerType } from "./types";
 
@@ -19,26 +19,26 @@ function mapToGameServer(row: Server): GameServerType {
 }
 
 export const gameServerRepository = {
-	findAll(): GameServerType[] {
-		const rows = minecraftDb.select().from(servers).orderBy(desc(servers.createdAt)).all();
+	async findAll(): Promise<GameServerType[]> {
+		const rows = await gameServersDb.select().from(servers).orderBy(desc(servers.createdAt));
 		return rows.map(mapToGameServer);
 	},
 
-	findByName(name: string): GameServerType | null {
-		const row = minecraftDb.select().from(servers).where(eq(servers.name, name)).get();
-		return row ? mapToGameServer(row) : null;
+	async findByName(name: string): Promise<GameServerType | null> {
+		const rows = await gameServersDb.select().from(servers).where(eq(servers.name, name));
+		return rows[0] ? mapToGameServer(rows[0]) : null;
 	},
 
-	create(server: {
+	async create(server: {
 		id: string;
 		name: string;
 		modpack: string;
 		createdBy: string;
 		memory?: string;
-	}): GameServerType {
-		const now = new Date().toISOString();
+	}): Promise<GameServerType> {
+		const now = new Date();
 
-		minecraftDb
+		const results = await gameServersDb
 			.insert(servers)
 			.values({
 				id: server.id,
@@ -50,41 +50,30 @@ export const gameServerRepository = {
 				createdAt: now,
 				memory: server.memory,
 			})
-			.run();
+			.returning();
 
-		return {
-			id: server.id,
-			name: server.name,
-			gameType: "minecraft",
-			modpack: server.modpack,
-			status: "stopped",
-			createdBy: server.createdBy,
-			createdAt: now,
-			memory: server.memory,
-		};
+		return mapToGameServer(results[0]);
 	},
 
-	updateStatus(name: string, status: GameServerStatusType, port?: number): void {
-		minecraftDb
+	async updateStatus(name: string, status: GameServerStatusType, port?: number): Promise<void> {
+		await gameServersDb
 			.update(servers)
 			.set({ status, port: port ?? null })
-			.where(eq(servers.name, name))
-			.run();
+			.where(eq(servers.name, name));
 	},
 
-	updateK8sDeployment(name: string, deployment: string): void {
-		minecraftDb
+	async updateK8sDeployment(name: string, deployment: string): Promise<void> {
+		await gameServersDb
 			.update(servers)
 			.set({ k8sDeployment: deployment })
-			.where(eq(servers.name, name))
-			.run();
+			.where(eq(servers.name, name));
 	},
 
-	delete(name: string): boolean {
-		const existing = this.findByName(name);
+	async delete(name: string): Promise<boolean> {
+		const existing = await this.findByName(name);
 		if (!existing) return false;
 
-		minecraftDb.delete(servers).where(eq(servers.name, name)).run();
+		await gameServersDb.delete(servers).where(eq(servers.name, name));
 		return true;
 	},
 };

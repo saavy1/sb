@@ -16,9 +16,9 @@ function generateId(): string {
 	return crypto.randomUUID().slice(0, 8);
 }
 
-function allocatePort(): number {
+async function allocatePort(): Promise<number> {
 	const base = 30000;
-	const existing = gameServerRepository.findAll();
+	const existing = await gameServerRepository.findAll();
 	const usedPorts = new Set(existing.map((s) => s.port).filter(Boolean));
 
 	for (let port = base; port < base + 1000; port++) {
@@ -29,11 +29,11 @@ function allocatePort(): number {
 
 // === Exported functions ===
 
-export function list(): GameServerType[] {
+export async function list(): Promise<GameServerType[]> {
 	return gameServerRepository.findAll();
 }
 
-export function get(name: string): GameServerType | null {
+export async function get(name: string): Promise<GameServerType | null> {
 	return gameServerRepository.findByName(name);
 }
 
@@ -47,14 +47,14 @@ export async function create(request: CreateServerRequestType): Promise<GameServ
 		"creating game server"
 	);
 
-	const existing = gameServerRepository.findByName(request.name);
+	const existing = await gameServerRepository.findByName(request.name);
 	if (existing) {
 		log.warn({ name: request.name }, "server already exists");
 		throw new Error(`Server '${request.name}' already exists`);
 	}
 
 	const id = generateId();
-	const port = allocatePort();
+	const port = await allocatePort();
 
 	// Get defaults from settings (falls back to env vars)
 	const defaultMemory = await getMcDefaultMemory();
@@ -63,7 +63,7 @@ export async function create(request: CreateServerRequestType): Promise<GameServ
 
 	log.info({ id, port, memory, storage: defaultStorage }, "allocated resources for server");
 
-	const server = gameServerRepository.create({
+	const server = await gameServerRepository.create({
 		id,
 		name: request.name,
 		modpack: request.modpack,
@@ -84,12 +84,12 @@ export async function create(request: CreateServerRequestType): Promise<GameServ
 	try {
 		log.info({ name: request.name }, "applying k8s manifests");
 		await record("k8s.applyManifests", () => k8sAdapter.applyManifests(manifests));
-		gameServerRepository.updateK8sDeployment(request.name, request.name);
-		gameServerRepository.updateStatus(request.name, "stopped", port);
+		await gameServerRepository.updateK8sDeployment(request.name, request.name);
+		await gameServerRepository.updateStatus(request.name, "stopped", port);
 		log.info({ name: request.name, port }, "game server created successfully");
 	} catch (error) {
 		log.error({ error, name: request.name }, "failed to apply k8s manifests, rolling back");
-		gameServerRepository.delete(request.name);
+		await gameServerRepository.delete(request.name);
 		throw error;
 	}
 
@@ -99,7 +99,7 @@ export async function create(request: CreateServerRequestType): Promise<GameServ
 export async function start(name: string): Promise<GameServerType> {
 	log.info({ name }, "starting game server");
 
-	const server = gameServerRepository.findByName(name);
+	const server = await gameServerRepository.findByName(name);
 	if (!server) {
 		log.warn({ name }, "server not found");
 		throw new Error(`Server '${name}' not found`);
@@ -110,16 +110,16 @@ export async function start(name: string): Promise<GameServerType> {
 		throw new Error(`Server '${name}' is already ${server.status}`);
 	}
 
-	gameServerRepository.updateStatus(name, "starting");
+	await gameServerRepository.updateStatus(name, "starting");
 
 	try {
 		await record("k8s.scaleDeployment", () => k8sAdapter.scaleDeployment(name, 1));
-		gameServerRepository.updateStatus(name, "running", server.port);
+		await gameServerRepository.updateStatus(name, "running", server.port);
 		log.info({ name }, "game server started");
 		return { ...server, status: "running" };
 	} catch (error) {
 		log.error({ error, name }, "failed to start server");
-		gameServerRepository.updateStatus(name, "error", server.port);
+		await gameServerRepository.updateStatus(name, "error", server.port);
 		throw error;
 	}
 }
@@ -127,7 +127,7 @@ export async function start(name: string): Promise<GameServerType> {
 export async function stop(name: string): Promise<GameServerType> {
 	log.info({ name }, "stopping game server");
 
-	const server = gameServerRepository.findByName(name);
+	const server = await gameServerRepository.findByName(name);
 	if (!server) {
 		log.warn({ name }, "server not found");
 		throw new Error(`Server '${name}' not found`);
@@ -138,16 +138,16 @@ export async function stop(name: string): Promise<GameServerType> {
 		throw new Error(`Server '${name}' is already ${server.status}`);
 	}
 
-	gameServerRepository.updateStatus(name, "stopping");
+	await gameServerRepository.updateStatus(name, "stopping");
 
 	try {
 		await record("k8s.scaleDeployment", () => k8sAdapter.scaleDeployment(name, 0));
-		gameServerRepository.updateStatus(name, "stopped", server.port);
+		await gameServerRepository.updateStatus(name, "stopped", server.port);
 		log.info({ name }, "game server stopped");
 		return { ...server, status: "stopped" };
 	} catch (error) {
 		log.error({ error, name }, "failed to stop server");
-		gameServerRepository.updateStatus(name, "error", server.port);
+		await gameServerRepository.updateStatus(name, "error", server.port);
 		throw error;
 	}
 }
@@ -155,7 +155,7 @@ export async function stop(name: string): Promise<GameServerType> {
 export async function deleteServer(name: string): Promise<void> {
 	log.info({ name }, "deleting game server");
 
-	const server = gameServerRepository.findByName(name);
+	const server = await gameServerRepository.findByName(name);
 	if (!server) {
 		log.warn({ name }, "server not found");
 		throw new Error(`Server '${name}' not found`);
@@ -169,12 +169,12 @@ export async function deleteServer(name: string): Promise<void> {
 	log.info({ name }, "deleting k8s resources");
 	await record("k8s.deleteResources", () => k8sAdapter.deleteResources(name));
 
-	gameServerRepository.delete(name);
+	await gameServerRepository.delete(name);
 	log.info({ name }, "game server deleted");
 }
 
 export async function syncStatus(name: string): Promise<GameServerType | null> {
-	const server = gameServerRepository.findByName(name);
+	const server = await gameServerRepository.findByName(name);
 	if (!server) return null;
 
 	const k8sStatus = await record("k8s.getDeploymentStatus", () =>
@@ -193,7 +193,7 @@ export async function syncStatus(name: string): Promise<GameServerType | null> {
 
 	if (newStatus !== server.status) {
 		log.info({ name, oldStatus: server.status, newStatus }, "syncing server status from k8s");
-		gameServerRepository.updateStatus(name, newStatus, server.port);
+		await gameServerRepository.updateStatus(name, newStatus, server.port);
 	}
 
 	return { ...server, status: newStatus };
@@ -207,8 +207,8 @@ export const listServersTool = withTool(
 		description: "List all game servers with their current status",
 		input: z.object({}),
 	},
-	() => {
-		const servers = list();
+	async () => {
+		const servers = await list();
 		return servers.map((s) => ({
 			name: s.name,
 			status: s.status,
@@ -227,8 +227,8 @@ export const getServerTool = withTool(
 			name: z.string().describe("The server name"),
 		}),
 	},
-	({ name }) => {
-		const server = get(name);
+	async ({ name }) => {
+		const server = await get(name);
 		if (!server) {
 			return { error: `Server '${name}' not found` };
 		}
