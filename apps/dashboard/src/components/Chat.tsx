@@ -1,4 +1,4 @@
-import { Bell, Bot, Loader2, Send, User } from "lucide-react";
+import { Bell, Bot, Loader2, Send, User, Wrench } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Markdown from "react-markdown";
 import { client } from "../lib/api";
@@ -9,6 +9,13 @@ type Message = {
 	id: string;
 	role: "user" | "assistant" | "system";
 	content: string;
+};
+
+// Tool call tracking
+type ToolCall = {
+	toolName: string;
+	status: "calling" | "complete" | "error";
+	args?: Record<string, unknown>;
 };
 
 type Props = {
@@ -22,6 +29,7 @@ export function Chat({ threadId: propThreadId, onThreadChange }: Props) {
 	const [activeThreadId, setActiveThreadId] = useState<string | null>(propThreadId ?? null);
 	const [isLoading, setIsLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const [activeToolCalls, setActiveToolCalls] = useState<Map<string, ToolCall>>(new Map());
 	const inputRef = useRef<HTMLInputElement>(null);
 	const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -149,6 +157,37 @@ export function Chat({ threadId: propThreadId, onThreadChange }: Props) {
 
 	useEvents("thread:message", handleMessageEvent);
 
+	// Handle tool call events
+	const handleToolCallEvent = useCallback(
+		(payload: {
+			threadId: string;
+			toolName: string;
+			status: "calling" | "complete" | "error";
+			args?: Record<string, unknown>;
+		}) => {
+			const currentThreadId = activeThreadIdRef.current;
+			if (payload.threadId !== currentThreadId) return;
+
+			setActiveToolCalls((prev) => {
+				const next = new Map(prev);
+				if (payload.status === "calling") {
+					next.set(payload.toolName, {
+						toolName: payload.toolName,
+						status: "calling",
+						args: payload.args,
+					});
+				} else {
+					// Remove completed/errored tool calls after a brief delay
+					next.delete(payload.toolName);
+				}
+				return next;
+			});
+		},
+		[]
+	);
+
+	useEvents("thread:tool-call", handleToolCallEvent);
+
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 		if (!input.trim() || isLoading) return;
@@ -254,14 +293,36 @@ export function Chat({ threadId: propThreadId, onThreadChange }: Props) {
 					);
 				})}
 
-				{isLoading && (messages.length === 0 || messages[messages.length - 1]?.role === "user") && (
+				{/* Active tool calls */}
+				{activeToolCalls.size > 0 && (
 					<div className="flex gap-3">
-						<div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-500/20">
-							<Loader2 className="h-4 w-4 animate-spin text-emerald-400" />
+						<div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-500/20">
+							<Wrench className="h-4 w-4 text-amber-400" />
 						</div>
-						<div className="rounded-lg bg-zinc-800 px-4 py-2 text-zinc-400">Thinking...</div>
+						<div className="space-y-1">
+							{Array.from(activeToolCalls.values()).map((tc) => (
+								<div
+									key={tc.toolName}
+									className="flex items-center gap-2 rounded-lg bg-zinc-800 px-3 py-1.5 text-sm"
+								>
+									<Loader2 className="h-3 w-3 animate-spin text-amber-400" />
+									<span className="font-mono text-amber-300">{tc.toolName}</span>
+								</div>
+							))}
+						</div>
 					</div>
 				)}
+
+				{isLoading &&
+					activeToolCalls.size === 0 &&
+					(messages.length === 0 || messages[messages.length - 1]?.role === "user") && (
+						<div className="flex gap-3">
+							<div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-500/20">
+								<Loader2 className="h-4 w-4 animate-spin text-emerald-400" />
+							</div>
+							<div className="rounded-lg bg-zinc-800 px-4 py-2 text-zinc-400">Thinking...</div>
+						</div>
+					)}
 
 				{error && (
 					<div className="rounded-lg bg-red-900/20 px-4 py-2 text-red-400">Error: {error}</div>

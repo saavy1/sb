@@ -7,7 +7,7 @@ import { config } from "../../infra/config";
 import { notify } from "../../infra/discord";
 import { appEvents } from "../../infra/events";
 import { agentWakeQueue } from "../../infra/queue";
-import { withTool } from "../../infra/tools";
+import { runWithToolContext, withTool } from "../../infra/tools";
 import { appTools } from "../apps/functions";
 import { getAiModel } from "../core/functions";
 import { gameServerTools } from "../game-servers/functions";
@@ -402,130 +402,133 @@ export async function runAgentLoop(
 	const startTime = Date.now();
 	const aiModel = await getAiModel();
 
-	while (continueLoop && iterations < maxIterations) {
-		iterations++;
+	// Wrap in tool context so tool calls can emit events with threadId
+	await runWithToolContext(thread.id, async () => {
+		while (continueLoop && iterations < maxIterations) {
+			iterations++;
 
-		// Check timeout
-		if (Date.now() - startTime > maxDurationMs) {
-			log.warn({ threadId: thread.id, elapsed: Date.now() - startTime }, "Agent loop timeout");
-			throw new Error("Agent loop timeout - exceeded 2 minutes");
-		}
+			// Check timeout
+			if (Date.now() - startTime > maxDurationMs) {
+				log.warn({ threadId: thread.id, elapsed: Date.now() - startTime }, "Agent loop timeout");
+				throw new Error("Agent loop timeout - exceeded 2 minutes");
+			}
 
-		const result = await chat({
-			adapter,
-			messages: llmMessages,
-			model: aiModel as (typeof adapter.models)[number],
-			tools: allTools,
-		});
+			const result = await chat({
+				adapter,
+				messages: llmMessages,
+				model: aiModel as (typeof adapter.models)[number],
+				tools: allTools,
+			});
 
-		// Create message entry for streaming
-		const messageId = generateId();
-		let assistantMessage: ThreadMessageType = {
-			id: messageId,
-			role: "assistant",
-			content: "",
-		};
-		messages.push(assistantMessage);
+			// Create message entry for streaming
+			const messageId = generateId();
+			let assistantMessage: ThreadMessageType = {
+				id: messageId,
+				role: "assistant",
+				content: "",
+			};
+			messages.push(assistantMessage);
 
-		// Stream response with direct DB writes
-		let chunkCount = 0;
-		let currentMessageId = messageId;
-		for await (const chunk of result) {
-			log.debug({ threadId: thread.id, chunkType: chunk.type }, "Received chunk from LLM");
+			// Stream response with direct DB writes
+			let chunkCount = 0;
+			let currentMessageId = messageId;
+			for await (const chunk of result) {
+				log.debug({ threadId: thread.id, chunkType: chunk.type }, "Received chunk from LLM");
 
-			if (chunk.type === "content") {
-				chunkCount++;
-				const prevLength = assistantMessage.content?.length || 0;
-				const newLength = chunk.content.length;
+				if (chunk.type === "content") {
+					chunkCount++;
+					const prevLength = assistantMessage.content?.length || 0;
+					const newLength = chunk.content.length;
 
-				// Detect content reset (happens after tool calls) - create new message
-				if (newLength < prevLength && prevLength > 0) {
-					log.info(
-						{ threadId: thread.id, messageId: currentMessageId, prevLength, newLength },
-						"Content reset detected - tool call completed"
-					);
+					// Detect content reset (happens after tool calls) - create new message
+					if (newLength < prevLength && prevLength > 0) {
+						log.info(
+							{ threadId: thread.id, messageId: currentMessageId, prevLength, newLength },
+							"Content reset detected - tool call completed"
+						);
 
-					// Finalize current message
+						// Finalize current message
+						appEvents.emit("thread:message", {
+							threadId: thread.id,
+							messageId: currentMessageId,
+							role: "assistant",
+							content: assistantMessage.content || "",
+							done: true,
+						});
+
+						// Create new message for post-tool response
+						currentMessageId = generateId();
+						assistantMessage = {
+							id: currentMessageId,
+							role: "assistant",
+							content: "",
+						};
+						messages.push(assistantMessage);
+					}
+
+					// TanStack AI sends cumulative content, not deltas - just replace
+					assistantMessage.content = chunk.content;
+
+					// Write to DB on each chunk (with error handling)
+					try {
+						await agentRepository.update(thread.id, {
+							messages: JSON.stringify(messages),
+						});
+					} catch (dbErr) {
+						log.error(
+							{ dbErr, threadId: thread.id, messageId: currentMessageId },
+							"Failed to write chunk to DB"
+						);
+						// Continue streaming - we'll try again on next chunk
+					}
+
+					// Emit event after DB write
 					appEvents.emit("thread:message", {
 						threadId: thread.id,
 						messageId: currentMessageId,
 						role: "assistant",
-						content: assistantMessage.content || "",
-						done: true,
+						content: assistantMessage.content,
+						done: false,
 					});
-
-					// Create new message for post-tool response
-					currentMessageId = generateId();
-					assistantMessage = {
-						id: currentMessageId,
-						role: "assistant",
-						content: "",
-					};
-					messages.push(assistantMessage);
 				}
+			}
+			log.info(
+				{ threadId: thread.id, messageId: currentMessageId, totalChunks: chunkCount },
+				"Finished streaming chunks"
+			);
+			response = assistantMessage.content || "";
 
-				// TanStack AI sends cumulative content, not deltas - just replace
-				assistantMessage.content = chunk.content;
-
-				// Write to DB on each chunk (with error handling)
-				try {
-					await agentRepository.update(thread.id, {
-						messages: JSON.stringify(messages),
-					});
-				} catch (dbErr) {
-					log.error(
-						{ dbErr, threadId: thread.id, messageId: currentMessageId },
-						"Failed to write chunk to DB"
-					);
-					// Continue streaming - we'll try again on next chunk
-				}
-
-				// Emit event after DB write
+			// Emit final state
+			if (response) {
 				appEvents.emit("thread:message", {
 					threadId: thread.id,
 					messageId: currentMessageId,
 					role: "assistant",
-					content: assistantMessage.content,
-					done: false,
+					content: response,
+					done: true,
 				});
+
+				llmMessages.push({
+					role: "assistant" as const,
+					content: response,
+				});
+			} else {
+				// No content - remove empty message
+				messages.pop();
 			}
+
+			// Check if agent called lifecycle tools (thread status will be updated)
+			const updatedThread = await agentRepository.findById(thread.id);
+			if (updatedThread) {
+				thread = updatedThread;
+			}
+
+			// Always break after getting a response
+			// The loop only continues if we explicitly need another LLM call
+			// (e.g., tool execution that requires follow-up - handled internally by TanStack AI)
+			continueLoop = false;
 		}
-		log.info(
-			{ threadId: thread.id, messageId: currentMessageId, totalChunks: chunkCount },
-			"Finished streaming chunks"
-		);
-		response = assistantMessage.content || "";
-
-		// Emit final state
-		if (response) {
-			appEvents.emit("thread:message", {
-				threadId: thread.id,
-				messageId: currentMessageId,
-				role: "assistant",
-				content: response,
-				done: true,
-			});
-
-			llmMessages.push({
-				role: "assistant" as const,
-				content: response,
-			});
-		} else {
-			// No content - remove empty message
-			messages.pop();
-		}
-
-		// Check if agent called lifecycle tools (thread status will be updated)
-		const updatedThread = await agentRepository.findById(thread.id);
-		if (updatedThread) {
-			thread = updatedThread;
-		}
-
-		// Always break after getting a response
-		// The loop only continues if we explicitly need another LLM call
-		// (e.g., tool execution that requires follow-up - handled internally by TanStack AI)
-		continueLoop = false;
-	}
+	}); // end runWithToolContext
 
 	// Final status update
 	await agentRepository.update(thread.id, {
