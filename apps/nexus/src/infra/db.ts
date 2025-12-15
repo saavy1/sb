@@ -1,6 +1,8 @@
 import { Database } from "bun:sqlite";
 import { join } from "node:path";
-import { drizzle } from "drizzle-orm/bun-sqlite";
+import { drizzle as drizzleSqlite } from "drizzle-orm/bun-sqlite";
+import { drizzle as drizzlePostgres } from "drizzle-orm/postgres-js";
+import postgres from "postgres";
 import * as agentSchema from "../domains/agent/schema";
 import * as appsSchema from "../domains/apps/schema";
 import * as coreSchema from "../domains/core/schema";
@@ -11,7 +13,8 @@ import { config } from "./config";
 
 const dbPath = config.DB_PATH;
 
-// Create SQLite connections
+// === SQLite databases (ops, game-servers, apps, etc.) ===
+
 const minecraftSqlite = new Database(join(dbPath, "minecraft.sqlite"), {
 	create: true,
 });
@@ -27,9 +30,6 @@ const opsSqlite = new Database(join(dbPath, "ops.sqlite"), {
 const appsSqlite = new Database(join(dbPath, "apps.sqlite"), {
 	create: true,
 });
-const agentSqlite = new Database(join(dbPath, "agent.sqlite"), {
-	create: true,
-});
 
 // Enable WAL mode for better concurrency
 minecraftSqlite.exec("PRAGMA journal_mode = WAL;");
@@ -37,29 +37,46 @@ coreSqlite.exec("PRAGMA journal_mode = WAL;");
 systemInfoSqlite.exec("PRAGMA journal_mode = WAL;");
 opsSqlite.exec("PRAGMA journal_mode = WAL;");
 appsSqlite.exec("PRAGMA journal_mode = WAL;");
-agentSqlite.exec("PRAGMA journal_mode = WAL;");
 
-// Drizzle instances with schemas
-export const minecraftDb = drizzle(minecraftSqlite, {
+// SQLite Drizzle instances
+export const minecraftDb = drizzleSqlite(minecraftSqlite, {
 	schema: gameServerSchema,
 });
-export const coreDb = drizzle(coreSqlite, { schema: coreSchema });
-export const systemInfoDb = drizzle(systemInfoSqlite, {
+export const coreDb = drizzleSqlite(coreSqlite, { schema: coreSchema });
+export const systemInfoDb = drizzleSqlite(systemInfoSqlite, {
 	schema: systemInfoSchema,
 });
-export const opsDb = drizzle(opsSqlite, { schema: opsSchema });
-export const appsDb = drizzle(appsSqlite, { schema: appsSchema });
-export const agentDb = drizzle(agentSqlite, { schema: agentSchema });
+export const opsDb = drizzleSqlite(opsSqlite, { schema: opsSchema });
+export const appsDb = drizzleSqlite(appsSqlite, { schema: appsSchema });
+
+// === Postgres database (agent state - supports concurrent workers) ===
+
+// In production, DATABASE_URL is required. In dev, fall back to a local default.
+const databaseUrl =
+	config.DATABASE_URL ||
+	(config.NODE_ENV === "development" ? "postgresql://nexus:nexus@localhost:5432/nexus" : null);
+
+if (!databaseUrl) {
+	throw new Error("DATABASE_URL is required for Postgres connection in production");
+}
+
+const pgClient = postgres(databaseUrl, {
+	max: 10, // Connection pool size
+	idle_timeout: 20,
+	connect_timeout: 10,
+});
+
+export const agentDb = drizzlePostgres(pgClient, { schema: agentSchema });
 
 // Export schemas for easy access
 export { agentSchema, appsSchema, coreSchema, gameServerSchema, opsSchema, systemInfoSchema };
 
 // Graceful shutdown
-process.on("beforeExit", () => {
+process.on("beforeExit", async () => {
 	minecraftSqlite.close();
 	coreSqlite.close();
 	systemInfoSqlite.close();
 	opsSqlite.close();
 	appsSqlite.close();
-	agentSqlite.close();
+	await pgClient.end();
 });

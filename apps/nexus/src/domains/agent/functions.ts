@@ -181,15 +181,15 @@ Example: store_context({ key: "pendingTask", value: { action: "restart", target:
 			}),
 		},
 		async ({ key, value }) => {
-			const currentContext = JSON.parse(thread.context || "{}");
+			const currentContext = { ...thread.context };
 			currentContext[key] = value;
 
 			await agentRepository.update(thread.id, {
-				context: JSON.stringify(currentContext),
+				context: currentContext,
 			});
 
 			// Update local thread object
-			thread.context = JSON.stringify(currentContext);
+			thread.context = currentContext;
 
 			return {
 				success: true,
@@ -210,8 +210,7 @@ Example: get_context({ key: "pendingTask" })`,
 			}),
 		},
 		async ({ key }) => {
-			const currentContext = JSON.parse(thread.context || "{}");
-			const value = currentContext[key];
+			const value = thread.context[key];
 
 			if (value === undefined) {
 				return { found: false, key };
@@ -272,8 +271,8 @@ export async function createThread(
 		id: generateId(),
 		source,
 		sourceId: sourceId ?? null,
-		messages: "[]",
-		context: "{}",
+		messages: [],
+		context: {},
 	});
 
 	log.info({ threadId: thread.id, source, sourceId }, "Created thread");
@@ -317,9 +316,9 @@ export async function runAgentLoop(
 
 	log.info({ threadId: thread.id, trigger }, "Starting agent loop");
 
-	// Parse existing messages
-	const messages: ThreadMessageType[] = JSON.parse(thread.messages || "[]");
-	const context = JSON.parse(thread.context || "{}");
+	// Get existing messages and context (JSONB - already parsed by Drizzle)
+	const messages: ThreadMessageType[] = [...(thread.messages as ThreadMessageType[])];
+	const context = { ...thread.context };
 
 	// Add trigger as new message and emit event
 	if (trigger.type === "message") {
@@ -472,7 +471,7 @@ export async function runAgentLoop(
 					// Write to DB on each chunk (with error handling)
 					try {
 						await agentRepository.update(thread.id, {
-							messages: JSON.stringify(messages),
+							messages: messages,
 						});
 					} catch (dbErr) {
 						log.error(
@@ -537,7 +536,7 @@ export async function runAgentLoop(
 	for (let attempt = 0; attempt < 3 && !writeSuccess; attempt++) {
 		try {
 			await agentRepository.update(thread.id, {
-				messages: JSON.stringify(messages),
+				messages: messages,
 				status: finalStatus,
 			});
 			writeSuccess = true;

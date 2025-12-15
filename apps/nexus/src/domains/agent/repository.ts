@@ -1,8 +1,8 @@
 import { and, desc, eq } from "drizzle-orm";
 import { agentDb } from "../../infra/db";
-import type { AgentThread, NewAgentThread } from "./schema";
+import type { AgentThread, NewAgentThread, ThreadContext } from "./schema";
 import { agentThreads } from "./schema";
-import type { ThreadSourceType, ThreadStatusType } from "./types";
+import type { ThreadMessageType, ThreadSourceType, ThreadStatusType } from "./types";
 
 export const agentRepository = {
 	async create(data: NewAgentThread): Promise<AgentThread> {
@@ -45,8 +45,8 @@ export const agentRepository = {
 		data: Partial<{
 			status: ThreadStatusType;
 			title: string;
-			messages: string;
-			context: string;
+			messages: ThreadMessageType[];
+			context: ThreadContext;
 			wakeJobId: string | null;
 			wakeReason: string | null;
 		}>

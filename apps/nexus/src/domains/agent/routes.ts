@@ -1,6 +1,7 @@
 import { Elysia, t } from "elysia";
 import logger from "logger";
 import { createThread, getThread, listThreads, processChat, sendMessage } from "./functions";
+import type { AgentThread } from "./schema";
 import {
 	AgentThreadDetail,
 	AgentThreadResponse,
@@ -12,54 +13,30 @@ import {
 	ThreadsQueryParams,
 } from "./types";
 
-function threadToResponse(thread: {
-	id: string;
-	status: string;
-	source: string;
-	sourceId: string | null;
-	title: string | null;
-	messages: string;
-	context: string;
-	wakeReason: string | null;
-	createdAt: Date;
-	updatedAt: Date;
-}) {
-	const messages = JSON.parse(thread.messages || "[]");
+function threadToResponse(thread: AgentThread) {
 	return {
 		id: thread.id,
-		status: thread.status as "active" | "sleeping" | "complete" | "failed",
-		source: thread.source as "chat" | "discord" | "event" | "scheduled",
+		status: thread.status,
+		source: thread.source,
 		sourceId: thread.sourceId,
 		title: thread.title,
-		messageCount: messages.length,
-		context: JSON.parse(thread.context || "{}"),
+		messageCount: Array.isArray(thread.messages) ? thread.messages.length : 0,
+		context: thread.context,
 		wakeReason: thread.wakeReason,
 		createdAt: thread.createdAt.toISOString(),
 		updatedAt: thread.updatedAt.toISOString(),
 	};
 }
 
-function threadToDetail(thread: {
-	id: string;
-	status: string;
-	source: string;
-	sourceId: string | null;
-	title: string | null;
-	messages: string;
-	context: string;
-	wakeJobId: string | null;
-	wakeReason: string | null;
-	createdAt: Date;
-	updatedAt: Date;
-}) {
+function threadToDetail(thread: AgentThread) {
 	return {
 		id: thread.id,
-		status: thread.status as "active" | "sleeping" | "complete" | "failed",
-		source: thread.source as "chat" | "discord" | "event" | "scheduled",
+		status: thread.status,
+		source: thread.source,
 		sourceId: thread.sourceId,
 		title: thread.title,
-		messages: JSON.parse(thread.messages || "[]"),
-		context: JSON.parse(thread.context || "{}"),
+		messages: thread.messages,
+		context: thread.context,
 		wakeJobId: thread.wakeJobId,
 		wakeReason: thread.wakeReason,
 		createdAt: thread.createdAt.toISOString(),

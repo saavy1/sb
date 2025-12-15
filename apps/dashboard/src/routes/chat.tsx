@@ -9,19 +9,10 @@ export const Route = createFileRoute("/chat")({
 	component: ChatPage,
 });
 
-// Thread type from agent domain
-type AgentThread = {
-	id: string;
-	status: "active" | "sleeping" | "complete" | "failed";
-	source: "chat" | "discord" | "event" | "scheduled";
-	sourceId: string | null;
-	title: string | null;
-	messageCount: number;
-	context: Record<string, unknown>;
-	wakeReason: string | null;
-	createdAt: string;
-	updatedAt: string;
-};
+// Thread type inferred from Eden Treaty
+type AgentThread = NonNullable<
+	Awaited<ReturnType<typeof client.api.agent.threads.get>>["data"]
+>[number];
 
 function ChatPage() {
 	const [threads, setThreads] = useState<AgentThread[]>([]);

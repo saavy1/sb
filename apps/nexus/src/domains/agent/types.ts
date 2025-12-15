@@ -15,6 +15,7 @@ export const ThreadSource = t.Union([
 	t.Literal("discord"),
 	t.Literal("event"),
 	t.Literal("scheduled"),
+	t.Literal("alert"),
 ]);
 export type ThreadSourceType = typeof ThreadSource.static;
 

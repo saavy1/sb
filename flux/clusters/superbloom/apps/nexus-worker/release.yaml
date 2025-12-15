@@ -1,7 +1,7 @@
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
-  name: nexus
+  name: nexus-worker
   namespace: nexus
 spec:
   interval: 5m
@@ -16,22 +16,10 @@ spec:
   values:
     controllers:
       main:
+        # Can scale workers horizontally
+        replicas: 1
         serviceAccount:
           name: nexus
-        initContainers:
-          db-migrate:
-            image:
-              repository: ghcr.io/saavy1/nexus
-              tag: latest
-            command:
-              - bun
-              - run
-              - src/infra/migrate.ts
-            env:
-              DB_PATH: /app/db
-            envFrom:
-              - secretRef:
-                  name: nexus-env
         containers:
           main:
             image:
@@ -42,9 +30,7 @@ spec:
               privileged: true
             env:
               NODE_ENV: production
-              MODE: api
-              PORT: "3000"
-              DB_PATH: /app/db
+              MODE: worker
               # Tailscale SSH - uses hostname, no keys needed
               OPS_SSH_HOST: superbloom
               OPS_SSH_USER: saavy
@@ -56,36 +42,18 @@ spec:
             envFrom:
               - secretRef:
                   name: nexus-env
-            probes:
-              liveness:
-                enabled: true
-                custom: true
-                spec:
-                  httpGet:
-                    path: /health
-                    port: 3000
-                  initialDelaySeconds: 10
-                  periodSeconds: 10
-              readiness:
-                enabled: true
-                custom: true
-                spec:
-                  httpGet:
-                    path: /health
-                    port: 3000
-                  initialDelaySeconds: 5
-                  periodSeconds: 5
-          # Tailscale sidecar for network access
+            # No HTTP probes for worker - relies on process restart on crash
+          # Tailscale sidecar for network access (needed for SSH ops)
           tailscale:
             image:
               repository: ghcr.io/tailscale/tailscale
               tag: latest
             env:
-              TS_HOSTNAME: nexus
+              TS_HOSTNAME: nexus-worker
               TS_STATE_DIR: /var/lib/tailscale
               TS_USERSPACE: "true"
               TS_SOCKET: /var/run/tailscale/tailscaled.sock
-              TS_KUBE_SECRET: nexus-tailscale
+              TS_KUBE_SECRET: nexus-worker-tailscale
               TS_AUTHKEY:
                 valueFrom:
                   secretKeyRef:
@@ -94,24 +62,11 @@ spec:
             securityContext:
               runAsUser: 0
               runAsGroup: 0
+    # No service needed - worker doesn't expose HTTP
     service:
-      main:
-        controller: main
-        ports:
-          http:
-            port: 3000
-    ingress:
       main:
         enabled: false
     persistence:
-      db:
-        enabled: true
-        type: persistentVolumeClaim
-        accessMode: ReadWriteOnce
-        size: 1Gi
-        storageClass: local-path
-        globalMounts:
-          - path: /app/db
       dri:
         enabled: true
         type: hostPath
