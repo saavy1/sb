@@ -47,8 +47,20 @@ COPY --from=builder /app/dashboard/dist ./nexus/public/
 # Remove any stale compiled JS
 RUN rm -rf /app/nexus/dist
 
-# Install SSH client for ops domain (Tailscale SSH handles auth)
-RUN apt-get update && apt-get install -y openssh-client && rm -rf /var/lib/apt/lists/*
+# Install system tools for ops domain
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    openssh-client \
+    curl \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install kubectl
+RUN curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" \
+    && chmod +x kubectl \
+    && mv kubectl /usr/local/bin/
+
+# Install flux CLI
+RUN curl -s https://fluxcd.io/install.sh | bash
 
 # Create db directory
 RUN mkdir -p /app/db
