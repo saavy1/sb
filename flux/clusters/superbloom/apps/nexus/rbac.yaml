@@ -4,6 +4,7 @@ metadata:
   name: nexus
   namespace: nexus
 ---
+# Local role for tailscale secrets
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
@@ -26,4 +27,49 @@ subjects:
 roleRef:
   kind: Role
   name: tailscale
+  apiGroup: rbac.authorization.k8s.io
+---
+# Cluster-wide read access for kubectl operations
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: nexus-cluster-reader
+rules:
+  # Core resources - read
+  - apiGroups: [""]
+    resources: ["pods", "pods/log", "services", "endpoints", "namespaces", "nodes", "events", "configmaps", "persistentvolumeclaims"]
+    verbs: ["get", "list", "watch"]
+  # Apps - read
+  - apiGroups: ["apps"]
+    resources: ["deployments", "statefulsets", "daemonsets", "replicasets"]
+    verbs: ["get", "list", "watch"]
+  # Flux resources - read and reconcile
+  - apiGroups: ["source.toolkit.fluxcd.io"]
+    resources: ["gitrepositories", "helmrepositories", "helmcharts"]
+    verbs: ["get", "list", "watch", "patch"]
+  - apiGroups: ["kustomize.toolkit.fluxcd.io"]
+    resources: ["kustomizations"]
+    verbs: ["get", "list", "watch", "patch"]
+  - apiGroups: ["helm.toolkit.fluxcd.io"]
+    resources: ["helmreleases"]
+    verbs: ["get", "list", "watch", "patch"]
+  # Pod management for restarts
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["delete"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "statefulsets", "daemonsets"]
+    verbs: ["patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: nexus-cluster-reader
+subjects:
+  - kind: ServiceAccount
+    name: nexus
+    namespace: nexus
+roleRef:
+  kind: ClusterRole
+  name: nexus-cluster-reader
   apiGroup: rbac.authorization.k8s.io
