@@ -32,8 +32,9 @@ COPY dashboard/package.json ./dashboard/
 COPY the-machine/package.json ./the-machine/
 COPY logger/package.json ./logger/
 
-# Install production dependencies only (skip devDeps that may lack arm64 binaries)
-RUN bun install --frozen-lockfile --production
+# Install production dependencies only
+# --ignore-scripts skips postinstall scripts that may fail on arm64
+RUN bun install --frozen-lockfile --production --ignore-scripts
 
 # Copy source code (only nexus and logger needed at runtime)
 COPY logger ./logger/
