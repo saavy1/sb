@@ -1,6 +1,7 @@
 import logger from "logger";
 import { createWorker, QUEUES } from "../../infra/queue";
 import { wakeThread } from "./functions";
+import { agentRepository } from "./repository";
 import type { WakeJobDataType } from "./types";
 
 const log = logger.child({ module: "agent-worker" });
@@ -38,7 +39,15 @@ export function startAgentWorker() {
 				// - event: log or notify
 			} catch (err) {
 				log.error({ err, jobId: job.id, threadId }, "Wake job failed");
-				throw err; // Re-throw to trigger BullMQ retry
+
+				// Mark thread as failed so it doesn't stay stuck in "sleeping"
+				try {
+					await agentRepository.update(threadId, { status: "failed" });
+				} catch (updateErr) {
+					log.error({ updateErr, threadId }, "Failed to mark thread as failed");
+				}
+
+				throw err; // Re-throw to trigger BullMQ retry/failure handling
 			}
 		},
 		{ concurrency: 1 } // Process one wake at a time

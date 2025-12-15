@@ -357,9 +357,17 @@ export async function runAgentLoop(
 	let continueLoop = true;
 	let iterations = 0;
 	const maxIterations = 10; // Prevent infinite loops
+	const maxDurationMs = 120_000; // 2 minute timeout to prevent runaway costs
+	const startTime = Date.now();
 
 	while (continueLoop && iterations < maxIterations) {
 		iterations++;
+
+		// Check timeout
+		if (Date.now() - startTime > maxDurationMs) {
+			log.warn({ threadId: thread.id, elapsed: Date.now() - startTime }, "Agent loop timeout");
+			throw new Error("Agent loop timeout - exceeded 2 minutes");
+		}
 
 		const result = await chat({
 			adapter,
@@ -417,10 +425,18 @@ export async function runAgentLoop(
 				// TanStack AI sends cumulative content, not deltas - just replace
 				assistantMessage.content = chunk.content;
 
-				// Write to DB on each chunk
-				await agentRepository.update(thread.id, {
-					messages: JSON.stringify(messages),
-				});
+				// Write to DB on each chunk (with error handling)
+				try {
+					await agentRepository.update(thread.id, {
+						messages: JSON.stringify(messages),
+					});
+				} catch (dbErr) {
+					log.error(
+						{ dbErr, threadId: thread.id, messageId: currentMessageId },
+						"Failed to write chunk to DB"
+					);
+					// Continue streaming - we'll try again on next chunk
+				}
 
 				// Emit event after DB write
 				appEvents.emit("thread:message", {
