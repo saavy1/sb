@@ -1,0 +1,121 @@
+{
+	"version": "6",
+	"dialect": "sqlite",
+	"id": "5e533006-4d2d-4458-bb73-ec70a5fbf554",
+	"prevId": "00000000-0000-0000-0000-000000000000",
+	"tables": {
+		"servers": {
+			"name": "servers",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "text",
+					"primaryKey": true,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"name": {
+					"name": "name",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"game_type": {
+					"name": "game_type",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": "'minecraft'"
+				},
+				"modpack": {
+					"name": "modpack",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"status": {
+					"name": "status",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": "'stopped'"
+				},
+				"port": {
+					"name": "port",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"created_by": {
+					"name": "created_by",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"memory": {
+					"name": "memory",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"k8s_deployment": {
+					"name": "k8s_deployment",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				}
+			},
+			"indexes": {
+				"servers_name_unique": {
+					"name": "servers_name_unique",
+					"columns": ["name"],
+					"isUnique": true
+				},
+				"idx_servers_name": {
+					"name": "idx_servers_name",
+					"columns": ["name"],
+					"isUnique": false
+				},
+				"idx_servers_status": {
+					"name": "idx_servers_status",
+					"columns": ["status"],
+					"isUnique": false
+				},
+				"idx_servers_created_by": {
+					"name": "idx_servers_created_by",
+					"columns": ["created_by"],
+					"isUnique": false
+				}
+			},
+			"foreignKeys": {},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"checkConstraints": {}
+		}
+	},
+	"views": {},
+	"enums": {},
+	"_meta": {
+		"schemas": {},
+		"tables": {},
+		"columns": {}
+	},
+	"internal": {
+		"indexes": {}
+	}
+}

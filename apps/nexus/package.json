@@ -10,11 +10,14 @@
 		"lint:fix": "biome lint --write .",
 		"format": "biome format --write .",
 		"check": "biome check .",
-		"db:generate:minecraft": "drizzle-kit generate --dialect=sqlite --schema=./src/domains/game-servers/schema.ts --out=./db/migrations/minecraft",
-		"db:generate:core": "drizzle-kit generate --dialect=sqlite --schema=./src/domains/core/schema.ts --out=./db/migrations/core",
-		"db:generate": "bun run db:generate:minecraft && bun run db:generate:core",
-		"db:migrate": "bun run src/infra/migrate.ts",
-		"db:push": "bun run src/infra/db-push.ts"
+		"db:generate:agent": "drizzle-kit generate --config=./drizzle/agent/drizzle.config.ts",
+		"db:generate:apps": "drizzle-kit generate --config=./drizzle/apps/drizzle.config.ts",
+		"db:generate:core": "drizzle-kit generate --config=./drizzle/core/drizzle.config.ts",
+		"db:generate:game-servers": "drizzle-kit generate --config=./drizzle/game-servers/drizzle.config.ts",
+		"db:generate:ops": "drizzle-kit generate --config=./drizzle/ops/drizzle.config.ts",
+		"db:generate:system-info": "drizzle-kit generate --config=./drizzle/system-info/drizzle.config.ts",
+		"db:generate": "bun run db:generate:agent && bun run db:generate:apps && bun run db:generate:core && bun run db:generate:game-servers && bun run db:generate:ops && bun run db:generate:system-info",
+		"db:migrate": "bun run src/infra/migrate.ts"
 	},
 	"dependencies": {
 		"@elysiajs/cors": "^1.4.0",
