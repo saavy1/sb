@@ -530,13 +530,32 @@ export async function runAgentLoop(
 		}
 	}); // end runWithToolContext
 
-	// Final status update
-	await agentRepository.update(thread.id, {
-		messages: JSON.stringify(messages),
-		status: thread.status === "sleeping" || thread.status === "complete" ? thread.status : "active",
-	});
+	// Final status update with retry logic
+	const finalStatus =
+		thread.status === "sleeping" || thread.status === "complete" ? thread.status : "active";
+	let writeSuccess = false;
+	for (let attempt = 0; attempt < 3 && !writeSuccess; attempt++) {
+		try {
+			await agentRepository.update(thread.id, {
+				messages: JSON.stringify(messages),
+				status: finalStatus,
+			});
+			writeSuccess = true;
+		} catch (dbErr) {
+			log.error(
+				{ dbErr, threadId: thread.id, attempt: attempt + 1 },
+				"Failed to write final state to DB"
+			);
+			if (attempt < 2) {
+				await new Promise((resolve) => setTimeout(resolve, 100 * (attempt + 1)));
+			}
+		}
+	}
+	if (!writeSuccess) {
+		log.error({ threadId: thread.id }, "All attempts to write final state failed");
+	}
 
-	log.info({ threadId: thread.id, status: thread.status, iterations }, "Agent loop completed");
+	log.info({ threadId: thread.id, status: finalStatus, iterations }, "Agent loop completed");
 
 	// Generate title after first user message + response (async, don't block)
 	const userMessages = messages.filter((m) => m.role === "user");
