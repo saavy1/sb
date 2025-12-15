@@ -13,12 +13,9 @@ import { config } from "./config";
 
 const dbPath = config.DB_PATH;
 
-// === SQLite databases (ops, game-servers, apps, etc.) ===
+// === SQLite databases (to be migrated to Postgres) ===
 
 const minecraftSqlite = new Database(join(dbPath, "minecraft.sqlite"), {
-	create: true,
-});
-const coreSqlite = new Database(join(dbPath, "core.sqlite"), {
 	create: true,
 });
 const systemInfoSqlite = new Database(join(dbPath, "system-info.sqlite"), {
@@ -33,7 +30,6 @@ const appsSqlite = new Database(join(dbPath, "apps.sqlite"), {
 
 // Enable WAL mode for better concurrency
 minecraftSqlite.exec("PRAGMA journal_mode = WAL;");
-coreSqlite.exec("PRAGMA journal_mode = WAL;");
 systemInfoSqlite.exec("PRAGMA journal_mode = WAL;");
 opsSqlite.exec("PRAGMA journal_mode = WAL;");
 appsSqlite.exec("PRAGMA journal_mode = WAL;");
@@ -42,14 +38,13 @@ appsSqlite.exec("PRAGMA journal_mode = WAL;");
 export const minecraftDb = drizzleSqlite(minecraftSqlite, {
 	schema: gameServerSchema,
 });
-export const coreDb = drizzleSqlite(coreSqlite, { schema: coreSchema });
 export const systemInfoDb = drizzleSqlite(systemInfoSqlite, {
 	schema: systemInfoSchema,
 });
 export const opsDb = drizzleSqlite(opsSqlite, { schema: opsSchema });
 export const appsDb = drizzleSqlite(appsSqlite, { schema: appsSchema });
 
-// === Postgres database (agent state - supports concurrent workers) ===
+// === Postgres databases (shared connection pool, separate schemas) ===
 
 // In production, DATABASE_URL is required. In dev, fall back to a local default.
 const databaseUrl =
@@ -67,6 +62,7 @@ const pgClient = postgres(databaseUrl, {
 });
 
 export const agentDb = drizzlePostgres(pgClient, { schema: agentSchema });
+export const coreDb = drizzlePostgres(pgClient, { schema: coreSchema });
 
 // Export schemas for easy access
 export { agentSchema, appsSchema, coreSchema, gameServerSchema, opsSchema, systemInfoSchema };
@@ -74,7 +70,6 @@ export { agentSchema, appsSchema, coreSchema, gameServerSchema, opsSchema, syste
 // Graceful shutdown
 process.on("beforeExit", async () => {
 	minecraftSqlite.close();
-	coreSqlite.close();
 	systemInfoSqlite.close();
 	opsSqlite.close();
 	appsSqlite.close();

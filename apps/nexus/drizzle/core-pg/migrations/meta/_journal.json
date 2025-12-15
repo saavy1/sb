@@ -1,0 +1,13 @@
+{
+	"version": "7",
+	"dialect": "postgresql",
+	"entries": [
+		{
+			"idx": 0,
+			"version": "7",
+			"when": 1765839197316,
+			"tag": "0000_military_stone_men",
+			"breakpoints": true
+		}
+	]
+}

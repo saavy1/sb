@@ -14,40 +14,51 @@ const dbPath = config.DB_PATH;
 // Ensure db directory exists
 mkdirSync(dbPath, { recursive: true });
 
-// === Postgres migrations (agent) ===
+// === Postgres migrations (multiple schemas) ===
 
 if (!config.DATABASE_URL) {
 	logger.error("DATABASE_URL is required for Postgres migrations");
 	process.exit(1);
 }
 
-logger.info({ database: "agent" }, "Running Postgres migrations");
-
 const pgClient = postgres(config.DATABASE_URL, { max: 1 });
 const pgDb = drizzlePostgres(pgClient);
 
-try {
-	await migratePostgres(pgDb, {
-		migrationsFolder: join(import.meta.dir, "../../drizzle/agent/migrations"),
-	});
-	logger.info({ database: "agent" }, "Postgres migrations complete");
-} catch (e) {
-	const error = e as Error;
-	if (error.message?.includes("No config.json found")) {
-		logger.info({ database: "agent" }, "No migrations found, skipping");
-	} else {
-		logger.error({ database: "agent", error: error.message }, "Postgres migration failed");
-		throw e;
+const postgresSchemas = [
+	{ name: "agent", migrationsFolder: "agent" },
+	{ name: "core", migrationsFolder: "core-pg" },
+] as const;
+
+for (const schema of postgresSchemas) {
+	logger.info({ database: schema.name }, "Running Postgres migrations");
+
+	try {
+		await migratePostgres(pgDb, {
+			migrationsFolder: join(
+				import.meta.dir,
+				"../../drizzle",
+				schema.migrationsFolder,
+				"migrations"
+			),
+		});
+		logger.info({ database: schema.name }, "Postgres migrations complete");
+	} catch (e) {
+		const error = e as Error;
+		if (error.message?.includes("No config.json found")) {
+			logger.info({ database: schema.name }, "No migrations found, skipping");
+		} else {
+			logger.error({ database: schema.name, error: error.message }, "Postgres migration failed");
+			throw e;
+		}
 	}
-} finally {
-	await pgClient.end();
 }
 
-// === SQLite migrations (other domains) ===
+await pgClient.end();
+
+// === SQLite migrations (to be migrated to Postgres) ===
 
 const sqliteDomains = [
 	{ name: "apps", dbFile: "apps.sqlite", migrationsFolder: "apps" },
-	{ name: "core", dbFile: "core.sqlite", migrationsFolder: "core" },
 	{ name: "game-servers", dbFile: "minecraft.sqlite", migrationsFolder: "game-servers" },
 	{ name: "ops", dbFile: "ops.sqlite", migrationsFolder: "ops" },
 	{ name: "system-info", dbFile: "system-info.sqlite", migrationsFolder: "system-info" },
