@@ -17,9 +17,10 @@ data:
 
     # Nexus dashboard - protected with forward_auth
     nexus.saavylab.dev {
-        # Webhooks bypass auth (signature verified in app)
-        @webhooks path /webhooks/*
-        handle @webhooks {
+        # GitHub webhook bypasses auth (signature verified in app)
+        # Other webhooks (alertmanager, etc.) use internal ClusterIP
+        @github_webhook path /webhooks/github
+        handle @github_webhook {
             reverse_proxy nexus.nexus.svc.cluster.local:3000
         }
 
