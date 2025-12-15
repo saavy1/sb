@@ -20,6 +20,20 @@ spec:
         replicas: 1
         serviceAccount:
           name: nexus
+        initContainers:
+          db-migrate:
+            image:
+              repository: ghcr.io/saavy1/nexus
+              tag: latest
+            command:
+              - bun
+              - run
+              - src/infra/migrate.ts
+            env:
+              DB_PATH: /app/db
+            envFrom:
+              - secretRef:
+                  name: nexus-env
         containers:
           main:
             image:
@@ -31,6 +45,7 @@ spec:
             env:
               NODE_ENV: production
               MODE: worker
+              DB_PATH: /app/db
               # Tailscale SSH - uses hostname, no keys needed
               OPS_SSH_HOST: superbloom
               OPS_SSH_USER: saavy
@@ -67,6 +82,14 @@ spec:
       main:
         enabled: false
     persistence:
+      db:
+        enabled: true
+        type: persistentVolumeClaim
+        accessMode: ReadWriteOnce
+        size: 1Gi
+        storageClass: local-path
+        globalMounts:
+          - path: /app/db
       dri:
         enabled: true
         type: hostPath
