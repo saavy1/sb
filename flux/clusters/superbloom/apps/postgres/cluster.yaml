@@ -30,13 +30,3 @@ spec:
     limits:
       memory: 512Mi
       cpu: 500m
-
-  # Connection pooler (PgBouncer) - useful for multiple workers
-  pooler:
-    instances: 1
-    type: rw
-    pgbouncer:
-      poolMode: transaction
-      parameters:
-        max_client_conn: "100"
-        default_pool_size: "10"
