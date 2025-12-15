@@ -11,7 +11,7 @@
 		"format": "biome format --write .",
 		"check": "biome check .",
 		"db:generate:agent": "drizzle-kit generate --config=./drizzle/agent/drizzle.config.ts",
-		"db:generate:apps": "drizzle-kit generate --config=./drizzle/apps/drizzle.config.ts",
+		"db:generate:apps": "drizzle-kit generate --config=./drizzle/apps-pg/drizzle.config.ts",
 		"db:generate:core": "drizzle-kit generate --config=./drizzle/core-pg/drizzle.config.ts",
 		"db:generate:game-servers": "drizzle-kit generate --config=./drizzle/game-servers/drizzle.config.ts",
 		"db:generate:ops": "drizzle-kit generate --config=./drizzle/ops/drizzle.config.ts",

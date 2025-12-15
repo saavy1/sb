@@ -18,7 +18,7 @@ export const appRepository = {
 	},
 
 	async update(id: string, data: Partial<NewApp>): Promise<App | undefined> {
-		const now = new Date().toISOString();
+		const now = new Date();
 		const results = await appsDb
 			.update(apps)
 			.set({ ...data, updatedAt: now })

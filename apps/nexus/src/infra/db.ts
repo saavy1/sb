@@ -24,15 +24,11 @@ const systemInfoSqlite = new Database(join(dbPath, "system-info.sqlite"), {
 const opsSqlite = new Database(join(dbPath, "ops.sqlite"), {
 	create: true,
 });
-const appsSqlite = new Database(join(dbPath, "apps.sqlite"), {
-	create: true,
-});
 
 // Enable WAL mode for better concurrency
 minecraftSqlite.exec("PRAGMA journal_mode = WAL;");
 systemInfoSqlite.exec("PRAGMA journal_mode = WAL;");
 opsSqlite.exec("PRAGMA journal_mode = WAL;");
-appsSqlite.exec("PRAGMA journal_mode = WAL;");
 
 // SQLite Drizzle instances
 export const minecraftDb = drizzleSqlite(minecraftSqlite, {
@@ -42,7 +38,6 @@ export const systemInfoDb = drizzleSqlite(systemInfoSqlite, {
 	schema: systemInfoSchema,
 });
 export const opsDb = drizzleSqlite(opsSqlite, { schema: opsSchema });
-export const appsDb = drizzleSqlite(appsSqlite, { schema: appsSchema });
 
 // === Postgres databases (shared connection pool, separate schemas) ===
 
@@ -62,6 +57,7 @@ const pgClient = postgres(databaseUrl, {
 });
 
 export const agentDb = drizzlePostgres(pgClient, { schema: agentSchema });
+export const appsDb = drizzlePostgres(pgClient, { schema: appsSchema });
 export const coreDb = drizzlePostgres(pgClient, { schema: coreSchema });
 
 // Export schemas for easy access
@@ -72,6 +68,5 @@ process.on("beforeExit", async () => {
 	minecraftSqlite.close();
 	systemInfoSqlite.close();
 	opsSqlite.close();
-	appsSqlite.close();
 	await pgClient.end();
 });

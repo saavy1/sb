@@ -26,6 +26,7 @@ const pgDb = drizzlePostgres(pgClient);
 
 const postgresSchemas = [
 	{ name: "agent", migrationsFolder: "agent" },
+	{ name: "apps", migrationsFolder: "apps-pg" },
 	{ name: "core", migrationsFolder: "core-pg" },
 ] as const;
 
@@ -58,7 +59,6 @@ await pgClient.end();
 // === SQLite migrations (to be migrated to Postgres) ===
 
 const sqliteDomains = [
-	{ name: "apps", dbFile: "apps.sqlite", migrationsFolder: "apps" },
 	{ name: "game-servers", dbFile: "minecraft.sqlite", migrationsFolder: "game-servers" },
 	{ name: "ops", dbFile: "ops.sqlite", migrationsFolder: "ops" },
 	{ name: "system-info", dbFile: "system-info.sqlite", migrationsFolder: "system-info" },

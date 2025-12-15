@@ -95,7 +95,7 @@ export async function create(data: {
 	description?: string;
 	sortOrder?: number;
 }): Promise<App> {
-	const now = new Date().toISOString();
+	const now = new Date();
 	return appRepository.create({
 		id: randomUUID().slice(0, 8),
 		name: data.name,

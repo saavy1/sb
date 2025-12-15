@@ -54,8 +54,8 @@ export const AppResponse = t.Object({
 	healthCheckUrl: t.Nullable(t.String()),
 	description: t.Nullable(t.String()),
 	sortOrder: t.Number(),
-	createdAt: t.String(),
-	updatedAt: t.String(),
+	createdAt: t.Date(),
+	updatedAt: t.Date(),
 });
 
 export const AppWithStatusResponse = t.Object({
@@ -67,8 +67,8 @@ export const AppWithStatusResponse = t.Object({
 	healthCheckUrl: t.Nullable(t.String()),
 	description: t.Nullable(t.String()),
 	sortOrder: t.Number(),
-	createdAt: t.String(),
-	updatedAt: t.String(),
+	createdAt: t.Date(),
+	updatedAt: t.Date(),
 	status: AppStatus,
 });
 

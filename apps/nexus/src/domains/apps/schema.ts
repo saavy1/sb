@@ -1,6 +1,9 @@
-import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { integer, pgSchema, text, timestamp } from "drizzle-orm/pg-core";
 
-export const apps = sqliteTable("apps", {
+// Postgres schema for apps tables
+export const appsSchema = pgSchema("apps");
+
+export const apps = appsSchema.table("apps", {
 	id: text("id").primaryKey(),
 	name: text("name").notNull(),
 	url: text("url").notNull(),
@@ -13,8 +16,8 @@ export const apps = sqliteTable("apps", {
 	healthCheckUrl: text("health_check_url"),
 	description: text("description"),
 	sortOrder: integer("sort_order").notNull().default(0),
-	createdAt: text("created_at").notNull(),
-	updatedAt: text("updated_at").notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+	updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 export type App = typeof apps.$inferSelect;
