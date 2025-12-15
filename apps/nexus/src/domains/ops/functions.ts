@@ -691,6 +691,213 @@ export const helmRollbackTool = withTool(
 	}
 );
 
+export const listNamespacesTool = withTool(
+	{
+		name: "list_namespaces",
+		description:
+			"List all Kubernetes namespaces in the cluster. Use when user asks 'what namespaces exist', 'show me the cluster structure', or when you need to discover where resources are located.",
+		input: z.object({}),
+	},
+	async () => {
+		const result = await executeKubectl("get namespaces -o wide");
+		if (!result.success) {
+			return { error: result.errorMessage, output: result.output };
+		}
+		return { success: true, output: result.output };
+	}
+);
+
+export const listResourcesTool = withTool(
+	{
+		name: "list_resources",
+		description:
+			"List Kubernetes resources of a specific type. Use when user asks 'what deployments are running', 'show me all PVCs', 'list services', etc. Supports deployments, statefulsets, daemonsets, services, configmaps, secrets, pvcs, and nodes.",
+		input: z.object({
+			kind: z
+				.enum([
+					"deployments",
+					"statefulsets",
+					"daemonsets",
+					"services",
+					"configmaps",
+					"secrets",
+					"pvcs",
+					"pvs",
+					"nodes",
+					"ingresses",
+				])
+				.describe("Type of resource to list"),
+			namespace: z
+				.string()
+				.optional()
+				.describe(
+					"Namespace to list from (default: all namespaces, except for cluster-scoped resources)"
+				),
+			allNamespaces: z
+				.boolean()
+				.optional()
+				.describe("List from all namespaces (default: true for namespaced resources)"),
+		}),
+	},
+	async ({ kind, namespace, allNamespaces = true }) => {
+		// Cluster-scoped resources don't use namespace
+		const clusterScoped = ["nodes", "pvs"];
+		const isClusterScoped = clusterScoped.includes(kind);
+
+		let cmd = `get ${kind} -o wide`;
+		if (!isClusterScoped) {
+			if (namespace) {
+				cmd += ` -n ${validateNamespace(namespace)}`;
+			} else if (allNamespaces) {
+				cmd += " -A";
+			}
+		}
+
+		const result = await executeKubectl(cmd);
+		if (!result.success) {
+			return { error: result.errorMessage, output: result.output };
+		}
+		return { success: true, output: result.output };
+	}
+);
+
+export const getNodeStatusTool = withTool(
+	{
+		name: "get_node_status",
+		description:
+			"Get detailed status of Kubernetes nodes including conditions, resources, taints, and capacity. Use when checking cluster health, investigating node issues, or understanding resource availability.",
+		input: z.object({
+			nodeName: z.string().optional().describe("Specific node name (default: all nodes)"),
+		}),
+	},
+	async ({ nodeName }) => {
+		let cmd = "get nodes -o wide";
+		if (nodeName) {
+			cmd = `describe node ${validateK8sName(nodeName, "node")}`;
+		}
+
+		const result = await executeKubectl(cmd);
+		if (!result.success) {
+			return { error: result.errorMessage, output: result.output };
+		}
+		return { success: true, output: result.output };
+	}
+);
+
+export const getResourceUsageTool = withTool(
+	{
+		name: "get_resource_usage",
+		description:
+			"Get CPU and memory usage for pods or nodes using kubectl top. Use when investigating resource consumption, identifying resource hogs, or checking if pods need more resources.",
+		input: z.object({
+			type: z.enum(["pods", "nodes"]).describe("Type of resource to check usage for"),
+			namespace: z.string().optional().describe("Namespace for pods (default: all namespaces)"),
+			sortBy: z
+				.enum(["cpu", "memory"])
+				.optional()
+				.describe("Sort by resource type (default: memory)"),
+		}),
+	},
+	async ({ type, namespace, sortBy = "memory" }) => {
+		let cmd = `top ${type} --sort-by=${sortBy}`;
+		if (type === "pods") {
+			if (namespace) {
+				cmd += ` -n ${validateNamespace(namespace)}`;
+			} else {
+				cmd += " -A";
+			}
+		}
+
+		const result = await executeKubectl(cmd);
+		if (!result.success) {
+			return { error: result.errorMessage, output: result.output };
+		}
+		return { success: true, output: result.output };
+	}
+);
+
+export const getJobsTool = withTool(
+	{
+		name: "get_jobs",
+		description:
+			"List Kubernetes Jobs and CronJobs. Use when checking scheduled tasks, investigating failed jobs, or understanding batch workloads.",
+		input: z.object({
+			type: z
+				.enum(["jobs", "cronjobs", "both"])
+				.optional()
+				.describe("Type of job resource (default: both)"),
+			namespace: z.string().optional().describe("Namespace (default: all namespaces)"),
+		}),
+	},
+	async ({ type = "both", namespace }) => {
+		const nsFlag = namespace ? `-n ${validateNamespace(namespace)}` : "-A";
+		const results: string[] = [];
+
+		if (type === "jobs" || type === "both") {
+			const jobResult = await executeKubectl(`get jobs ${nsFlag} -o wide`);
+			if (jobResult.success) {
+				results.push("=== Jobs ===", jobResult.output);
+			}
+		}
+
+		if (type === "cronjobs" || type === "both") {
+			const cronResult = await executeKubectl(`get cronjobs ${nsFlag} -o wide`);
+			if (cronResult.success) {
+				results.push("=== CronJobs ===", cronResult.output);
+			}
+		}
+
+		return { success: true, output: results.join("\n") };
+	}
+);
+
+export const getStorageClassesTool = withTool(
+	{
+		name: "get_storage_classes",
+		description:
+			"List available Kubernetes storage classes and their configurations. Use when understanding storage options, debugging PVC issues, or setting up new persistent storage.",
+		input: z.object({}),
+	},
+	async () => {
+		const result = await executeKubectl("get storageclasses -o wide");
+		if (!result.success) {
+			return { error: result.errorMessage, output: result.output };
+		}
+		return { success: true, output: result.output };
+	}
+);
+
+export const getEndpointsTool = withTool(
+	{
+		name: "get_endpoints",
+		description:
+			"Get service endpoints showing which pods back each service. Use when debugging connectivity issues, verifying service discovery, or checking if services are properly routing traffic.",
+		input: z.object({
+			serviceName: z.string().optional().describe("Specific service name (default: all services)"),
+			namespace: z.string().optional().describe("Namespace (default: all namespaces)"),
+		}),
+	},
+	async ({ serviceName, namespace }) => {
+		let cmd = "get endpoints -o wide";
+		if (serviceName) {
+			cmd = `get endpoints ${validateK8sName(serviceName, "service")}`;
+			if (namespace) {
+				cmd += ` -n ${validateNamespace(namespace)}`;
+			}
+		} else if (namespace) {
+			cmd += ` -n ${validateNamespace(namespace)}`;
+		} else {
+			cmd += " -A";
+		}
+
+		const result = await executeKubectl(cmd);
+		if (!result.success) {
+			return { error: result.errorMessage, output: result.output };
+		}
+		return { success: true, output: result.output };
+	}
+);
+
 export const opsTools = [
 	triggerNixosRebuildTool.tool,
 	triggerFluxReconcileTool.tool,
@@ -703,4 +910,11 @@ export const opsTools = [
 	describeResourceTool.tool,
 	rolloutRestartTool.tool,
 	helmRollbackTool.tool,
+	listNamespacesTool.tool,
+	listResourcesTool.tool,
+	getNodeStatusTool.tool,
+	getResourceUsageTool.tool,
+	getJobsTool.tool,
+	getStorageClassesTool.tool,
+	getEndpointsTool.tool,
 ];
