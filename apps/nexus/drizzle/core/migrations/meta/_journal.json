@@ -8,6 +8,13 @@
 			"when": 1765764974009,
 			"tag": "0000_quick_princess_powerful",
 			"breakpoints": true
+		},
+		{
+			"idx": 1,
+			"version": "6",
+			"when": 1765766978868,
+			"tag": "0001_steady_albert_cleary",
+			"breakpoints": true
 		}
 	]
 }

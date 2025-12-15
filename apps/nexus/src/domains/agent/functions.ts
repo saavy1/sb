@@ -4,10 +4,12 @@ import logger from "logger";
 import { z } from "zod";
 import { generateConversationTitle } from "../../infra/ai";
 import { config } from "../../infra/config";
+import { notify } from "../../infra/discord";
 import { appEvents } from "../../infra/events";
 import { agentWakeQueue } from "../../infra/queue";
 import { withTool } from "../../infra/tools";
 import { appTools } from "../apps/functions";
+import { getAiModel } from "../core/functions";
 import { gameServerTools } from "../game-servers/functions";
 import { opsTools } from "../ops/functions";
 import { systemInfoTools } from "../system-info/functions";
@@ -47,6 +49,7 @@ You also have special tools to control your own lifecycle:
 - schedule_wake: Schedule yourself to wake up later to check on something
 - complete_task: Mark the current task as complete when done
 - store_context: Store information you'll need later (persists across sleep/wake)
+- send_notification: Send a Discord notification to alert the user about important events
 
 ## Using schedule_wake
 When you take an action that needs follow-up, schedule yourself to wake later:
@@ -218,7 +221,45 @@ Example: get_context({ key: "pendingTask" })`,
 		}
 	);
 
-	return [scheduleWakeTool.tool, completeTaskTool.tool, storeContextTool.tool, getContextTool.tool];
+	const sendNotificationTool = withTool(
+		{
+			name: "send_notification",
+			description: `Send a Discord notification to the user. Use this to alert the user about important events, completed tasks, or issues that need attention.
+- message: The notification text to send
+
+Example: send_notification({ message: "Server minecraft-smp is now online with 3 players" })`,
+			input: z.object({
+				message: z.string().describe("The notification text to send"),
+			}),
+		},
+		async ({ message }) => {
+			const sent = await notify(message);
+
+			if (sent) {
+				log.info(
+					{ threadId: thread.id, messageLength: message.length },
+					"Sent Discord notification"
+				);
+				return {
+					success: true,
+					message: "Notification sent to Discord",
+				};
+			}
+
+			return {
+				success: false,
+				message: "Discord webhook not configured - notification not sent",
+			};
+		}
+	);
+
+	return [
+		scheduleWakeTool.tool,
+		completeTaskTool.tool,
+		storeContextTool.tool,
+		getContextTool.tool,
+		sendNotificationTool.tool,
+	];
 }
 
 // === Core agent functions ===
@@ -359,6 +400,7 @@ export async function runAgentLoop(
 	const maxIterations = 10; // Prevent infinite loops
 	const maxDurationMs = 120_000; // 2 minute timeout to prevent runaway costs
 	const startTime = Date.now();
+	const aiModel = await getAiModel();
 
 	while (continueLoop && iterations < maxIterations) {
 		iterations++;
@@ -372,7 +414,7 @@ export async function runAgentLoop(
 		const result = await chat({
 			adapter,
 			messages: llmMessages,
-			model: config.AI_MODEL as string as (typeof adapter.models)[number],
+			model: aiModel as (typeof adapter.models)[number],
 			tools: allTools,
 		});
 
