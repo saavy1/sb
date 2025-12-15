@@ -64,6 +64,31 @@ function validatePositiveInt(value: number | undefined, defaultVal: number, max:
 	return value;
 }
 
+/**
+ * Defense-in-depth: Validates a command string doesn't contain dangerous shell metacharacters.
+ * This is a secondary check - primary validation should happen at the tool input level.
+ */
+function validateCommand(command: string): string {
+	// Block common shell injection patterns
+	const dangerousPatterns = [
+		/[;&|`$]/, // Shell command separators and substitution
+		/\$\(/, // Command substitution
+		/\${/, // Variable expansion
+		/>\s*\//, // Redirect to root paths
+		/<\s*\//, // Input from root paths
+		/\.\.\// // Path traversal
+	];
+
+	for (const pattern of dangerousPatterns) {
+		if (pattern.test(command)) {
+			logger.warn({ command, pattern: pattern.toString() }, "Blocked dangerous command pattern");
+			throw new Error("Command contains forbidden characters");
+		}
+	}
+
+	return command;
+}
+
 // === Internal helpers ===
 
 async function executeSSH(command: string): Promise<CommandResultType> {
@@ -353,6 +378,8 @@ export const listRecentOperationsTool = withTool(
 // === Kubectl/Flux helpers ===
 
 async function executeKubectl(command: string): Promise<CommandResultType> {
+	// Defense-in-depth: validate command before execution
+	validateCommand(command);
 	const fullCommand = `kubectl ${command}`;
 	if (config.K8S_IN_CLUSTER) {
 		return executeLocal(fullCommand);
@@ -361,7 +388,19 @@ async function executeKubectl(command: string): Promise<CommandResultType> {
 }
 
 async function executeFlux(command: string): Promise<CommandResultType> {
+	// Defense-in-depth: validate command before execution
+	validateCommand(command);
 	const fullCommand = `flux ${command}`;
+	if (config.K8S_IN_CLUSTER) {
+		return executeLocal(fullCommand);
+	}
+	return executeSSH(fullCommand);
+}
+
+async function executeHelm(command: string): Promise<CommandResultType> {
+	// Defense-in-depth: validate command before execution
+	validateCommand(command);
+	const fullCommand = `helm ${command}`;
 	if (config.K8S_IN_CLUSTER) {
 		return executeLocal(fullCommand);
 	}
@@ -635,12 +674,12 @@ export const helmRollbackTool = withTool(
 		const validRevision =
 			revision !== undefined ? validatePositiveInt(revision, 0, 10000) : undefined;
 
-		let cmd = `helm rollback ${validRelease} -n ${validNamespace}`;
+		let cmd = `rollback ${validRelease} -n ${validNamespace}`;
 		if (validRevision !== undefined) {
-			cmd = `helm rollback ${validRelease} ${validRevision} -n ${validNamespace}`;
+			cmd = `rollback ${validRelease} ${validRevision} -n ${validNamespace}`;
 		}
 
-		const result = config.K8S_IN_CLUSTER ? await executeLocal(cmd) : await executeSSH(cmd);
+		const result = await executeHelm(cmd);
 		if (!result.success) {
 			return { error: result.errorMessage, output: result.output };
 		}

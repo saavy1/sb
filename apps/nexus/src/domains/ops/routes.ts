@@ -64,8 +64,7 @@ export const opsRoutes = new Elysia({ prefix: "/ops" })
 	.get(
 		"/latest",
 		async ({ query, set }) => {
-			const type = query.type as "nixos-rebuild" | "flux-reconcile" | undefined;
-			const op = await getLatestOperation(type);
+			const op = await getLatestOperation(query.type);
 			if (!op) {
 				set.status = 404;
 				return { error: "No operations found" };

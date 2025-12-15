@@ -64,7 +64,7 @@ export const OperationsQueryParams = t.Object({
 });
 
 export const LatestQueryParams = t.Object({
-	type: t.Optional(t.String()),
+	type: t.Optional(t.Union([t.Literal("nixos-rebuild"), t.Literal("flux-reconcile")])),
 });
 
 export const ApiError = t.Object({
