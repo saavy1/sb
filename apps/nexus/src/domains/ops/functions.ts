@@ -76,7 +76,7 @@ function validateCommand(command: string): string {
 		/\${/, // Variable expansion
 		/>\s*\//, // Redirect to root paths
 		/<\s*\//, // Input from root paths
-		/\.\.\// // Path traversal
+		/\.\.\//, // Path traversal
 	];
 
 	for (const pattern of dangerousPatterns) {
