@@ -670,6 +670,101 @@ export async function processChat(
 	return { threadId: thread.id, response: result.response };
 }
 
+// === Alert handling ===
+
+export interface AlertInput {
+	alertName: string;
+	severity: string;
+	description: string;
+	labels: Record<string, string>;
+	annotations: Record<string, string>;
+	startsAt: string;
+	fingerprint: string;
+	generatorURL?: string;
+}
+
+/**
+ * Create an agent thread from an Alertmanager alert.
+ * Uses fingerprint for deduplication - won't create duplicate threads for the same alert.
+ */
+export async function createThreadFromAlert(alert: AlertInput): Promise<AgentThread> {
+	// Check for existing active thread for this alert (dedup by fingerprint)
+	const existing = await agentRepository.findBySourceId("alert", alert.fingerprint);
+	if (existing && existing.status !== "complete" && existing.status !== "failed") {
+		log.info(
+			{ threadId: existing.id, fingerprint: alert.fingerprint },
+			"Alert thread already exists, skipping"
+		);
+		return existing;
+	}
+
+	// Create new thread for this alert
+	const thread = await agentRepository.create({
+		id: generateId(),
+		source: "alert",
+		sourceId: alert.fingerprint,
+		messages: [],
+		context: {
+			alert: {
+				name: alert.alertName,
+				severity: alert.severity,
+				labels: alert.labels,
+				annotations: alert.annotations,
+				startsAt: alert.startsAt,
+				generatorURL: alert.generatorURL,
+			},
+		},
+	});
+
+	log.info(
+		{ threadId: thread.id, alertName: alert.alertName, severity: alert.severity },
+		"Created thread for alert"
+	);
+
+	// Build alert message for the agent
+	const alertMessage = buildAlertMessage(alert);
+
+	// Run agent loop with the alert (fire and forget - don't block webhook response)
+	runAgentLoop(thread, { type: "message", content: alertMessage }).catch((err) => {
+		log.error({ err, threadId: thread.id, alertName: alert.alertName }, "Failed to process alert");
+		agentRepository.update(thread.id, { status: "failed" });
+	});
+
+	return thread;
+}
+
+function buildAlertMessage(alert: AlertInput): string {
+	const parts = [
+		`🚨 **Alert: ${alert.alertName}** (${alert.severity})`,
+		"",
+		alert.description,
+		"",
+		"**Labels:**",
+		...Object.entries(alert.labels).map(([k, v]) => `- ${k}: ${v}`),
+	];
+
+	if (Object.keys(alert.annotations).length > 0) {
+		parts.push("", "**Annotations:**");
+		for (const [k, v] of Object.entries(alert.annotations)) {
+			if (k !== "description" && k !== "summary") {
+				parts.push(`- ${k}: ${v}`);
+			}
+		}
+	}
+
+	if (alert.generatorURL) {
+		parts.push("", `[View in Alertmanager](${alert.generatorURL})`);
+	}
+
+	parts.push(
+		"",
+		"---",
+		"Investigate this alert. Check relevant metrics, logs, and system state. Take autonomous action if safe and appropriate, or summarize findings and recommend next steps."
+	);
+
+	return parts.join("\n");
+}
+
 // === Exported tools array for AI service ===
 
 export const agentTools: never[] = []; // Agent meta-tools are created per-thread, not exported globally
