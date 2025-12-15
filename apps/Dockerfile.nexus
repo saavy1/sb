@@ -10,7 +10,8 @@ COPY the-machine/package.json ./the-machine/
 COPY logger/package.json ./logger/
 
 # Install ALL dependencies (including dev) for build
-RUN bun install --frozen-lockfile
+# --ignore-scripts skips postinstall scripts that may fail on arm64
+RUN bun install --frozen-lockfile --ignore-scripts
 
 # Copy source code
 COPY tsconfig.json ./
