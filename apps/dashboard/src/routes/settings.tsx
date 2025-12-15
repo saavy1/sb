@@ -1,10 +1,16 @@
 import type { SettingsResponseType } from "@nexus/domains/core/types";
 import { createFileRoute } from "@tanstack/react-router";
-import { Loader2, Save } from "lucide-react";
+import { CheckCircle, Loader2, Save, XCircle, Zap } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button, Input, Label, Panel, PanelRow } from "../components/ui";
 import { client } from "../lib/api";
+
+type ConnectionTestResult = {
+	ssh: { success: boolean; message: string };
+	kubectl: { success: boolean; message: string };
+	flux: { success: boolean; message: string };
+} | null;
 
 export const Route = createFileRoute("/settings")({
 	component: SettingsPage,
@@ -14,6 +20,10 @@ function SettingsPage() {
 	const [settings, setSettings] = useState<SettingsResponseType | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [saving, setSaving] = useState(false);
+
+	// Connection test state
+	const [connectionTest, setConnectionTest] = useState<ConnectionTestResult>(null);
+	const [testingConnection, setTestingConnection] = useState(false);
 
 	// Form state
 	const [selectedModel, setSelectedModel] = useState("");
@@ -84,6 +94,32 @@ function SettingsPage() {
 			toast.error("Failed to save settings");
 		} finally {
 			setSaving(false);
+		}
+	};
+
+	const handleTestConnection = async () => {
+		setTestingConnection(true);
+		setConnectionTest(null);
+		try {
+			const { data, error } = await client.api.ops["test-connection"].get();
+			if (error) {
+				toast.error("Failed to test connection");
+				return;
+			}
+			if (data) {
+				setConnectionTest(data);
+				const allSuccess = data.ssh.success && data.kubectl.success && data.flux.success;
+				if (allSuccess) {
+					toast.success("All connections successful");
+				} else {
+					toast.error("Some connections failed");
+				}
+			}
+		} catch (error) {
+			console.error("Failed to test connection:", error);
+			toast.error("Failed to test connection");
+		} finally {
+			setTestingConnection(false);
 		}
 	};
 
@@ -197,6 +233,46 @@ function SettingsPage() {
 						</div>
 					</Panel>
 
+					{/* Cluster Connection */}
+					<Panel title="Cluster Connection">
+						<div className="space-y-3">
+							<Button
+								size="sm"
+								variant="secondary"
+								onClick={handleTestConnection}
+								disabled={testingConnection}
+								className="w-full"
+							>
+								{testingConnection ? (
+									<Loader2 size={14} className="animate-spin" />
+								) : (
+									<Zap size={14} />
+								)}
+								{testingConnection ? "Testing..." : "Test Connection"}
+							</Button>
+
+							{connectionTest && (
+								<div className="space-y-2 text-sm">
+									<ConnectionRow
+										label="SSH"
+										success={connectionTest.ssh.success}
+										message={connectionTest.ssh.message}
+									/>
+									<ConnectionRow
+										label="kubectl"
+										success={connectionTest.kubectl.success}
+										message={connectionTest.kubectl.message}
+									/>
+									<ConnectionRow
+										label="flux"
+										success={connectionTest.flux.success}
+										message={connectionTest.flux.message}
+									/>
+								</div>
+							)}
+						</div>
+					</Panel>
+
 					{/* Keyboard Shortcuts */}
 					<Panel title="Keyboard Shortcuts">
 						<div className="space-y-1 text-sm">
@@ -229,6 +305,30 @@ function ShortcutRow({ keys, description }: { keys: string; description: string 
 		<div className="flex items-center justify-between py-1">
 			<span className="text-text-tertiary">{description}</span>
 			<kbd className="bg-background px-2 py-0.5 rounded text-xs text-accent font-mono">{keys}</kbd>
+		</div>
+	);
+}
+
+function ConnectionRow({
+	label,
+	success,
+	message,
+}: {
+	label: string;
+	success: boolean;
+	message: string;
+}) {
+	return (
+		<div className="flex items-start gap-2">
+			{success ? (
+				<CheckCircle size={16} className="text-success mt-0.5 shrink-0" />
+			) : (
+				<XCircle size={16} className="text-error mt-0.5 shrink-0" />
+			)}
+			<div className="min-w-0">
+				<span className="font-medium">{label}</span>
+				<p className="text-xs text-text-tertiary truncate">{message}</p>
+			</div>
 		</div>
 	);
 }
