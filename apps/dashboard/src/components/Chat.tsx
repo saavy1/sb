@@ -188,6 +188,22 @@ export function Chat({ threadId: propThreadId, onThreadChange }: Props) {
 
 	useEvents("thread:tool-call", handleToolCallEvent);
 
+	// Clear tool calls when loading finishes or thread changes (prevents memory leak)
+	useEffect(() => {
+		if (!isLoading) {
+			// Give a brief delay for any final events to arrive
+			const timeout = setTimeout(() => {
+				setActiveToolCalls(new Map());
+			}, 500);
+			return () => clearTimeout(timeout);
+		}
+	}, [isLoading]);
+
+	// Clear tool calls when switching threads
+	useEffect(() => {
+		setActiveToolCalls(new Map());
+	}, [activeThreadId]);
+
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 		if (!input.trim() || isLoading) return;

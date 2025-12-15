@@ -16,6 +16,54 @@ const sshUser = config.OPS_SSH_USER;
 const flakePath = config.OPS_FLAKE_PATH;
 const flakeTarget = config.OPS_FLAKE_TARGET;
 
+// === Input Validation ===
+
+/**
+ * Validates a Kubernetes resource name (DNS-1123 subdomain).
+ * Names must be lowercase alphanumeric, can contain hyphens, max 253 chars.
+ * Throws if invalid to prevent command injection.
+ */
+function validateK8sName(name: string, field: string): string {
+	if (!name || typeof name !== "string") {
+		throw new Error(`${field} is required`);
+	}
+	// K8s names: lowercase, alphanumeric, hyphens allowed, max 253 chars
+	// Must start/end with alphanumeric
+	if (!/^[a-z0-9]([-a-z0-9]*[a-z0-9])?$/.test(name) || name.length > 253) {
+		throw new Error(
+			`Invalid ${field}: must be lowercase alphanumeric with optional hyphens, max 253 chars`
+		);
+	}
+	return name;
+}
+
+/**
+ * Validates a Kubernetes namespace name.
+ * Same as resource name but max 63 chars for namespaces.
+ */
+function validateNamespace(namespace: string): string {
+	if (!namespace || typeof namespace !== "string") {
+		throw new Error("namespace is required");
+	}
+	if (!/^[a-z0-9]([-a-z0-9]*[a-z0-9])?$/.test(namespace) || namespace.length > 63) {
+		throw new Error(
+			"Invalid namespace: must be lowercase alphanumeric with optional hyphens, max 63 chars"
+		);
+	}
+	return namespace;
+}
+
+/**
+ * Validates a positive integer within bounds.
+ */
+function validatePositiveInt(value: number | undefined, defaultVal: number, max: number): number {
+	if (value === undefined) return defaultVal;
+	if (!Number.isInteger(value) || value < 1 || value > max) {
+		throw new Error(`Value must be a positive integer between 1 and ${max}`);
+	}
+	return value;
+}
+
 // === Internal helpers ===
 
 async function executeSSH(command: string): Promise<CommandResultType> {
@@ -388,7 +436,7 @@ export const getPodsTool = withTool(
 	async ({ namespace, allNamespaces = true }) => {
 		let cmd = "get pods -o wide";
 		if (namespace) {
-			cmd += ` -n ${namespace}`;
+			cmd += ` -n ${validateNamespace(namespace)}`;
 		} else if (allNamespaces) {
 			cmd += " -A";
 		}
@@ -417,10 +465,14 @@ export const getPodLogsTool = withTool(
 				.describe("Show logs from previous container instance (for crash debugging)"),
 		}),
 	},
-	async ({ pod, namespace, container, tail = 100, previous = false }) => {
-		let cmd = `logs ${pod} -n ${namespace} --tail=${tail}`;
+	async ({ pod, namespace, container, tail, previous = false }) => {
+		const validPod = validateK8sName(pod, "pod");
+		const validNamespace = validateNamespace(namespace);
+		const validTail = validatePositiveInt(tail, 100, 10000);
+
+		let cmd = `logs ${validPod} -n ${validNamespace} --tail=${validTail}`;
 		if (container) {
-			cmd += ` -c ${container}`;
+			cmd += ` -c ${validateK8sName(container, "container")}`;
 		}
 		if (previous) {
 			cmd += " --previous";
@@ -444,10 +496,12 @@ export const getEventsTool = withTool(
 			limit: z.number().optional().describe("Number of events to show (default: 50)"),
 		}),
 	},
-	async ({ namespace, limit = 50 }) => {
+	async ({ namespace, limit }) => {
+		const validLimit = validatePositiveInt(limit, 50, 500);
+
 		let cmd = `get events --sort-by='.lastTimestamp'`;
 		if (namespace) {
-			cmd += ` -n ${namespace}`;
+			cmd += ` -n ${validateNamespace(namespace)}`;
 		} else {
 			cmd += " -A";
 		}
@@ -460,7 +514,7 @@ export const getEventsTool = withTool(
 		// Limit output to most recent events
 		const lines = result.output.split("\n");
 		const header = lines[0];
-		const events = lines.slice(1, limit + 1);
+		const events = lines.slice(1, validLimit + 1);
 		return { success: true, output: [header, ...events].join("\n") };
 	}
 );
@@ -515,9 +569,11 @@ export const describeResourceTool = withTool(
 		}),
 	},
 	async ({ kind, name, namespace }) => {
-		let cmd = `describe ${kind} ${name}`;
+		const validName = validateK8sName(name, "name");
+
+		let cmd = `describe ${kind} ${validName}`;
 		if (namespace && kind !== "node") {
-			cmd += ` -n ${namespace}`;
+			cmd += ` -n ${validateNamespace(namespace)}`;
 		}
 
 		const result = await executeKubectl(cmd);
@@ -543,7 +599,10 @@ export const rolloutRestartTool = withTool(
 		}),
 	},
 	async ({ name, namespace, kind = "deployment" }) => {
-		const cmd = `rollout restart ${kind}/${name} -n ${namespace}`;
+		const validName = validateK8sName(name, "name");
+		const validNamespace = validateNamespace(namespace);
+
+		const cmd = `rollout restart ${kind}/${validName} -n ${validNamespace}`;
 		const result = await executeKubectl(cmd);
 		if (!result.success) {
 			return { error: result.errorMessage, output: result.output };
@@ -571,9 +630,14 @@ export const helmRollbackTool = withTool(
 		}),
 	},
 	async ({ release, namespace, revision }) => {
-		let cmd = `helm rollback ${release} -n ${namespace}`;
-		if (revision !== undefined) {
-			cmd = `helm rollback ${release} ${revision} -n ${namespace}`;
+		const validRelease = validateK8sName(release, "release");
+		const validNamespace = validateNamespace(namespace);
+		const validRevision =
+			revision !== undefined ? validatePositiveInt(revision, 0, 10000) : undefined;
+
+		let cmd = `helm rollback ${validRelease} -n ${validNamespace}`;
+		if (validRevision !== undefined) {
+			cmd = `helm rollback ${validRelease} ${validRevision} -n ${validNamespace}`;
 		}
 
 		const result = config.K8S_IN_CLUSTER ? await executeLocal(cmd) : await executeSSH(cmd);
