@@ -28,7 +28,7 @@ class WebSocketManager {
 		if (!this.subscribers.has(event)) {
 			this.subscribers.set(event, new Set());
 		}
-		this.subscribers.get(event)!.add(handler as EventHandler<AppEventName>);
+		this.subscribers.get(event)?.add(handler as EventHandler<AppEventName>);
 
 		// Ensure connection is active
 		this.connect();
