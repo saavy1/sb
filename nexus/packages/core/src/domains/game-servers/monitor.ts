@@ -141,8 +141,12 @@ async function pollAndPublish(): Promise<void> {
 			log.info("Server went offline (poll error)");
 		}
 
-		await publish(CHANNELS.MINECRAFT_STATUS, payload);
-		appEvents.emit("minecraft:status", payload as MinecraftStatusPayloadType);
+		try {
+			await publish(CHANNELS.MINECRAFT_STATUS, payload);
+			appEvents.emit("minecraft:status", payload);
+		} catch (publishErr) {
+			log.error({ err: publishErr }, "Failed to publish offline status");
+		}
 		lastStatus = payload;
 	}
 }
