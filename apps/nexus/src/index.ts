@@ -6,8 +6,9 @@ import {
 	startSystemEventsWorker,
 } from "./domains/agent/worker";
 import { config } from "./infra/config";
+import { closePubSub, initPubSub } from "./infra/pubsub";
 import { initializeQdrant } from "./infra/qdrant";
-import { closeQueues } from "./infra/queue";
+import { closeQueues, redis } from "./infra/queue";
 
 // Initialize Qdrant collections (creates if not exists)
 try {
@@ -15,6 +16,9 @@ try {
 } catch (error) {
 	logger.warn({ error }, "Qdrant initialization failed - embeddings will be unavailable");
 }
+
+// Initialize pub/sub (reuse redis connection from queue)
+initPubSub(redis);
 
 // Conditional startup based on MODE
 let server: ReturnType<typeof app.listen> | null = null;
@@ -39,6 +43,7 @@ if (config.MODE === "api" || config.MODE === "both") {
 }
 
 // Start workers if MODE is "worker" or "both"
+// Note: MC monitor is now a separate service (nexus-mc-monitor)
 if (config.MODE === "worker" || config.MODE === "both") {
 	agentWorker = startAgentWorker();
 	systemEventsWorker = startSystemEventsWorker();
@@ -64,6 +69,7 @@ async function shutdown(signal: string) {
 	if (embeddingsWorker) {
 		await embeddingsWorker.close();
 	}
+	await closePubSub();
 	await closeQueues();
 	if (server) {
 		server.stop();

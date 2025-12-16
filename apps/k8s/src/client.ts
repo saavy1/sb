@@ -15,6 +15,8 @@ import type {
 	KubeConfig,
 	Namespace,
 	PersistentVolumeClaim,
+	Pod,
+	PodList,
 	Service,
 } from "./types";
 
@@ -377,6 +379,31 @@ export class K8sClient {
 		const existing = await this.getNamespace(name);
 		if (!existing) {
 			await this.createNamespace(name);
+		}
+	}
+
+	// === Pod operations ===
+
+	async listPods(
+		namespace: string,
+		labelSelector?: string
+	): Promise<Pod[]> {
+		const params = new URLSearchParams();
+		if (labelSelector) {
+			params.set("labelSelector", labelSelector);
+		}
+		const query = params.toString();
+		const path = `/api/v1/namespaces/${namespace}/pods${query ? `?${query}` : ""}`;
+		const response = await this.request<PodList>("GET", path);
+		return response.items;
+	}
+
+	async getPod(namespace: string, name: string): Promise<Pod | null> {
+		try {
+			return await this.request<Pod>("GET", `/api/v1/namespaces/${namespace}/pods/${name}`);
+		} catch (err) {
+			if ((err as K8sError).status === 404) return null;
+			throw err;
 		}
 	}
 

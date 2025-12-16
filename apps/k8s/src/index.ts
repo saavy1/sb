@@ -32,6 +32,9 @@ export type {
 	Namespace,
 	ObjectMeta,
 	PersistentVolumeClaim,
+	Pod,
+	PodList,
 	PodSpec,
+	PodStatus,
 	Service,
 } from "./types";

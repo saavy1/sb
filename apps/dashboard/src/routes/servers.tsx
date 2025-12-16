@@ -1,10 +1,12 @@
+import type { MinecraftStatusPayloadType } from "@nexus/infra/events";
 import type { GameServerType } from "@nexus/domains/game-servers/types";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Play, Plus, RefreshCw, Square, Trash2 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { ChevronDown, Clock, Play, Plus, RefreshCw, Signal, Square, Trash2, Users } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Panel, StatusDot } from "../components/ui";
 import { client } from "../lib/api";
+import { useEvents } from "../lib/useEvents";
 
 export const Route = createFileRoute("/servers")({
 	component: ServersPage,
@@ -15,6 +17,25 @@ function ServersPage() {
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [selectedIndex, setSelectedIndex] = useState(0);
+	const [mcStatus, setMcStatus] = useState<MinecraftStatusPayloadType | null>(null);
+	const [mcDropdownOpen, setMcDropdownOpen] = useState(false);
+	const dropdownRef = useRef<HTMLDivElement>(null);
+
+	// Subscribe to Minecraft status events via WebSocket
+	useEvents("minecraft:status", (payload) => {
+		setMcStatus(payload);
+	});
+
+	// Close dropdown when clicking outside
+	useEffect(() => {
+		const handleClickOutside = (e: MouseEvent) => {
+			if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+				setMcDropdownOpen(false);
+			}
+		};
+		document.addEventListener("mousedown", handleClickOutside);
+		return () => document.removeEventListener("mousedown", handleClickOutside);
+	}, []);
 
 	const fetchServers = useCallback(async () => {
 		setLoading(true);
@@ -29,9 +50,19 @@ function ServersPage() {
 		setLoading(false);
 	}, []);
 
+	const fetchMinecraftStatus = useCallback(async () => {
+		try {
+			const { data } = await client.api.gameServers.minecraft.status.get();
+			if (data) setMcStatus(data as MinecraftStatusPayloadType);
+		} catch (error) {
+			console.error("Failed to fetch Minecraft status:", error);
+		}
+	}, []);
+
 	useEffect(() => {
 		fetchServers();
-	}, [fetchServers]);
+		fetchMinecraftStatus();
+	}, [fetchServers, fetchMinecraftStatus]);
 
 	// Keyboard navigation
 	useEffect(() => {
@@ -101,7 +132,133 @@ function ServersPage() {
 						)}
 					</span>
 				</div>
-				<div className="flex items-center gap-2">
+				<div className="flex items-center gap-3">
+					{/* Minecraft Live Status Dropdown */}
+					{mcStatus && (
+						<div className="relative" ref={dropdownRef}>
+							<button
+								type="button"
+								onClick={() => setMcDropdownOpen(!mcDropdownOpen)}
+								className={`flex items-center gap-2 px-2 py-1 rounded border transition-colors ${
+									mcDropdownOpen
+										? "bg-surface-elevated border-accent"
+										: "border-border hover:bg-surface-elevated"
+								}`}
+							>
+								<span
+									className={`w-2 h-2 rounded-full ${
+										mcStatus.online ? "bg-success animate-pulse" : "bg-text-tertiary"
+									}`}
+								/>
+								<span className="text-text-secondary">MC</span>
+								{mcStatus.online && mcStatus.players && (
+									<span className="text-text-tertiary tabular-nums">
+										{mcStatus.players.online}/{mcStatus.players.max}
+									</span>
+								)}
+								<ChevronDown
+									size={12}
+									className={`text-text-tertiary transition-transform ${
+										mcDropdownOpen ? "rotate-180" : ""
+									}`}
+								/>
+							</button>
+
+							{/* Dropdown Panel */}
+							{mcDropdownOpen && (
+								<div className="absolute right-0 top-full mt-1 w-64 bg-surface border border-border rounded shadow-lg z-50">
+									<div className="p-3 space-y-3">
+										{/* Status Header */}
+										<div className="flex items-center justify-between">
+											<div className="flex items-center gap-2">
+												<span
+													className={`w-2.5 h-2.5 rounded-full ${
+														mcStatus.online ? "bg-success" : "bg-text-tertiary"
+													}`}
+												/>
+												<span className="font-medium">
+													{mcStatus.online ? "Online" : "Offline"}
+												</span>
+											</div>
+											{mcStatus.version && (
+												<span className="text-text-tertiary">{mcStatus.version}</span>
+											)}
+										</div>
+
+										{mcStatus.online && (
+											<>
+												{/* MOTD */}
+												{mcStatus.motd && (
+													<div className="text-text-secondary text-xs italic border-l-2 border-accent pl-2">
+														{mcStatus.motd}
+													</div>
+												)}
+
+												{/* Stats Grid */}
+												<div className="grid grid-cols-2 gap-2 text-xs">
+													{mcStatus.players && (
+														<div className="flex items-center gap-1.5 text-text-secondary">
+															<Users size={12} className="text-text-tertiary" />
+															<span>
+																{mcStatus.players.online}/{mcStatus.players.max} players
+															</span>
+														</div>
+													)}
+													{mcStatus.latency !== undefined && (
+														<div className="flex items-center gap-1.5 text-text-secondary">
+															<Signal size={12} className="text-text-tertiary" />
+															<span>{mcStatus.latency}ms</span>
+														</div>
+													)}
+												</div>
+
+												{/* Player List */}
+												{mcStatus.players && mcStatus.players.list.length > 0 && (
+													<div className="space-y-1.5">
+														<div className="text-xs text-text-tertiary uppercase tracking-wider">
+															Online Players
+														</div>
+														<div className="flex flex-wrap gap-1">
+															{mcStatus.players.list.map((player) => (
+																<span
+																	key={player}
+																	className="px-1.5 py-0.5 text-xs bg-success-bg text-success rounded"
+																>
+																	{player}
+																</span>
+															))}
+														</div>
+													</div>
+												)}
+
+												{mcStatus.players && mcStatus.players.list.length === 0 && (
+													<div className="text-xs text-text-tertiary text-center py-2">
+														No players online
+													</div>
+												)}
+											</>
+										)}
+
+										{/* Last Updated */}
+										{mcStatus.timestamp && (
+											<div className="flex items-center gap-1.5 text-xs text-text-tertiary pt-2 border-t border-border">
+												<Clock size={10} />
+												<span>
+													Updated{" "}
+													{new Date(mcStatus.timestamp).toLocaleTimeString("en-US", {
+														hour: "2-digit",
+														minute: "2-digit",
+														second: "2-digit",
+													})}
+												</span>
+											</div>
+										)}
+									</div>
+								</div>
+							)}
+						</div>
+					)}
+
 					<button
 						type="button"
 						onClick={fetchServers}

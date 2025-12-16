@@ -1,0 +1,43 @@
+{
+	"name": "nexus-core",
+	"version": "1.0.0",
+	"type": "module",
+	"exports": {
+		"./infra/*": "./src/infra/*.ts",
+		"./domains/*": "./src/domains/*/index.ts"
+	},
+	"scripts": {
+		"typecheck": "tsc --noEmit",
+		"lint": "biome lint .",
+		"db:generate:agent": "drizzle-kit generate --config=./drizzle/agent/drizzle.config.ts",
+		"db:generate:apps": "drizzle-kit generate --config=./drizzle/apps-pg/drizzle.config.ts",
+		"db:generate:core": "drizzle-kit generate --config=./drizzle/core-pg/drizzle.config.ts",
+		"db:generate:game-servers": "drizzle-kit generate --config=./drizzle/game-servers-pg/drizzle.config.ts",
+		"db:generate:ops": "drizzle-kit generate --config=./drizzle/ops-pg/drizzle.config.ts",
+		"db:generate:system-info": "drizzle-kit generate --config=./drizzle/system-info-pg/drizzle.config.ts",
+		"db:generate": "bun run db:generate:agent && bun run db:generate:apps && bun run db:generate:core && bun run db:generate:game-servers && bun run db:generate:ops && bun run db:generate:system-info",
+		"db:migrate": "bun run src/infra/migrate.ts"
+	},
+	"dependencies": {
+		"@elysiajs/opentelemetry": "^1.4.9",
+		"@qdrant/js-client-rest": "^1.16.2",
+		"@tanstack/ai": "^0.0.3",
+		"@tanstack/ai-openai": "^0.0.3",
+		"bullmq": "^5.66.0",
+		"drizzle-orm": "^0.45.1",
+		"elysia": "catalog:",
+		"ioredis": "^5.8.2",
+		"k8s": "workspace:*",
+		"logger": "workspace:*",
+		"mc-monitor": "workspace:*",
+		"openai": "^6.13.0",
+		"postgres": "^3.4.7",
+		"zod": "^4.1.13"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "catalog:",
+		"bun-types": "catalog:",
+		"drizzle-kit": "^0.31.8",
+		"typescript": "catalog:"
+	}
+}

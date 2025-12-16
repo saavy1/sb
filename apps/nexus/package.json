@@ -29,6 +29,7 @@
 		"@elysiajs/opentelemetry": "^1.4.9",
 		"@elysiajs/static": "^1.1.1",
 		"k8s": "workspace:*",
+		"mc-monitor": "workspace:*",
 		"@qdrant/js-client-rest": "^1.16.2",
 		"@tanstack/ai": "^0.0.3",
 		"@tanstack/ai-openai": "^0.0.3",

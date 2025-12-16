@@ -5,9 +5,13 @@ on:
     branches: [main]
     paths:
       - "apps/nexus/**"
+      - "apps/nexus-core/**"
       - "apps/dashboard/**"
       - "apps/logger/**"
+      - "apps/k8s/**"
+      - "apps/mc-monitor/**"
       - "apps/package.json"
+      - "apps/Dockerfile.nexus"
       - ".github/workflows/nexus.yml"
   schedule:
     - cron: "0 0 * * 0"

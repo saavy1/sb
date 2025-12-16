@@ -1,3 +1,4 @@
+import type { MinecraftStatusPayloadType } from "@nexus/infra/events";
 import type { GameServerType } from "@nexus/domains/game-servers/types";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
@@ -11,12 +12,15 @@ import {
 	RefreshCw,
 	Square,
 	Trash2,
+	Users,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button, Panel, SkeletonStats, Sparkline, StatusDot } from "../components/ui";
 import { client } from "../lib/api";
 import { useConnection } from "../lib/ConnectionContext";
+import { useEvents } from "../lib/useEvents";
+
 
 export const Route = createFileRoute("/")({
 	component: HomePage,
@@ -33,6 +37,12 @@ function HomePage() {
 	const [suggestions, setSuggestions] = useState<NonNullable<SuggestedDrive>>([]);
 	const [showNetDetails, setShowNetDetails] = useState(false);
 	const [currentTime, setCurrentTime] = useState(new Date());
+	const [mcStatus, setMcStatus] = useState<MinecraftStatusPayloadType | null>(null);
+
+	// Subscribe to Minecraft status events via WebSocket
+	useEvents("minecraft:status", (payload) => {
+		setMcStatus(payload);
+	});
 
 	// Update clock every second
 	useEffect(() => {
@@ -58,10 +68,20 @@ function HomePage() {
 		}
 	}, []);
 
+	const fetchMinecraftStatus = useCallback(async () => {
+		try {
+			const { data } = await client.api.gameServers.minecraft.status.get();
+			if (data) setMcStatus(data as MinecraftStatusPayloadType);
+		} catch (error) {
+			console.error("Failed to fetch Minecraft status:", error);
+		}
+	}, []);
+
 	useEffect(() => {
 		fetchServers();
 		fetchSuggestions();
-	}, [fetchServers, fetchSuggestions]);
+		fetchMinecraftStatus(); // Initial fetch, then WebSocket takes over
+	}, [fetchServers, fetchSuggestions, fetchMinecraftStatus]);
 
 	const handleStart = async (name: string) => {
 		toast.promise(client.api.gameServers({ name }).start.post(), {
@@ -271,6 +291,48 @@ function HomePage() {
 									Create one
 								</Link>
 							</div>
+						</div>
+					)}
+
+					{/* Minecraft Live Status */}
+					{mcStatus && (
+						<div className="mt-3 pt-3 border-t border-border">
+							<div className="flex items-center justify-between text-sm">
+								<div className="flex items-center gap-2">
+									<span
+										className={`w-2 h-2 rounded-full ${mcStatus.online ? "bg-success animate-pulse" : "bg-text-tertiary"}`}
+									/>
+									<span className="text-text-secondary">Minecraft</span>
+									{mcStatus.version && (
+										<span className="text-xs text-text-tertiary">{mcStatus.version}</span>
+									)}
+								</div>
+								{mcStatus.online && mcStatus.players && (
+									<div className="flex items-center gap-1.5 text-text-tertiary">
+										<Users size={12} />
+										<span className="tabular-nums">
+											{mcStatus.players.online}/{mcStatus.players.max}
+										</span>
+									</div>
+								)}
+							</div>
+							{mcStatus.online && mcStatus.players && mcStatus.players.list.length > 0 && (
+								<div className="mt-2 flex flex-wrap gap-1">
+									{mcStatus.players.list.map((player) => (
+										<span
+											key={player}
+											className="px-1.5 py-0.5 text-xs bg-success-bg text-success rounded"
+										>
+											{player}
+										</span>
+									))}
+								</div>
+							)}
+							{mcStatus.latency !== undefined && (
+								<div className="mt-1 text-xs text-text-tertiary">
+									{mcStatus.latency}ms latency
+								</div>
+							)}
 						</div>
 					)}
 				</Panel>

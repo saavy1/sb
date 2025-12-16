@@ -1,0 +1,20 @@
+{
+	"name": "nexus-mc-monitor",
+	"version": "1.0.0",
+	"type": "module",
+	"scripts": {
+		"dev": "bun run --watch src/index.ts",
+		"start": "bun run src/index.ts",
+		"typecheck": "tsc --noEmit"
+	},
+	"dependencies": {
+		"ioredis": "^5.8.2",
+		"logger": "workspace:*",
+		"nexus-core": "workspace:*"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "catalog:",
+		"bun-types": "catalog:",
+		"typescript": "catalog:"
+	}
+}

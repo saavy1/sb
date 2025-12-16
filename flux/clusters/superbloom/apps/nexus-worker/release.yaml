@@ -41,6 +41,8 @@ spec:
               # External services
               VALKEY_URL: redis://valkey.valkey.svc.cluster.local:6379
               QDRANT_URL: http://qdrant.qdrant.svc.cluster.local:6333
+              # Minecraft monitor - use in-cluster service
+              MC_LOADBALANCER_HOST: minecraft.game-servers.svc.cluster.local
             envFrom:
               - secretRef:
                   name: nexus-env
