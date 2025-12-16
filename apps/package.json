@@ -6,6 +6,7 @@
 			"nexus-core",
 			"nexus",
 			"nexus-mc-monitor",
+			"nexus-agent-worker",
 			"the-machine",
 			"dashboard",
 			"logger",

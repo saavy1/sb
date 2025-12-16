@@ -5,6 +5,6 @@ resources:
   - postgres/
   - qdrant/
   - nexus/
-  - nexus-worker/
+  - nexus-agent-worker/
   - nexus-mc-monitor/
   - game-servers/

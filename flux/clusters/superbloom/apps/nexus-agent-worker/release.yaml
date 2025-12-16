@@ -1,7 +1,7 @@
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
-  name: nexus-worker
+  name: nexus-agent-worker
   namespace: nexus
 spec:
   interval: 5m
@@ -16,48 +16,41 @@ spec:
   values:
     controllers:
       main:
-        # Can scale workers horizontally
+        # Single replica for now - can scale later if needed
         replicas: 1
         serviceAccount:
           name: nexus
         containers:
           main:
             image:
-              repository: ghcr.io/saavy1/nexus
+              repository: ghcr.io/saavy1/nexus-agent-worker
               tag: latest
               pullPolicy: Always
-            securityContext:
-              privileged: true
             env:
               NODE_ENV: production
-              MODE: worker
-              DB_PATH: /app/db
               # Tailscale SSH - uses hostname, no keys needed
               OPS_SSH_HOST: superbloom
               OPS_SSH_USER: saavy
               OPS_FLAKE_PATH: /home/saavy/dev/sb
               OPS_FLAKE_TARGET: superbloom
-              OTEL_EXPORTER_OTLP_ENDPOINT: http://grafana-k8s-monitoring-alloy-receiver.alloy:4318
               # External services
               VALKEY_URL: redis://valkey.valkey.svc.cluster.local:6379
               QDRANT_URL: http://qdrant.qdrant.svc.cluster.local:6333
-              # Minecraft monitor - use in-cluster service
-              MC_LOADBALANCER_HOST: minecraft.game-servers.svc.cluster.local
             envFrom:
               - secretRef:
                   name: nexus-env
-            # No HTTP probes for worker - relies on process restart on crash
+            # No HTTP probes - worker doesn't expose HTTP
           # Tailscale sidecar for network access (needed for SSH ops)
           tailscale:
             image:
               repository: ghcr.io/tailscale/tailscale
               tag: latest
             env:
-              TS_HOSTNAME: nexus-worker
+              TS_HOSTNAME: nexus-agent-worker
               TS_STATE_DIR: /var/lib/tailscale
               TS_USERSPACE: "true"
               TS_SOCKET: /var/run/tailscale/tailscaled.sock
-              TS_KUBE_SECRET: nexus-worker-tailscale
+              TS_KUBE_SECRET: nexus-agent-worker-tailscale
               TS_AUTHKEY:
                 valueFrom:
                   secretKeyRef:
@@ -66,25 +59,11 @@ spec:
             securityContext:
               runAsUser: 0
               runAsGroup: 0
-    # No service needed - worker doesn't expose HTTP
+    # No service needed - doesn't expose HTTP
     service:
       main:
         enabled: false
     persistence:
-      # SQLite DBs initialized at startup but not used by worker (settings now in Postgres)
-      db:
-        enabled: true
-        type: emptyDir
-        globalMounts:
-          - path: /app/db
-      dri:
-        enabled: true
-        type: hostPath
-        hostPath: /dev/dri
-        advancedMounts:
-          main:
-            main:
-              - path: /dev/dri
       tailscale-state:
         enabled: true
         type: emptyDir
