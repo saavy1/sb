@@ -31,6 +31,9 @@ spec:
               # Minecraft server - in-cluster service
               MC_LOADBALANCER_HOST: minecraft.game-servers.svc.cluster.local
             # No probes needed - simple polling service
+            envFrom:
+              - secretRef:
+                  name: nexus-env
     # No service needed - doesn't expose HTTP
     service:
       main:
