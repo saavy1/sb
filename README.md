@@ -19,12 +19,20 @@ sb/
 ├── .github/workflows/  # CI/CD for building container images
 ├── nixos/              # NixOS system configuration
 ├── flux/               # Kubernetes GitOps with Flux CD
-├── docs/               # Documentation
-└── apps/               # Application services (Bun workspace)
-    ├── nexus/          # Elysia API control plane
-    ├── the-machine/    # Discord bot
-    ├── dashboard/      # Web dashboard
-    └── logger/         # Shared logging package
+└── nexus/              # Application services (Turborepo + Bun workspace)
+    ├── apps/
+    │   ├── api/        # Elysia API control plane
+    │   ├── bot/        # Discord bot (The Machine)
+    │   └── ui/         # React web dashboard
+    ├── packages/
+    │   ├── core/       # Shared business logic, schemas, Drizzle
+    │   ├── k8s/        # Kubernetes client wrapper
+    │   ├── logger/     # Structured JSON logging (Pino)
+    │   └── mc-monitor/ # Minecraft server protocol library
+    └── workers/
+        ├── agent/      # AI agent background worker
+        ├── embeddings/ # Embeddings generation worker
+        └── mc-monitor/ # Game server status polling
 ```
 
 ### nixos/ - NixOS Configuration
@@ -61,45 +69,44 @@ Flux CD GitOps repository managing all Kubernetes deployments on the Superbloom 
 - Cloudflare DDNS
 - Custom applications from sb-apps
 
-### apps/ - Application Services
+### nexus/ - Application Services
 
-Bun workspace monorepo containing custom applications for homelab automation.
+Turborepo + Bun workspace monorepo containing custom applications for homelab automation.
 
 **Key Technologies:**
+- Turborepo for task orchestration and caching
 - Bun runtime and package manager
 - TypeScript
 - Elysia (backend framework)
 - discord.js (Discord bot)
 - React 19 (web dashboard)
-- SQLite + Drizzle ORM
+- SQLite + PostgreSQL + Drizzle ORM
+- BullMQ (job queues)
 
-**Applications:**
+**Apps:**
 
-#### Nexus
-Central Elysia API control plane providing multi-domain backend services. Currently handles game server management with plans to expand to additional domains (app launcher, system monitoring, etc.).
+| Package | Description |
+|---------|-------------|
+| `@nexus/api` | Elysia API control plane with multi-domain backend |
+| `@nexus/bot` | Discord bot for game server management (The Machine) |
+| `@nexus/ui` | React web dashboard with TanStack Router |
 
-- Multiple SQLite databases (one per domain)
-- Domain-driven architecture
-- Kubernetes integration for game server deployment
-- OpenAPI/Swagger documentation
+**Packages:**
 
-#### The Machine
-Discord bot providing game server management through slash commands. Thin client consuming the game-servers domain from Nexus.
+| Package | Description |
+|---------|-------------|
+| `@nexus/core` | Shared business logic, Drizzle schemas, domain services |
+| `@nexus/k8s` | Kubernetes client wrapper |
+| `@nexus/logger` | Structured JSON logging via Pino |
+| `@nexus/mc-monitor` | Minecraft server protocol library |
 
-- Discord.js v15
-- Eden Treaty client (type-safe RPC to Nexus)
-- Zod validation
+**Workers:**
 
-#### Dashboard
-React web dashboard for managing game servers and other homelab services.
-
-- TanStack Router (type-safe routing)
-- Tailwind CSS v4
-- Eden Treaty client to Nexus API
-- Vite build tooling
-
-#### Logger
-Shared logging package providing structured JSON logging via Pino for all Superbloom applications.
+| Package | Description |
+|---------|-------------|
+| `@nexus/worker-agent` | AI agent background worker with K8s/Flux tools |
+| `@nexus/worker-embeddings` | Document embeddings generation |
+| `@nexus/worker-mc-monitor` | Game server status polling service |
 
 ## Architecture
 
@@ -114,27 +121,25 @@ Shared logging package providing structured JSON logging via Pino for all Superb
 ┌────────────────────▼────────────────────────────────────┐
 │ flux/ (Flux GitOps)                                     │
 │ ├─ Deploys infrastructure (Caddy, Authelia, DDNS)      │
-│ ├─ Deploys applications from apps/                     │
+│ ├─ Deploys applications from nexus/                    │
 │ ├─ Manages Kubernetes manifests declaratively          │
 │ └─ Watches Git repo, auto-reconciles cluster state     │
 └────────────────────┬────────────────────────────────────┘
                      │
 ┌────────────────────▼────────────────────────────────────┐
-│ apps/ (Applications)                                    │
+│ nexus/ (Applications)                                   │
 │                                                         │
 │ ┌─────────────────────────────────────────────┐        │
-│ │ Nexus (Elysia API)                          │        │
-│ │ - Multi-domain control plane                │        │
-│ │ - Game servers, launcher, future domains    │        │
-│ │ - Multiple SQLite DBs                       │        │
+│ │ @nexus/api (Elysia Control Plane)           │        │
+│ │ └─ @nexus/core (domains, schemas, services) │        │
 │ └────────────┬────────────────────────────────┘        │
 │              │                                          │
-│     ┌────────┴─────────┐                               │
-│     ▼                  ▼                                │
-│ ┌─────────────┐  ┌──────────────┐                      │
-│ │ The Machine │  │  Dashboard   │                      │
-│ │ (Discord)   │  │  (Web UI)    │                      │
-│ └─────────────┘  └──────────────┘                      │
+│     ┌────────┼─────────┐                               │
+│     ▼        ▼         ▼                                │
+│ ┌───────┐ ┌─────┐ ┌─────────────────┐                  │
+│ │ @bot  │ │ @ui │ │ @workers/*      │                  │
+│ │Discord│ │React│ │agent,embeddings │                  │
+│ └───────┘ └─────┘ └─────────────────┘                  │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -154,12 +159,19 @@ flux check
 flux reconcile kustomization flux-system
 ```
 
-**Applications:**
+**Applications (from nexus/):**
 ```bash
 bun install
-bun run dev:api        # Nexus API on :3000
-bun run dev:bot        # The Machine bot
-bun run dev:dashboard  # Dashboard on :3001
+bun run dev:all        # All services with Turbo TUI
+bun run dev:api        # API only on :3000
+bun run dev:ui         # Dashboard on :3001
+bun run dev:bot        # Discord bot
+bun run dev:workers    # All background workers
+
+# Quality checks (parallel via Turborepo)
+bun run typecheck      # Type check all packages
+bun run check          # Lint all packages
+bun run docker:build:all  # Build all Docker images
 ```
 
 ## Contributing
