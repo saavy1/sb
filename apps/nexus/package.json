@@ -28,7 +28,7 @@
 		"@elysiajs/openapi": "^1.4.11",
 		"@elysiajs/opentelemetry": "^1.4.9",
 		"@elysiajs/static": "^1.1.1",
-		"@kubernetes/client-node": "^1.4.0",
+		"k8s": "workspace:*",
 		"@qdrant/js-client-rest": "^1.16.2",
 		"@tanstack/ai": "^0.0.3",
 		"@tanstack/ai-openai": "^0.0.3",

@@ -6,3 +6,4 @@ resources:
   - qdrant/
   - nexus/
   - nexus-worker/
+  - game-servers/

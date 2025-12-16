@@ -12,7 +12,8 @@
 			"@nexus/*": ["./nexus/src/*"],
 			"@machine/*": ["./the-machine/src/*"],
 			"@dashboard/*": ["./dashboard/src/*"],
-			"@logger/*": ["./logger/src/*"]
+			"@logger/*": ["./logger/src/*"],
+			"k8s": ["./k8s/src/index.ts"]
 		}
 	}
 }

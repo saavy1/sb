@@ -1,0 +1,23 @@
+{
+	"name": "k8s",
+	"version": "1.0.0",
+	"type": "module",
+	"private": true,
+	"main": "src/index.ts",
+	"scripts": {
+		"typecheck": "tsc --noEmit",
+		"lint": "biome lint .",
+		"lint:fix": "biome lint --write .",
+		"format": "biome format --write .",
+		"check": "biome check ."
+	},
+	"devDependencies": {
+		"@biomejs/biome": "catalog:",
+		"@types/js-yaml": "^4.0.9",
+		"bun-types": "catalog:",
+		"typescript": "catalog:"
+	},
+	"dependencies": {
+		"js-yaml": "^4.1.1"
+	}
+}

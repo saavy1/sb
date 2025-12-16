@@ -16,16 +16,8 @@ function generateId(): string {
 	return crypto.randomUUID().slice(0, 8);
 }
 
-async function allocatePort(): Promise<number> {
-	const base = 30000;
-	const existing = await gameServerRepository.findAll();
-	const usedPorts = new Set(existing.map((s) => s.port).filter(Boolean));
-
-	for (let port = base; port < base + 1000; port++) {
-		if (!usedPorts.has(port)) return port;
-	}
-	throw new Error("No available ports");
-}
+// All servers share the LoadBalancer on port 25565
+const MINECRAFT_PORT = 25565;
 
 // === Exported functions ===
 
@@ -54,14 +46,13 @@ export async function create(request: CreateServerRequestType): Promise<GameServ
 	}
 
 	const id = generateId();
-	const port = await allocatePort();
 
 	// Get defaults from settings (falls back to env vars)
 	const defaultMemory = await getMcDefaultMemory();
 	const defaultStorage = await getMcDefaultStorage();
 	const memory = request.memory || defaultMemory;
 
-	log.info({ id, port, memory, storage: defaultStorage }, "allocated resources for server");
+	log.info({ id, memory, storage: defaultStorage }, "allocated resources for server");
 
 	const server = await gameServerRepository.create({
 		id,
@@ -77,7 +68,6 @@ export async function create(request: CreateServerRequestType): Promise<GameServ
 		modpack: request.modpack,
 		memory,
 		storage: defaultStorage,
-		port,
 		cfApiKey: config.CURSEFORGE_API_KEY,
 	});
 
@@ -85,15 +75,15 @@ export async function create(request: CreateServerRequestType): Promise<GameServ
 		log.info({ name: request.name }, "applying k8s manifests");
 		await record("k8s.applyManifests", () => k8sAdapter.applyManifests(manifests));
 		await gameServerRepository.updateK8sDeployment(request.name, request.name);
-		await gameServerRepository.updateStatus(request.name, "stopped", port);
-		log.info({ name: request.name, port }, "game server created successfully");
+		await gameServerRepository.updateStatus(request.name, "stopped", MINECRAFT_PORT);
+		log.info({ name: request.name, port: MINECRAFT_PORT }, "game server created successfully");
 	} catch (error) {
 		log.error({ error, name: request.name }, "failed to apply k8s manifests, rolling back");
 		await gameServerRepository.delete(request.name);
 		throw error;
 	}
 
-	return { ...server, port, status: "stopped" };
+	return { ...server, port: MINECRAFT_PORT, status: "stopped" };
 }
 
 export async function start(name: string): Promise<GameServerType> {
