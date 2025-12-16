@@ -3,11 +3,7 @@
 	"version": "1.0.0",
 	"scripts": {
 		"dev": "bun --env-file=../../.env run --watch src/index.ts | jq 'del(.hostname, .level, .pid, .time)'",
-		"dev:api": "MODE=api bun --env-file=../../.env run --watch src/index.ts | jq 'del(.hostname, .level, .pid, .time)'",
-		"dev:worker": "MODE=worker bun --env-file=../../.env run --watch src/index.ts | jq 'del(.hostname, .level, .pid, .time)'",
 		"start": "bun --env-file=../../.env run src/index.ts",
-		"start:api": "MODE=api bun --env-file=../../.env run src/index.ts",
-		"start:worker": "MODE=worker bun --env-file=../../.env run src/index.ts",
 		"build": "bun build src/index.ts --outdir=dist --target=bun",
 		"docker:build": "docker build -f Dockerfile -t nexus-api:latest ../..",
 		"typecheck": "tsc --noEmit",

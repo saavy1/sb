@@ -2,12 +2,22 @@ import { createThread, type WakeJobDataType } from "@nexus/core/domains/agent";
 import { appEvents } from "@nexus/core/infra/events";
 import {
 	agentWakeQueue,
+	discordAsksQueue,
+	embeddingsQueue,
 	emitAllQueueStats,
 	QUEUES,
 	systemEventQueue,
 } from "@nexus/core/infra/queue";
-import type { Job } from "bullmq";
+import type { Job, Queue } from "bullmq";
 import { Elysia, t } from "elysia";
+
+// Map queue names to queue instances
+const queueMap: Record<string, Queue> = {
+	[QUEUES.AGENT_WAKES]: agentWakeQueue,
+	[QUEUES.EVENTS_SYSTEM]: systemEventQueue,
+	[QUEUES.EMBEDDINGS]: embeddingsQueue,
+	[QUEUES.DISCORD_ASKS]: discordAsksQueue,
+};
 
 const QueueStats = t.Object({
 	name: t.String(),
@@ -95,11 +105,9 @@ export const debugRoutes = new Elysia({ prefix: "/debug" })
 	.get(
 		"/queues",
 		async () => {
-			const [agentWakes, systemEvents] = await Promise.all([
-				getQueueStats(agentWakeQueue),
-				getQueueStats(systemEventQueue),
-			]);
-			return { queues: [agentWakes, systemEvents] };
+			const allQueues = Object.values(queueMap);
+			const stats = await Promise.all(allQueues.map(getQueueStats));
+			return { queues: stats };
 		},
 		{
 			detail: { tags: ["Debug"], summary: "Get all queue stats" },
@@ -111,13 +119,7 @@ export const debugRoutes = new Elysia({ prefix: "/debug" })
 	.get(
 		"/queues/:name",
 		async ({ params, set }) => {
-			const queue =
-				params.name === QUEUES.AGENT_WAKES
-					? agentWakeQueue
-					: params.name === QUEUES.EVENTS_SYSTEM
-						? systemEventQueue
-						: null;
-
+			const queue = queueMap[params.name];
 			if (!queue) {
 				set.status = 404;
 				return { error: `Queue ${params.name} not found` };
@@ -136,13 +138,7 @@ export const debugRoutes = new Elysia({ prefix: "/debug" })
 	.get(
 		"/queues/:name/jobs",
 		async ({ params, query, set }) => {
-			const queue =
-				params.name === QUEUES.AGENT_WAKES
-					? agentWakeQueue
-					: params.name === QUEUES.EVENTS_SYSTEM
-						? systemEventQueue
-						: null;
-
+			const queue = queueMap[params.name];
 			if (!queue) {
 				set.status = 404;
 				return { error: `Queue ${params.name} not found` };
@@ -182,13 +178,7 @@ export const debugRoutes = new Elysia({ prefix: "/debug" })
 	.post(
 		"/queues/:name/clean",
 		async ({ params, query, set }) => {
-			const queue =
-				params.name === QUEUES.AGENT_WAKES
-					? agentWakeQueue
-					: params.name === QUEUES.EVENTS_SYSTEM
-						? systemEventQueue
-						: null;
-
+			const queue = queueMap[params.name];
 			if (!queue) {
 				set.status = 404;
 				return { error: `Queue ${params.name} not found` };
@@ -218,13 +208,7 @@ export const debugRoutes = new Elysia({ prefix: "/debug" })
 	.post(
 		"/queues/:name/test",
 		async ({ params, body, set }) => {
-			const queue =
-				params.name === QUEUES.AGENT_WAKES
-					? agentWakeQueue
-					: params.name === QUEUES.EVENTS_SYSTEM
-						? systemEventQueue
-						: null;
-
+			const queue = queueMap[params.name];
 			if (!queue) {
 				set.status = 404;
 				return { error: `Queue ${params.name} not found` };

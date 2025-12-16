@@ -2,9 +2,6 @@ export const config = {
 	PORT: Number(Bun.env.PORT) || 3000,
 	NODE_ENV: Bun.env.NODE_ENV || "development",
 
-	// Run mode: "api" | "worker" | "both"
-	MODE: (Bun.env.MODE as "api" | "worker" | "both") || "both",
-
 	// Database
 	DB_PATH: Bun.env.DB_PATH || "./db", // SQLite databases (ops, game-servers, etc.)
 	DATABASE_URL: Bun.env.DATABASE_URL, // Postgres for agent state
@@ -38,7 +35,7 @@ export const config = {
 
 	// AI / OpenRouter
 	OPENROUTER_API_KEY: Bun.env.OPENROUTER_API_KEY,
-	AI_MODEL: Bun.env.AI_MODEL || "deepseek/deepseek-chat",
+	AI_MODEL: Bun.env.AI_MODEL || "deepseek/deepseek-v3.2",
 	AI_MODELS: Bun.env.AI_MODELS, // Additional models (format: "id:name:provider,id:name:provider")
 
 	// OpenAI (for embeddings)

@@ -219,54 +219,48 @@ function DebugPage() {
 
 			{/* Queue Stats */}
 			{!loading && (
-				<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+				<div className="grid grid-cols-2 md:grid-cols-4 gap-3">
 					{queues.map((queue) => (
 						<div
 							key={queue.name}
 							role="button"
 							tabIndex={0}
-							className={`cursor-pointer transition-all ${
-								selectedQueue === queue.name ? "ring-2 ring-accent rounded" : ""
+							className={`px-3 py-3 bg-surface border border-border rounded cursor-pointer transition-all hover:bg-surface-elevated ${
+								selectedQueue === queue.name ? "ring-2 ring-accent" : ""
 							}`}
 							onClick={() => setSelectedQueue(queue.name)}
 							onKeyDown={(e) => e.key === "Enter" && setSelectedQueue(queue.name)}
 						>
-							<Panel title={queue.name}>
-								<div className="grid grid-cols-3 gap-4 text-center">
-									<div>
-										<div className="text-2xl font-bold text-warning">{queue.delayed}</div>
-										<div className="text-xs text-text-tertiary flex items-center justify-center gap-1">
-											<Clock size={10} />
-											Delayed
-										</div>
-									</div>
-									<div>
-										<div className="text-2xl font-bold text-info">{queue.waiting}</div>
-										<div className="text-xs text-text-tertiary">Waiting</div>
-									</div>
-									<div>
-										<div className="text-2xl font-bold text-accent">{queue.active}</div>
-										<div className="text-xs text-text-tertiary flex items-center justify-center gap-1">
-											<Play size={10} />
-											Active
-										</div>
-									</div>
-									<div>
-										<div className="text-2xl font-bold text-success">{queue.completed}</div>
-										<div className="text-xs text-text-tertiary flex items-center justify-center gap-1">
-											<CheckCircle size={10} />
-											Done
-										</div>
-									</div>
-									<div>
-										<div className="text-2xl font-bold text-error">{queue.failed}</div>
-										<div className="text-xs text-text-tertiary flex items-center justify-center gap-1">
-											<AlertCircle size={10} />
-											Failed
-										</div>
-									</div>
+							<div className="text-xs font-medium text-text-primary mb-3 truncate">
+								{queue.name}
+							</div>
+							<div className="grid grid-cols-2 gap-y-2 gap-x-3 text-xs">
+								<div className="flex items-center gap-1.5">
+									<Clock size={12} className="text-warning shrink-0" />
+									<span className="text-warning font-bold">{queue.delayed}</span>
+									<span className="text-text-tertiary">delayed</span>
 								</div>
-							</Panel>
+								<div className="flex items-center gap-1.5">
+									<Loader2 size={12} className="text-info shrink-0" />
+									<span className="text-info font-bold">{queue.waiting}</span>
+									<span className="text-text-tertiary">waiting</span>
+								</div>
+								<div className="flex items-center gap-1.5">
+									<Play size={12} className="text-accent shrink-0" />
+									<span className="text-accent font-bold">{queue.active}</span>
+									<span className="text-text-tertiary">active</span>
+								</div>
+								<div className="flex items-center gap-1.5">
+									<CheckCircle size={12} className="text-success shrink-0" />
+									<span className="text-success font-bold">{queue.completed}</span>
+									<span className="text-text-tertiary">done</span>
+								</div>
+								<div className="flex items-center gap-1.5">
+									<AlertCircle size={12} className="text-error shrink-0" />
+									<span className="text-error font-bold">{queue.failed}</span>
+									<span className="text-text-tertiary">failed</span>
+								</div>
+							</div>
 						</div>
 					))}
 				</div>

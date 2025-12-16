@@ -3,10 +3,11 @@ import OpenAI from "openai";
 import { config } from "../../infra/config";
 import { EMBEDDINGS_COLLECTION, qdrant } from "../../infra/qdrant";
 import { createWorker, QUEUES } from "../../infra/queue";
-import { createThreadFromAlert, wakeThread } from "./functions";
+import { createThreadFromAlert, sendMessage, wakeThread } from "./functions";
 import { agentRepository } from "./repository";
 import type {
 	AlertmanagerPayloadType,
+	DiscordAskJobDataType,
 	EmbeddingJobDataType,
 	GrafanaAlertPayloadType,
 	SystemEventJobType,
@@ -299,6 +300,94 @@ export function startEmbeddingsWorker() {
 			}
 		},
 		{ concurrency: 5 } // Process multiple embeddings concurrently
+	);
+
+	return worker;
+}
+
+/**
+ * Start the Discord asks worker.
+ * This processes /ask commands from Discord and replies with agent responses.
+ */
+export function startDiscordAsksWorker() {
+	log.info("Starting Discord asks worker");
+
+	const worker = createWorker<DiscordAskJobDataType>(
+		QUEUES.DISCORD_ASKS,
+		async (job) => {
+			const { threadId, content, interactionToken, applicationId } = job.data;
+			const startTime = Date.now();
+
+			log.info(
+				{ jobId: job.id, threadId, contentLength: content.length },
+				"Processing Discord ask job"
+			);
+
+			try {
+				// Run the agent loop
+				const { response } = await sendMessage(threadId, content);
+
+				// Truncate response if too long for Discord (max 2000 chars for content)
+				const truncatedResponse =
+					response.length > 1900 ? `${response.slice(0, 1897)}...` : response;
+
+				// Edit the deferred reply via Discord REST API
+				const webhookUrl = `https://discord.com/api/v10/webhooks/${applicationId}/${interactionToken}/messages/@original`;
+
+				const discordResponse = await fetch(webhookUrl, {
+					method: "PATCH",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						content: truncatedResponse,
+					}),
+				});
+
+				if (!discordResponse.ok) {
+					const errorText = await discordResponse.text();
+					log.error(
+						{
+							jobId: job.id,
+							threadId,
+							status: discordResponse.status,
+							error: errorText,
+						},
+						"Failed to edit Discord reply"
+					);
+					throw new Error(`Discord API error: ${discordResponse.status} - ${errorText}`);
+				}
+
+				const durationMs = Date.now() - startTime;
+				log.info(
+					{
+						jobId: job.id,
+						threadId,
+						responseLength: response.length,
+						durationMs,
+					},
+					"Discord ask job completed"
+				);
+			} catch (err) {
+				const durationMs = Date.now() - startTime;
+				log.error({ err, jobId: job.id, threadId, durationMs }, "Discord ask job failed");
+
+				// Try to notify the user of the error
+				try {
+					const webhookUrl = `https://discord.com/api/v10/webhooks/${applicationId}/${interactionToken}/messages/@original`;
+					await fetch(webhookUrl, {
+						method: "PATCH",
+						headers: { "Content-Type": "application/json" },
+						body: JSON.stringify({
+							content: "Sorry, I encountered an error processing your request. Please try again.",
+						}),
+					});
+				} catch {
+					// Best effort - if this fails too, nothing we can do
+				}
+
+				throw err;
+			}
+		},
+		{ concurrency: 3 } // Process multiple asks concurrently
 	);
 
 	return worker;
