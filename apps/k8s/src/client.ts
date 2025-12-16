@@ -384,10 +384,7 @@ export class K8sClient {
 
 	// === Pod operations ===
 
-	async listPods(
-		namespace: string,
-		labelSelector?: string
-	): Promise<Pod[]> {
+	async listPods(namespace: string, labelSelector?: string): Promise<Pod[]> {
 		const params = new URLSearchParams();
 		if (labelSelector) {
 			params.set("labelSelector", labelSelector);

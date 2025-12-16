@@ -1,6 +1,6 @@
 import { Elysia, t } from "elysia";
 import logger from "logger";
-import { getToolsByCategory, getToolSummary, toolRegistry } from "../../infra/tool-registry";
+import { getToolSummary, getToolsByCategory, toolRegistry } from "../../infra/tool-registry";
 import { createThread, getThread, listThreads, processChat, sendMessage } from "./functions";
 import type { AgentThread } from "./schema";
 import {

@@ -1,7 +1,17 @@
-import type { MinecraftStatusPayloadType } from "@nexus/infra/events";
 import type { GameServerType } from "@nexus/domains/game-servers/types";
+import type { MinecraftStatusPayloadType } from "@nexus/infra/events";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ChevronDown, Clock, Play, Plus, RefreshCw, Signal, Square, Trash2, Users } from "lucide-react";
+import {
+	ChevronDown,
+	Clock,
+	Play,
+	Plus,
+	RefreshCw,
+	Signal,
+	Square,
+	Trash2,
+	Users,
+} from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Panel, StatusDot } from "../components/ui";

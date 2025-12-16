@@ -429,8 +429,7 @@ export async function listGameServerPods() {
 		name: pod.metadata.name,
 		serverName: pod.metadata.labels?.app || "unknown",
 		phase: pod.status?.phase || "Unknown",
-		ready:
-			pod.status?.containerStatuses?.every((c) => c.ready) ?? false,
+		ready: pod.status?.containerStatuses?.every((c) => c.ready) ?? false,
 		restarts: pod.status?.containerStatuses?.[0]?.restartCount ?? 0,
 		podIP: pod.status?.podIP,
 		startTime: pod.status?.startTime,
