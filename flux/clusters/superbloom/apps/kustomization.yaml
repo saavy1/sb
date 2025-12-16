@@ -6,5 +6,6 @@ resources:
   - qdrant/
   - nexus/
   - nexus-agent-worker/
+  - nexus-embeddings-worker/
   - nexus-mc-monitor/
   - game-servers/
