@@ -1,0 +1,21 @@
+{
+	"extends": "../../tsconfig.json",
+	"include": ["src/**/*.ts"],
+	"exclude": ["node_modules"],
+	"compilerOptions": {
+		"lib": ["ESNext"],
+		"types": ["bun-types"],
+		"noEmit": true,
+		"noFallthroughCasesInSwitch": true,
+		"noImplicitOverride": true,
+		"baseUrl": ".",
+		"paths": {
+			"@nexus/api/*": ["../api/src/*"],
+			"@nexus/core/*": ["../../packages/core/src/*"],
+			"@elysiajs/*": ["../../node_modules/@elysiajs/*"],
+			"elysia": ["../../node_modules/elysia"],
+			"@nexus/k8s": ["../../packages/k8s/src/index.ts"],
+			"@nexus/mc-monitor": ["../../packages/mc-monitor/src/index.ts"]
+		}
+	}
+}

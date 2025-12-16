@@ -4,13 +4,12 @@ on:
   push:
     branches: [main]
     paths:
-      - "apps/nexus-embeddings-worker/**"
-      - "apps/nexus-core/**"
-      - "apps/logger/**"
-      - "apps/k8s/**"
-      - "apps/mc-monitor/**"
-      - "apps/package.json"
-      - "apps/Dockerfile.nexus-embeddings-worker"
+      - "nexus/workers/embeddings/**"
+      - "nexus/packages/core/**"
+      - "nexus/packages/logger/**"
+      - "nexus/packages/k8s/**"
+      - "nexus/packages/mc-monitor/**"
+      - "nexus/package.json"
       - ".github/workflows/nexus-embeddings-worker.yml"
   schedule:
     - cron: "0 0 * * 0"
@@ -57,8 +56,8 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
-          context: ./apps
-          file: ./apps/Dockerfile.nexus-embeddings-worker
+          context: ./nexus
+          file: ./nexus/workers/embeddings/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
