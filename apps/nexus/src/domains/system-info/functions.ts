@@ -1,13 +1,11 @@
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import os from "node:os";
-import { join } from "node:path";
 import { $ } from "bun";
 import { eq } from "drizzle-orm";
 import type { Static } from "elysia";
 import logger from "logger";
 import { z } from "zod";
-import { config } from "../../infra/config";
-import { systemInfoDb } from "../../infra/db";
+import { pgClient, systemInfoDb } from "../../infra/db";
 import { withTool } from "../../infra/tools";
 import type { DriveRecord } from "./schema";
 import { drives } from "./schema";
@@ -543,51 +541,43 @@ export async function getDrive(id: string) {
 }
 
 export async function getDatabaseInfo(): Promise<Static<typeof DatabaseInfo>[]> {
-	const dbPath = config.DB_PATH;
-	const databases: Static<typeof DatabaseInfo>[] = [];
+	// Map Postgres schema names to display domains
+	const schemaMap: Record<string, string> = {
+		agent: "agent",
+		apps: "apps",
+		core: "core",
+		game_servers: "game-servers",
+		ops: "ops",
+		system_info: "system-info",
+	};
 
-	const dbFiles: Array<{ name: string; domain: string }> = [
-		{ name: "minecraft.sqlite", domain: "game-servers" },
-		{ name: "core.sqlite", domain: "core" },
-		{ name: "system-info.sqlite", domain: "system-info" },
-		{ name: "ops.sqlite", domain: "ops" },
-		{ name: "agent.sqlite", domain: "agent" },
-		{ name: "apps.sqlite", domain: "apps" },
-	];
-
-	for (const { name, domain } of dbFiles) {
-		try {
-			const filePath = join(dbPath, name);
-			const stat = statSync(filePath);
-			databases.push({
-				name,
-				domain,
-				sizeBytes: stat.size,
-				sizeFormatted: formatBytes(stat.size),
-			});
-		} catch {
-			// File doesn't exist yet
-		}
-	}
+	const schemaNames = Object.keys(schemaMap);
 
 	try {
-		const files = readdirSync(dbPath);
-		for (const file of files) {
-			if (file.endsWith("-wal") || file.endsWith("-shm")) {
-				const baseName = file.replace(/-wal$|-shm$/, "");
-				const dbEntry = databases.find((d) => d.name === baseName);
-				if (dbEntry) {
-					const stat = statSync(join(dbPath, file));
-					dbEntry.sizeBytes += stat.size;
-					dbEntry.sizeFormatted = formatBytes(dbEntry.sizeBytes);
-				}
-			}
-		}
-	} catch {
-		// Directory doesn't exist
-	}
+		// Query Postgres for schema sizes and row counts
+		const result = await pgClient`
+			SELECT
+				n.nspname as schema_name,
+				COALESCE(SUM(pg_total_relation_size(c.oid)), 0)::bigint as size_bytes,
+				COALESCE(SUM(CASE WHEN c.relkind = 'r' THEN c.reltuples ELSE 0 END), 0)::bigint as row_count
+			FROM pg_namespace n
+			LEFT JOIN pg_class c ON c.relnamespace = n.oid AND c.relkind IN ('r', 'i', 't')
+			WHERE n.nspname = ANY(${schemaNames})
+			GROUP BY n.nspname
+			ORDER BY n.nspname
+		`;
 
-	return databases;
+		return result.map((row) => ({
+			name: schemaMap[row.schema_name] || row.schema_name,
+			domain: schemaMap[row.schema_name] || row.schema_name,
+			sizeBytes: Number(row.size_bytes),
+			sizeFormatted: formatBytes(Number(row.size_bytes)),
+			rowCount: Number(row.row_count),
+		}));
+	} catch (error) {
+		logger.error({ error }, "Failed to get database info from Postgres");
+		return [];
+	}
 }
 
 export async function getSystemOverview() {

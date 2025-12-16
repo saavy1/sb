@@ -355,17 +355,19 @@ function HomePage() {
 					className="lg:col-span-2"
 				>
 					{databases.length > 0 ? (
-						<div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+						<div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
 							{databases.map((db) => (
 								<div
 									key={db.name}
 									className="flex items-center gap-2 py-2 px-3 bg-surface-elevated/30 rounded"
 								>
 									<Database size={14} className="text-text-tertiary" />
-									<div className="min-w-0">
+									<div className="min-w-0 flex-1">
 										<div className="text-sm truncate">{db.domain}</div>
-										<div className="text-xs text-text-tertiary tabular-nums">
-											{db.sizeFormatted}
+										<div className="text-xs text-text-tertiary tabular-nums flex gap-2">
+											<span>{db.sizeFormatted}</span>
+											<span>•</span>
+											<span>{db.rowCount?.toLocaleString() ?? 0} rows</span>
 										</div>
 									</div>
 								</div>
