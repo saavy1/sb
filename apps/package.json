@@ -3,11 +3,14 @@
 	"private": true,
 	"workspaces": {
 		"packages": [
+			"nexus-core",
 			"nexus",
+			"nexus-mc-monitor",
 			"the-machine",
 			"dashboard",
 			"logger",
-			"k8s"
+			"k8s",
+			"mc-monitor"
 		],
 		"catalog": {
 			"elysia": "1.4.17",

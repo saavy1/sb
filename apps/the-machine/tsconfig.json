@@ -12,7 +12,9 @@
 		"paths": {
 			"@nexus/*": ["../nexus/src/*"],
 			"@elysiajs/*": ["../node_modules/@elysiajs/*"],
-			"elysia": ["../node_modules/elysia"]
+			"elysia": ["../node_modules/elysia"],
+			"k8s": ["../k8s/src/index.ts"],
+			"mc-monitor": ["../mc-monitor/src/index.ts"]
 		}
 	}
 }

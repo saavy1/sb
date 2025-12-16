@@ -1,10 +1,18 @@
 import type { SettingsResponseType } from "@nexus/domains/core/types";
 import { createFileRoute } from "@tanstack/react-router";
-import { CheckCircle, Loader2, Save, XCircle, Zap } from "lucide-react";
+import { CheckCircle, ChevronDown, ChevronRight, Loader2, Save, Wrench, XCircle, Zap } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button, Input, Label, Panel, PanelRow } from "../components/ui";
 import { client } from "../lib/api";
+
+// Tool info type (matches server)
+type ToolInfo = {
+	name: string;
+	description: string;
+	category: string;
+	parameters?: Record<string, { type: string; description?: string; required?: boolean }>;
+};
 
 type ConnectionTestResult = {
 	ssh: { success: boolean; message: string };
@@ -32,6 +40,10 @@ function SettingsPage() {
 	const [mcDefaultStorage, setMcDefaultStorage] = useState("");
 	const [hasChanges, setHasChanges] = useState(false);
 
+	// Tools state
+	const [toolsGrouped, setToolsGrouped] = useState<Record<string, ToolInfo[]>>({});
+	const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
+
 	const fetchSettings = useCallback(async () => {
 		try {
 			const { data } = await client.api.settings.get();
@@ -50,9 +62,33 @@ function SettingsPage() {
 		}
 	}, []);
 
+	const fetchTools = useCallback(async () => {
+		try {
+			const { data } = await client.api.agent.tools.grouped.get();
+			if (data) {
+				setToolsGrouped(data as Record<string, ToolInfo[]>);
+			}
+		} catch (error) {
+			console.error("Failed to fetch tools:", error);
+		}
+	}, []);
+
+	const toggleCategory = (category: string) => {
+		setExpandedCategories((prev) => {
+			const next = new Set(prev);
+			if (next.has(category)) {
+				next.delete(category);
+			} else {
+				next.add(category);
+			}
+			return next;
+		});
+	};
+
 	useEffect(() => {
 		fetchSettings();
-	}, [fetchSettings]);
+		fetchTools();
+	}, [fetchSettings, fetchTools]);
 
 	// Track changes
 	useEffect(() => {
@@ -285,6 +321,48 @@ function SettingsPage() {
 							<ShortcutRow keys="r" description="Refresh" />
 							<ShortcutRow keys="c" description="Create new" />
 						</div>
+					</Panel>
+
+					{/* Agent Tools */}
+					<Panel title={`Agent Tools (${Object.values(toolsGrouped).flat().length})`}>
+						{Object.keys(toolsGrouped).length > 0 ? (
+							<div className="space-y-1.5 max-h-64 overflow-y-auto">
+								{Object.entries(toolsGrouped).map(([category, tools]) => (
+									<div key={category} className="border border-border rounded overflow-hidden">
+										<button
+											type="button"
+											onClick={() => toggleCategory(category)}
+											className="w-full flex items-center justify-between px-2 py-1.5 bg-surface-elevated/50 hover:bg-surface-elevated transition-colors text-left"
+										>
+											<div className="flex items-center gap-1.5">
+												<Wrench size={10} className="text-text-tertiary" />
+												<span className="text-xs font-medium">{category}</span>
+												<span className="text-xs text-text-tertiary">({tools.length})</span>
+											</div>
+											{expandedCategories.has(category) ? (
+												<ChevronDown size={12} className="text-text-tertiary" />
+											) : (
+												<ChevronRight size={12} className="text-text-tertiary" />
+											)}
+										</button>
+										{expandedCategories.has(category) && (
+											<div className="divide-y divide-border">
+												{tools.map((tool) => (
+													<div key={tool.name} className="px-2 py-1.5">
+														<code className="text-xs text-accent font-mono">{tool.name}</code>
+														<p className="text-xs text-text-tertiary mt-0.5 leading-tight">
+															{tool.description}
+														</p>
+													</div>
+												))}
+											</div>
+										)}
+									</div>
+								))}
+							</div>
+						) : (
+							<div className="text-center py-4 text-text-tertiary text-xs">Loading tools...</div>
+						)}
 					</Panel>
 
 					{/* About */}

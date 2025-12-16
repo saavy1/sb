@@ -1,6 +1,9 @@
 # Dependencies
 node_modules/
 
+# itzg/mc-monitor
+itzg-mc-monitor/
+
 # Build output
 dist/
 

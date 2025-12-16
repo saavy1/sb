@@ -1,0 +1,33 @@
+# Lightweight Minecraft Monitor Service
+# No build step needed - just runtime dependencies
+
+FROM oven/bun:1
+WORKDIR /app
+
+# Copy package files for dependency resolution
+COPY package.json bun.lock ./
+COPY nexus-core/package.json ./nexus-core/
+COPY nexus-mc-monitor/package.json ./nexus-mc-monitor/
+COPY logger/package.json ./logger/
+COPY k8s/package.json ./k8s/
+COPY mc-monitor/package.json ./mc-monitor/
+
+# Install production dependencies only
+RUN bun install --frozen-lockfile --production --ignore-scripts
+
+# Copy source code
+COPY logger ./logger/
+COPY k8s ./k8s/
+COPY mc-monitor ./mc-monitor/
+COPY nexus-core ./nexus-core/
+COPY nexus-mc-monitor ./nexus-mc-monitor/
+
+ENV NODE_ENV=production
+
+WORKDIR /app/nexus-mc-monitor
+
+# Run as non-root user
+USER bun
+
+# Start the monitor
+CMD ["bun", "src/index.ts"]

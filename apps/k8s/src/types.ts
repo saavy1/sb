@@ -106,6 +106,48 @@ export interface Namespace {
 	metadata: ObjectMeta;
 }
 
+// === Pod ===
+
+export interface PodStatus {
+	phase: "Pending" | "Running" | "Succeeded" | "Failed" | "Unknown";
+	conditions?: {
+		type: string;
+		status: "True" | "False" | "Unknown";
+		lastTransitionTime?: string;
+		reason?: string;
+		message?: string;
+	}[];
+	containerStatuses?: {
+		name: string;
+		ready: boolean;
+		restartCount: number;
+		state?: {
+			running?: { startedAt: string };
+			waiting?: { reason: string; message?: string };
+			terminated?: { exitCode: number; reason?: string; message?: string };
+		};
+	}[];
+	podIP?: string;
+	hostIP?: string;
+	startTime?: string;
+}
+
+export interface Pod {
+	apiVersion: "v1";
+	kind: "Pod";
+	metadata: ObjectMeta & {
+		creationTimestamp?: string;
+	};
+	spec: PodSpec;
+	status?: PodStatus;
+}
+
+export interface PodList {
+	apiVersion: "v1";
+	kind: "PodList";
+	items: Pod[];
+}
+
 // === API Response types ===
 
 export interface K8sStatus {

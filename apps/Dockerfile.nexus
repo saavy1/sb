@@ -5,10 +5,12 @@ WORKDIR /app
 # Copy package files for dependency resolution
 COPY package.json bun.lock ./
 COPY nexus/package.json ./nexus/
+COPY nexus-core/package.json ./nexus-core/
 COPY dashboard/package.json ./dashboard/
 COPY the-machine/package.json ./the-machine/
 COPY logger/package.json ./logger/
 COPY k8s/package.json ./k8s/
+COPY mc-monitor/package.json ./mc-monitor/
 
 # Install ALL dependencies (including dev) for build
 # --ignore-scripts skips postinstall scripts that may fail on arm64
@@ -18,6 +20,7 @@ RUN bun install --frozen-lockfile --ignore-scripts
 COPY tsconfig.json ./
 COPY logger ./logger/
 COPY nexus ./nexus/
+COPY nexus-core ./nexus-core/
 COPY dashboard ./dashboard/
 
 # Build dashboard
@@ -30,18 +33,22 @@ WORKDIR /app
 # Copy package files (all workspaces needed for bun to resolve, even if not used at runtime)
 COPY package.json bun.lock ./
 COPY nexus/package.json ./nexus/
+COPY nexus-core/package.json ./nexus-core/
 COPY dashboard/package.json ./dashboard/
 COPY the-machine/package.json ./the-machine/
 COPY logger/package.json ./logger/
 COPY k8s/package.json ./k8s/
+COPY mc-monitor/package.json ./mc-monitor/
 
 # Install production dependencies only
 # --ignore-scripts skips postinstall scripts that may fail on arm64
 RUN bun install --frozen-lockfile --production --ignore-scripts
 
-# Copy source code (nexus, logger, and k8s needed at runtime)
+# Copy source code (nexus, nexus-core, logger, k8s, mc-monitor needed at runtime)
 COPY logger ./logger/
 COPY k8s ./k8s/
+COPY mc-monitor ./mc-monitor/
+COPY nexus-core ./nexus-core/
 COPY nexus ./nexus/
 
 # Copy built dashboard from builder stage
