@@ -48,7 +48,11 @@ export const toolRegistry: ToolInfo[] = [
 		description: "Create a new Minecraft game server with a modpack",
 		category: "Game Servers",
 		parameters: {
-			name: { type: "string", description: "Server name (lowercase, alphanumeric, hyphens)", required: true },
+			name: {
+				type: "string",
+				description: "Server name (lowercase, alphanumeric, hyphens)",
+				required: true,
+			},
 			modpack: { type: "string", description: "CurseForge modpack slug or ID", required: true },
 			memory: { type: "string", description: "Memory allocation (e.g., '8G')", required: false },
 		},
@@ -115,7 +119,11 @@ export const toolRegistry: ToolInfo[] = [
 		parameters: {
 			name: { type: "string", description: "App display name", required: true },
 			url: { type: "string", description: "App URL", required: true },
-			category: { type: "string", description: "Category (media, tools, monitoring, etc.)", required: false },
+			category: {
+				type: "string",
+				description: "Category (media, tools, monitoring, etc.)",
+				required: false,
+			},
 		},
 	},
 	{
@@ -158,7 +166,11 @@ export const toolRegistry: ToolInfo[] = [
 		description: "Schedule the agent to wake up later to check on something",
 		category: "Agent Lifecycle",
 		parameters: {
-			delay: { type: "string", description: "Time to wait (e.g., '10s', '5m', '2h')", required: true },
+			delay: {
+				type: "string",
+				description: "Time to wait (e.g., '10s', '5m', '2h')",
+				required: true,
+			},
 			reason: { type: "string", description: "What to check/do when waking", required: true },
 		},
 	},
@@ -167,7 +179,11 @@ export const toolRegistry: ToolInfo[] = [
 		description: "Mark the current task as complete",
 		category: "Agent Lifecycle",
 		parameters: {
-			summary: { type: "string", description: "Brief description of what was accomplished", required: true },
+			summary: {
+				type: "string",
+				description: "Brief description of what was accomplished",
+				required: true,
+			},
 		},
 	},
 	{

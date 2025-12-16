@@ -3,8 +3,8 @@
  * Protocol: https://wiki.vg/Server_List_Ping
  */
 
-import { decodeVarInt, encodeVarInt } from "./varint";
 import type { PingOptions, ServerStatus, ServerStatusRaw } from "./types";
+import { decodeVarInt, encodeVarInt } from "./varint";
 
 const DEFAULT_TIMEOUT = 5000;
 const DEFAULT_PROTOCOL_VERSION = 767; // 1.21.x
@@ -96,7 +96,11 @@ function parseDescription(desc: ServerStatusRaw["description"]): string {
 /**
  * Ping a Minecraft server using the Server List Ping protocol
  */
-export async function ping(host: string, port = 25565, options: PingOptions = {}): Promise<ServerStatus> {
+export async function ping(
+	host: string,
+	port = 25565,
+	options: PingOptions = {}
+): Promise<ServerStatus> {
 	const timeout = options.timeout ?? DEFAULT_TIMEOUT;
 	const protocolVersion = options.protocolVersion ?? DEFAULT_PROTOCOL_VERSION;
 
