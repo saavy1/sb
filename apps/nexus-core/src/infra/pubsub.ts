@@ -135,9 +135,9 @@ export function subscribe<C extends ChannelName>(
 			log.error({ err, channel }, "Failed to subscribe to channel");
 		});
 	}
-	handlers.get(channel)!.add(handler as MessageHandler<unknown>);
+	handlers.get(channel)?.add(handler as MessageHandler<unknown>);
 
-	log.debug({ channel, handlerCount: handlers.get(channel)!.size }, "Added subscription");
+	log.debug({ channel, handlerCount: handlers.get(channel)?.size }, "Added subscription");
 
 	// Return unsubscribe function
 	return () => {

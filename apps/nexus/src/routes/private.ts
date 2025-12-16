@@ -1,11 +1,11 @@
-import { Elysia } from "elysia";
-import logger from "logger";
 import { agentRoutes } from "@nexus-core/domains/agent";
 import { appRoutes } from "@nexus-core/domains/apps";
 import { settingsRoutes } from "@nexus-core/domains/core";
 import { gameServerRoutes } from "@nexus-core/domains/game-servers";
 import { opsRoutes } from "@nexus-core/domains/ops";
 import { systemInfoRoutes } from "@nexus-core/domains/system-info";
+import { Elysia } from "elysia";
+import logger from "logger";
 import { autheliaMiddleware } from "../middleware/authelia";
 import { debugRoutes } from "./debug";
 import { eventsRoutes } from "./events";

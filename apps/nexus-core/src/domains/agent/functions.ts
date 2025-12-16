@@ -424,7 +424,7 @@ Example: search_history({ query: "minecraft server issues", limit: 3 })`,
 					role: r.role,
 					content: r.content.slice(0, 500) + (r.content.length > 500 ? "..." : ""),
 					date: r.createdAt,
-					relevance: Math.round(r.score * 100) + "%",
+					relevance: `${Math.round(r.score * 100)}%`,
 				})),
 			};
 		}

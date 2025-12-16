@@ -1,5 +1,5 @@
-import { Elysia, t } from "elysia";
 import { config } from "@nexus-core/infra/config";
+import { Elysia, t } from "elysia";
 
 export const publicRoutes = new Elysia({ prefix: "" })
 	.get(
