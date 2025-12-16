@@ -114,29 +114,6 @@ async function executeSSH(command: string): Promise<CommandResultType> {
 	}
 }
 
-async function executeLocal(command: string): Promise<CommandResultType> {
-	const startTime = Date.now();
-	try {
-		const result = await $`sh -c ${command}`.quiet();
-		const durationMs = Date.now() - startTime;
-		return {
-			success: true,
-			output: result.stdout.toString() + result.stderr.toString(),
-			durationMs,
-		};
-	} catch (error) {
-		const durationMs = Date.now() - startTime;
-		const err = error as { stdout?: Buffer; stderr?: Buffer; message?: string };
-		const output = (err.stdout?.toString() || "") + (err.stderr?.toString() || "");
-		return {
-			success: false,
-			output,
-			errorMessage: err.message || "Command failed",
-			durationMs,
-		};
-	}
-}
-
 async function executeNixosRebuild(): Promise<CommandResultType> {
 	const commands = [
 		`cd ${flakePath} && git pull`,
@@ -164,9 +141,6 @@ async function executeNixosRebuild(): Promise<CommandResultType> {
 }
 
 async function executeFluxReconcile(): Promise<CommandResultType> {
-	if (config.K8S_IN_CLUSTER) {
-		return executeLocal("flux reconcile kustomization flux-system --with-source --timeout=5m");
-	}
 	return executeSSH("flux reconcile kustomization flux-system --with-source --timeout=5m");
 }
 
@@ -384,31 +358,19 @@ export const listRecentOperationsTool = withTool(
 async function executeKubectl(command: string): Promise<CommandResultType> {
 	// Defense-in-depth: validate command before execution
 	validateCommand(command);
-	const fullCommand = `kubectl ${command}`;
-	if (config.K8S_IN_CLUSTER) {
-		return executeLocal(fullCommand);
-	}
-	return executeSSH(fullCommand);
+	return executeSSH(`kubectl ${command}`);
 }
 
 async function executeFlux(command: string): Promise<CommandResultType> {
 	// Defense-in-depth: validate command before execution
 	validateCommand(command);
-	const fullCommand = `flux ${command}`;
-	if (config.K8S_IN_CLUSTER) {
-		return executeLocal(fullCommand);
-	}
-	return executeSSH(fullCommand);
+	return executeSSH(`flux ${command}`);
 }
 
 async function executeHelm(command: string): Promise<CommandResultType> {
 	// Defense-in-depth: validate command before execution
 	validateCommand(command);
-	const fullCommand = `helm ${command}`;
-	if (config.K8S_IN_CLUSTER) {
-		return executeLocal(fullCommand);
-	}
-	return executeSSH(fullCommand);
+	return executeSSH(`helm ${command}`);
 }
 
 // === Connection test ===
@@ -424,18 +386,14 @@ export async function testConnection(): Promise<{
 		flux: { success: false, message: "" },
 	};
 
-	// Test SSH (skip if in-cluster)
-	if (config.K8S_IN_CLUSTER) {
-		results.ssh = { success: true, message: "In-cluster mode, SSH not needed" };
-	} else {
-		const sshTest = await executeSSH("echo 'SSH connection successful'");
-		results.ssh = {
-			success: sshTest.success,
-			message: sshTest.success
-				? `Connected to ${sshUser}@${sshHost}`
-				: sshTest.errorMessage || "SSH connection failed",
-		};
-	}
+	// Test SSH (via Tailscale)
+	const sshTest = await executeSSH("echo 'SSH connection successful'");
+	results.ssh = {
+		success: sshTest.success,
+		message: sshTest.success
+			? `Connected to ${sshUser}@${sshHost}`
+			: sshTest.errorMessage || "SSH connection failed",
+	};
 
 	// Test kubectl
 	const kubectlTest = await executeKubectl("cluster-info --request-timeout=5s");

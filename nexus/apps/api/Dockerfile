@@ -35,15 +35,6 @@ COPY --from=pruner /app/out/full/packages ./packages
 # Copy built dashboard
 COPY --from=ui-builder /app/out/full/apps/ui/dist ./apps/api/public/
 
-# Install system tools for ops domain
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    openssh-client curl ca-certificates && rm -rf /var/lib/apt/lists/*
-
-RUN curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" \
-    && chmod +x kubectl && mv kubectl /usr/local/bin/
-
-RUN curl -s https://fluxcd.io/install.sh | bash
-
 RUN mkdir -p /app/db && chown -R bun:bun /app/db /app/apps/api
 
 ENV PORT=3000
