@@ -19,7 +19,7 @@ if (!databaseUrl) {
 	throw new Error("DATABASE_URL is required for Postgres connection in production");
 }
 
-const pgClient = postgres(databaseUrl, {
+export const pgClient = postgres(databaseUrl, {
 	max: 10, // Connection pool size
 	idle_timeout: 20,
 	connect_timeout: 10,

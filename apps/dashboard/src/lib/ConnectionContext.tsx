@@ -35,6 +35,7 @@ type SystemOverview = {
 		domain: string;
 		sizeBytes: number;
 		sizeFormatted: string;
+		rowCount: number;
 	}>;
 };
 

@@ -128,6 +128,7 @@ export const DatabaseInfo = t.Object({
 	domain: t.String(),
 	sizeBytes: t.Number(),
 	sizeFormatted: t.String(),
+	rowCount: t.Number(),
 });
 
 export const SystemOverview = t.Object({
