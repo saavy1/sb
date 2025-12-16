@@ -567,7 +567,7 @@ export async function getDatabaseInfo(): Promise<Static<typeof DatabaseInfo>[]> 
 			ORDER BY n.nspname
 		`;
 
-		return result.map((row) => ({
+		return result.map((row: { schema_name: string; size_bytes: string | number; row_count: string | number }) => ({
 			name: schemaMap[row.schema_name] || row.schema_name,
 			domain: schemaMap[row.schema_name] || row.schema_name,
 			sizeBytes: Number(row.size_bytes),
