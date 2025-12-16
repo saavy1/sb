@@ -1,4 +1,4 @@
-import type { GameServerType } from "@nexus/domains/game-servers/types";
+import type { GameServerType } from "@nexus-core/domains/game-servers";
 import {
 	ActionRowBuilder,
 	ChatInputCommandBuilder,

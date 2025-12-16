@@ -1,7 +1,6 @@
 import { Elysia, t } from "elysia";
 import logger from "logger";
-import { list, syncStatus } from "../domains/game-servers/functions";
-import { GameServer } from "../domains/game-servers/types";
+import { list, syncStatus, GameServer } from "@nexus-core/domains/game-servers";
 import { internalMiddleware } from "../middleware/internal";
 
 export const internalRoutes = new Elysia({ prefix: "/internal" })

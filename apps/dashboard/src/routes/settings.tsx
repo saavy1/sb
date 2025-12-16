@@ -1,4 +1,4 @@
-import type { SettingsResponseType } from "@nexus/domains/core/types";
+import type { SettingsResponseType } from "@nexus-core/domains/core";
 import { createFileRoute } from "@tanstack/react-router";
 import {
 	CheckCircle,

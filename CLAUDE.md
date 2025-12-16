@@ -61,16 +61,22 @@ const FormSchema = z.object({
 
 ## Domain Structure
 
-Each domain in `apps/nexus/src/domains/<name>/`:
+Each domain in `apps/nexus-core/src/domains/<name>/`:
 
 ```
 ├── schema.ts      # Drizzle table definitions
 ├── types.ts       # Elysia t.* schemas + derived types
-├── service.ts     # Business logic
+├── functions.ts   # Business logic
 ├── repository.ts  # Database queries (optional)
 ├── routes.ts      # Elysia route handlers
+├── index.ts       # Re-exports all from the domain
 └── k8s-adapter.ts # K8s integration (if needed)
 ```
+
+**nexus** is the thin API layer that composes routes from nexus-core:
+- `apps/nexus/src/app.ts` - Elysia app composition
+- `apps/nexus/src/routes/` - Route groups (private, public, webhooks)
+- `apps/nexus/src/middleware/` - Auth middlewares
 
 ### Type Flow Example
 
@@ -90,7 +96,7 @@ WebSocket events via `/api/events`:
 
 **Backend** - Emit events from anywhere:
 ```typescript
-import { appEvents } from "../../infra/events";
+import { appEvents } from "@nexus-core/infra/events";
 appEvents.emit("conversation:updated", { id, title });
 ```
 
@@ -102,7 +108,7 @@ useEvents("conversation:updated", (payload) => {
 });
 ```
 
-Event types defined in `apps/nexus/src/infra/events.ts`.
+Event types defined in `apps/nexus-core/src/infra/events.ts`.
 
 ## Common Patterns
 
@@ -157,10 +163,10 @@ bun run typecheck      # TypeScript check all packages
 bun run lint           # Biome lint all packages
 bun run check          # Biome check all packages
 
-# Drizzle migrations (from nexus directory or use --cwd)
-bun --cwd nexus run db:generate      # Generate all migrations
-bun --cwd nexus run db:generate:agent  # Generate agent schema migration
-bun --cwd nexus run db:migrate       # Run migrations
+# Drizzle migrations (from nexus-core directory)
+bun --cwd nexus-core run db:generate      # Generate all migrations
+bun --cwd nexus-core run db:generate:agent  # Generate agent schema migration
+bun --cwd nexus-core run db:migrate       # Run migrations
 ```
 
 **Note:** Use `bash -c 'cd /path/to/apps && bun run <script>'` if `cd` is aliased (e.g., zoxide).
@@ -178,27 +184,28 @@ bun --cwd nexus run db:migrate       # Run migrations
 
 ```bash
 # Find all route definitions
-rg "new Elysia" apps/nexus/src
+rg "new Elysia" apps/nexus-core/src
 
 # Find all Drizzle schemas
-fd schema.ts apps/nexus
+fd schema.ts apps/nexus-core
 
 # Find all API endpoints
-rg "\.get\(|\.post\(|\.patch\(|\.delete\(" apps/nexus/src/domains
+rg "\.get\(|\.post\(|\.patch\(|\.delete\(" apps/nexus-core/src/domains
 
 # Find environment variable usage
-rg "config\." apps/nexus/src
+rg "config\." apps/nexus-core/src
 
 # Find event emissions
-rg "appEvents.emit" apps/nexus/src
+rg "appEvents.emit" apps/nexus-core/src
 ```
 
 ## Key Files
 
 | File | Purpose |
 |------|---------|
-| `apps/nexus/src/domains/*/types.ts` | Domain schemas |
-| `apps/nexus/src/infra/events.ts` | WebSocket event definitions |
-| `apps/nexus/src/infra/config.ts` | Environment variables |
+| `apps/nexus-core/src/domains/*/types.ts` | Domain schemas |
+| `apps/nexus-core/src/infra/events.ts` | WebSocket event definitions |
+| `apps/nexus-core/src/infra/config.ts` | Environment variables |
+| `apps/nexus/src/app.ts` | Elysia API composition |
 | `apps/dashboard/src/lib/api.ts` | Eden Treaty client |
 | `apps/dashboard/src/lib/useEvents.ts` | WebSocket hook |

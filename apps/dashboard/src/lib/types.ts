@@ -1,3 +1,3 @@
-import type { GameServerStatusType } from "@nexus/domains/game-servers/types";
+import type { GameServerStatusType } from "@nexus-core/domains/game-servers";
 
 export type ServerStatus = GameServerStatusType;

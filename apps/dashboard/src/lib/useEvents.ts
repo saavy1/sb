@@ -1,4 +1,4 @@
-import type { AppEventName, AppEvents } from "@nexus/infra/events";
+import type { AppEventName, AppEvents } from "@nexus-core/infra/events";
 import { useEffect, useRef } from "react";
 import { API_URL } from "./api";
 

@@ -13,39 +13,20 @@
 		"lint": "biome lint .",
 		"lint:fix": "biome lint --write .",
 		"format": "biome format --write .",
-		"check": "biome check .",
-		"db:generate:agent": "drizzle-kit generate --config=./drizzle/agent/drizzle.config.ts",
-		"db:generate:apps": "drizzle-kit generate --config=./drizzle/apps-pg/drizzle.config.ts",
-		"db:generate:core": "drizzle-kit generate --config=./drizzle/core-pg/drizzle.config.ts",
-		"db:generate:game-servers": "drizzle-kit generate --config=./drizzle/game-servers-pg/drizzle.config.ts",
-		"db:generate:ops": "drizzle-kit generate --config=./drizzle/ops-pg/drizzle.config.ts",
-		"db:generate:system-info": "drizzle-kit generate --config=./drizzle/system-info-pg/drizzle.config.ts",
-		"db:generate": "bun run db:generate:agent && bun run db:generate:apps && bun run db:generate:core && bun run db:generate:game-servers && bun run db:generate:ops && bun run db:generate:system-info",
-		"db:migrate": "bun run src/infra/migrate.ts"
+		"check": "biome check ."
 	},
 	"dependencies": {
 		"@elysiajs/cors": "^1.4.0",
 		"@elysiajs/openapi": "^1.4.11",
 		"@elysiajs/opentelemetry": "^1.4.9",
 		"@elysiajs/static": "^1.1.1",
-		"k8s": "workspace:*",
-		"mc-monitor": "workspace:*",
-		"@qdrant/js-client-rest": "^1.16.2",
-		"@tanstack/ai": "^0.0.3",
-		"@tanstack/ai-openai": "^0.0.3",
-		"bullmq": "^5.66.0",
-		"drizzle-orm": "^0.45.1",
-		"elysia": "catalog:",
-		"ioredis": "^5.8.2",
+		"nexus-core": "workspace:*",
 		"logger": "workspace:*",
-		"openai": "^6.13.0",
-		"postgres": "^3.4.7",
-		"zod": "^4.1.13"
+		"elysia": "catalog:"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "catalog:",
 		"bun-types": "catalog:",
-		"drizzle-kit": "^0.31.8",
 		"typescript": "catalog:"
 	},
 	"module": "src/index.ts"
