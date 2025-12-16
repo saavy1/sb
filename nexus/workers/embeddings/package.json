@@ -1,0 +1,20 @@
+{
+	"name": "@nexus/worker-embeddings",
+	"version": "1.0.0",
+	"type": "module",
+	"scripts": {
+		"dev": "bun --env-file=../../.env run --watch src/index.ts | jq 'del(.hostname, .level, .pid, .time)'",
+		"start": "bun --env-file=../../.env run src/index.ts",
+		"typecheck": "tsc --noEmit",
+		"docker:build": "docker build -f Dockerfile -t nexus-worker-embeddings:latest ../.."
+	},
+	"dependencies": {
+		"@nexus/logger": "workspace:*",
+		"@nexus/core": "workspace:*"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "catalog:",
+		"bun-types": "catalog:",
+		"typescript": "catalog:"
+	}
+}

@@ -1,0 +1,16 @@
+{
+	"extends": "../../tsconfig.json",
+	"compilerOptions": {
+		"outDir": "./dist",
+		"rootDir": "./src",
+		"types": ["bun-types"],
+		"noEmit": true,
+		"lib": ["ESNext"],
+		"jsx": "react-jsx",
+		"moduleResolution": "bundler",
+		"allowImportingTsExtensions": true,
+		"verbatimModuleSyntax": true,
+		"noUncheckedIndexedAccess": true
+	},
+	"include": ["src/**/*"]
+}
