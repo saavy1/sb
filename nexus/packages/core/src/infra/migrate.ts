@@ -1,7 +1,7 @@
 import { join } from "node:path";
-import { drizzle } from "drizzle-orm/postgres-js";
-import { migrate } from "drizzle-orm/postgres-js/migrator";
-import postgres from "postgres";
+import { SQL } from "bun";
+import { drizzle } from "drizzle-orm/bun-sql";
+import { migrate } from "drizzle-orm/bun-sql/migrator";
 import logger from "@nexus/logger";
 import { config } from "./config";
 
@@ -12,7 +12,7 @@ if (!config.DATABASE_URL) {
 	process.exit(1);
 }
 
-const pgClient = postgres(config.DATABASE_URL, { max: 1 });
+const pgClient = new SQL(config.DATABASE_URL);
 const pgDb = drizzle(pgClient);
 
 const postgresSchemas = [
@@ -48,6 +48,6 @@ for (const schema of postgresSchemas) {
 	}
 }
 
-await pgClient.end();
+pgClient.close();
 
 logger.info("All migrations complete");

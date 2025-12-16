@@ -565,8 +565,8 @@ export async function getDatabaseInfo(): Promise<Static<typeof DatabaseInfo>[]> 
 
 	try {
 		// Query Postgres for schema sizes and row counts
-		const result = await withDb(
-			(client) => client<{ schema_name: string; size_bytes: string; row_count: string }[]>`
+		const result = await withDb(async (client) => {
+			const rows = await client`
 				SELECT
 					n.nspname as schema_name,
 					COALESCE(SUM(pg_total_relation_size(c.oid)), 0)::bigint as size_bytes,
@@ -576,8 +576,9 @@ export async function getDatabaseInfo(): Promise<Static<typeof DatabaseInfo>[]> 
 				WHERE n.nspname IN ('agent', 'apps', 'core', 'game_servers', 'ops', 'system_info')
 				GROUP BY n.nspname
 				ORDER BY n.nspname
-			`
-		);
+			`;
+			return rows as unknown as { schema_name: string; size_bytes: string; row_count: string }[];
+		});
 
 		return result.map((row) => ({
 			name: schemaMap[row.schema_name] || row.schema_name,
