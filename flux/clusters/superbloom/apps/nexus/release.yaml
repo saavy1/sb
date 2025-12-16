@@ -53,6 +53,7 @@ spec:
               OTEL_EXPORTER_OTLP_ENDPOINT: http://grafana-k8s-monitoring-alloy-receiver.alloy:4318
               # External services
               VALKEY_URL: redis://valkey.valkey:6379
+              QDRANT_URL: http://qdrant.qdrant.svc.cluster.local:6333
             envFrom:
               - secretRef:
                   name: nexus-env
