@@ -111,6 +111,19 @@
         "typescript": "catalog:",
       },
     },
+    "nexus-agent-worker": {
+      "name": "nexus-agent-worker",
+      "version": "1.0.0",
+      "dependencies": {
+        "logger": "workspace:*",
+        "nexus-core": "workspace:*",
+      },
+      "devDependencies": {
+        "@biomejs/biome": "catalog:",
+        "bun-types": "catalog:",
+        "typescript": "catalog:",
+      },
+    },
     "nexus-core": {
       "name": "nexus-core",
       "version": "1.0.0",
@@ -1167,6 +1180,8 @@
     "nanoid": ["nanoid@3.3.11", "", { "bin": { "nanoid": "bin/nanoid.cjs" } }, "sha512-N8SpfPUnUp1bK+PMYW8qSWdl9U+wwNWI4QKxOYDy9JAro3WMX7p2OeVRF9v+347pnakNevPmiHhNmZ2HbFA76w=="],
 
     "nexus": ["nexus@workspace:nexus"],
+
+    "nexus-agent-worker": ["nexus-agent-worker@workspace:nexus-agent-worker"],
 
     "nexus-core": ["nexus-core@workspace:nexus-core"],
 
