@@ -1,8 +1,8 @@
 import { join } from "node:path";
-import { drizzle as drizzlePostgres } from "drizzle-orm/postgres-js";
-import { migrate as migratePostgres } from "drizzle-orm/postgres-js/migrator";
+import { SQL } from "bun";
+import { drizzle } from "drizzle-orm/bun-sql";
+import { migrate } from "drizzle-orm/bun-sql/migrator";
 import logger from "@nexus/logger";
-import postgres from "postgres";
 import { config } from "./config";
 
 // === Postgres migrations (all schemas) ===
@@ -12,8 +12,8 @@ if (!config.DATABASE_URL) {
 	process.exit(1);
 }
 
-const pgClient = postgres(config.DATABASE_URL, { max: 1 });
-const pgDb = drizzlePostgres(pgClient);
+const pgClient = new SQL(config.DATABASE_URL);
+const pgDb = drizzle({ client: pgClient });
 
 const postgresSchemas = [
 	{ name: "agent", migrationsFolder: "agent" },
@@ -28,7 +28,7 @@ for (const schema of postgresSchemas) {
 	logger.info({ database: schema.name }, "Running Postgres migrations");
 
 	try {
-		await migratePostgres(pgDb, {
+		await migrate(pgDb, {
 			migrationsFolder: join(
 				import.meta.dir,
 				"../../drizzle",

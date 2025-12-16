@@ -31,7 +31,6 @@
 		"@nexus/logger": "workspace:*",
 		"@nexus/mc-monitor": "workspace:*",
 		"openai": "^6.13.0",
-		"postgres": "^3.4.7",
 		"zod": "^4.1.13"
 	},
 	"devDependencies": {
