@@ -8,7 +8,7 @@
 
 import logger from "logger";
 import { appEvents, type MinecraftStatusPayloadType } from "../../infra/events";
-import { CHANNELS, publish, type MinecraftStatusPayload } from "../../infra/pubsub";
+import { CHANNELS, type MinecraftStatusPayload, publish } from "../../infra/pubsub";
 import { queryServerStatus } from "./functions";
 
 const log = logger.child({ module: "mc-monitor" });
@@ -122,7 +122,8 @@ async function pollAndPublish(): Promise<void> {
 			{
 				online: payload.online,
 				players: payload.players?.online ?? 0,
-				hasChanges: changes.statusChanged || changes.playerJoined.length > 0 || changes.playerLeft.length > 0,
+				hasChanges:
+					changes.statusChanged || changes.playerJoined.length > 0 || changes.playerLeft.length > 0,
 			},
 			"MC status poll complete"
 		);

@@ -5,10 +5,10 @@
  * status updates to Valkey pub/sub for other services to consume.
  */
 
-import logger from "logger";
-import IORedis from "ioredis";
-import { config, initPubSub, closePubSub } from "@nexus-core/infra";
 import { startMinecraftMonitor, stopMinecraftMonitor } from "@nexus-core/domains/game-servers";
+import { closePubSub, config, initPubSub } from "@nexus-core/infra";
+import IORedis from "ioredis";
+import logger from "logger";
 
 const log = logger.child({ service: "nexus-mc-monitor" });
 

@@ -20,5 +20,11 @@
  * ```
  */
 
-export { ping, isOnline, getPlayerCount } from "./ping";
-export type { ServerStatus, ServerVersion, ServerPlayers, PlayerSample, PingOptions } from "./types";
+export { getPlayerCount, isOnline, ping } from "./ping";
+export type {
+	PingOptions,
+	PlayerSample,
+	ServerPlayers,
+	ServerStatus,
+	ServerVersion,
+} from "./types";

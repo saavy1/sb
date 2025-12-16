@@ -2,7 +2,7 @@
  * Quick test of mc-monitor against a local server
  */
 
-import { ping, getPlayerCount, isOnline } from "./src";
+import { getPlayerCount, isOnline, ping } from "./src";
 
 const HOST = process.argv[2] || "10.42.1.53";
 const PORT = parseInt(process.argv[3] || "25565", 10);

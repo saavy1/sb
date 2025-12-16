@@ -208,7 +208,7 @@ export async function searchHistory(
 		});
 
 		// Filter and map results
-		let results = searchResult
+		const results = searchResult
 			.filter((hit) => {
 				if (options?.excludeThreadId && hit.payload?.threadId === options.excludeThreadId) {
 					return false;
@@ -225,7 +225,10 @@ export async function searchHistory(
 				score: hit.score,
 			}));
 
-		log.debug({ query: query.slice(0, 50), resultCount: results.length }, "History search completed");
+		log.debug(
+			{ query: query.slice(0, 50), resultCount: results.length },
+			"History search completed"
+		);
 		return results;
 	} catch (err) {
 		log.error({ err, query: query.slice(0, 50) }, "History search failed");
