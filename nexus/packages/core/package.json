@@ -3,6 +3,7 @@
 	"version": "1.0.0",
 	"type": "module",
 	"exports": {
+		"./infra": "./src/infra/index.ts",
 		"./infra/*": "./src/infra/*.ts",
 		"./domains/*": "./src/domains/*/index.ts"
 	},
