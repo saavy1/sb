@@ -196,3 +196,14 @@ export const EmbeddingJobData = t.Object({
 	createdAt: t.String(), // ISO timestamp
 });
 export type EmbeddingJobDataType = typeof EmbeddingJobData.static;
+
+// === Discord ask job data ===
+
+export const DiscordAskJobData = t.Object({
+	threadId: t.String(),
+	content: t.String(),
+	// Discord interaction details for replying
+	interactionToken: t.String(),
+	applicationId: t.String(),
+});
+export type DiscordAskJobDataType = typeof DiscordAskJobData.static;

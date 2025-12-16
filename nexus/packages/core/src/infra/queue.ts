@@ -28,14 +28,16 @@ async function getQueueStats(queue: Queue) {
 
 // Emit stats for all queues (exported for use in routes)
 export async function emitAllQueueStats() {
-	const [agentStats, systemStats, embeddingsStats] = await Promise.all([
+	const [agentStats, systemStats, embeddingsStats, discordStats] = await Promise.all([
 		getQueueStats(agentWakeQueue),
 		getQueueStats(systemEventQueue),
 		getQueueStats(embeddingsQueue),
+		getQueueStats(discordAsksQueue),
 	]);
 	appEvents.emit("queue:stats:updated", agentStats);
 	appEvents.emit("queue:stats:updated", systemStats);
 	appEvents.emit("queue:stats:updated", embeddingsStats);
+	appEvents.emit("queue:stats:updated", discordStats);
 }
 
 // Shared Redis connection for all queues
@@ -56,6 +58,7 @@ export const QUEUES = {
 	AGENT_WAKES: "agent-wakes",
 	EVENTS_SYSTEM: "events-system",
 	EMBEDDINGS: "embeddings",
+	DISCORD_ASKS: "discord-asks",
 } as const;
 
 // Create queues
@@ -79,6 +82,14 @@ export const embeddingsQueue = new Queue(QUEUES.EMBEDDINGS, {
 	connection: redis,
 	defaultJobOptions: {
 		removeOnComplete: 500, // Keep more for embeddings (high volume)
+		removeOnFail: 1000,
+	},
+});
+
+export const discordAsksQueue = new Queue(QUEUES.DISCORD_ASKS, {
+	connection: redis,
+	defaultJobOptions: {
+		removeOnComplete: 100,
 		removeOnFail: 1000,
 	},
 });
@@ -124,6 +135,7 @@ export async function closeQueues() {
 	await agentWakeQueue.close();
 	await systemEventQueue.close();
 	await embeddingsQueue.close();
+	await discordAsksQueue.close();
 	await redis.quit();
 	log.info("Queue connections closed");
 }

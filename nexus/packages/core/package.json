@@ -21,18 +21,19 @@
 	},
 	"dependencies": {
 		"@elysiajs/opentelemetry": "^1.4.9",
+		"@nexus/k8s": "workspace:*",
+		"@nexus/logger": "workspace:*",
+		"@nexus/mc-monitor": "workspace:*",
 		"@qdrant/js-client-rest": "^1.16.2",
 		"@tanstack/ai": "^0.0.3",
 		"@tanstack/ai-openai": "^0.0.3",
 		"bullmq": "catalog:",
 		"drizzle-orm": "^0.45.1",
 		"elysia": "catalog:",
-		"ioredis": "^5.8.2",
-		"@nexus/k8s": "workspace:*",
-		"@nexus/logger": "workspace:*",
-		"@nexus/mc-monitor": "workspace:*",
+		"ioredis": "catalog:",
 		"openai": "^6.13.0",
-		"zod": "^4.1.13"
+		"postgres": "^3.4.7",
+		"zod": "catalog:"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "catalog:",

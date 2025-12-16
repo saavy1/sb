@@ -23,7 +23,9 @@
 	"dependencies": {
 		"@elysiajs/eden": "catalog:",
 		"discord.js": "15.0.0-pr-10758.1765463096-d081e1706",
+		"@nexus/core": "workspace:*",
 		"@nexus/logger": "workspace:*",
-		"zod": "^4.1.13"
+		"ioredis": "catalog:",
+		"zod": "catalog:"
 	}
 }

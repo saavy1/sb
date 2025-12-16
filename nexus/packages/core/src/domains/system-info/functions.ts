@@ -5,7 +5,7 @@ import { eq } from "drizzle-orm";
 import type { Static } from "elysia";
 import logger from "@nexus/logger";
 import { z } from "zod";
-import { pgClient, systemInfoDb } from "../../infra/db";
+import { systemInfoDb, withDb } from "../../infra/db";
 import { withTool } from "../../infra/tools";
 import type { DriveRecord } from "./schema";
 import { drives } from "./schema";
@@ -253,14 +253,25 @@ async function getNvidiaGpuStats(): Promise<Static<typeof GpuStats> | null> {
 }
 
 async function getGpuStats(): Promise<Static<typeof GpuStats>> {
-	const amdStats = await getAmdGpuStats();
-	if (amdStats) return amdStats;
+	// Wrap GPU detection with a 3 second timeout to prevent hangs
+	const timeoutMs = 3000;
+	const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), timeoutMs));
 
-	const intelStats = await getIntelGpuStats();
-	if (intelStats) return intelStats;
+	const detectGpu = async (): Promise<Static<typeof GpuStats> | null> => {
+		const amdStats = await getAmdGpuStats();
+		if (amdStats) return amdStats;
 
-	const nvidiaStats = await getNvidiaGpuStats();
-	if (nvidiaStats) return nvidiaStats;
+		const intelStats = await getIntelGpuStats();
+		if (intelStats) return intelStats;
+
+		const nvidiaStats = await getNvidiaGpuStats();
+		if (nvidiaStats) return nvidiaStats;
+
+		return null;
+	};
+
+	const result = await Promise.race([detectGpu(), timeoutPromise]);
+	if (result) return result;
 
 	return { available: false };
 }
@@ -427,7 +438,8 @@ export async function getSystemStats(): Promise<Static<typeof SystemStats>> {
 
 export async function scanMounts(): Promise<MountInfoType[]> {
 	try {
-		const result = await $`df -B G -T -l`.text();
+		// Use timeout to prevent hanging on stale mounts
+		const result = await $`timeout 5 df -B G -T -l`.text();
 		const lines = result.trim().split("\n").slice(1);
 		const mounts: MountInfoType[] = [];
 
@@ -553,20 +565,21 @@ export async function getDatabaseInfo(): Promise<Static<typeof DatabaseInfo>[]> 
 
 	try {
 		// Query Postgres for schema sizes and row counts
-		// Note: Schema names are hardcoded in the query since Bun.sql doesn't support array parameters with ANY()
-		const result = await pgClient`
-			SELECT
-				n.nspname as schema_name,
-				COALESCE(SUM(pg_total_relation_size(c.oid)), 0)::bigint as size_bytes,
-				COALESCE(SUM(CASE WHEN c.relkind = 'r' THEN c.reltuples ELSE 0 END), 0)::bigint as row_count
-			FROM pg_namespace n
-			LEFT JOIN pg_class c ON c.relnamespace = n.oid AND c.relkind IN ('r', 'i', 't')
-			WHERE n.nspname IN ('agent', 'apps', 'core', 'game_servers', 'ops', 'system_info')
-			GROUP BY n.nspname
-			ORDER BY n.nspname
-		`;
+		const result = await withDb(
+			(client) => client<{ schema_name: string; size_bytes: string; row_count: string }[]>`
+				SELECT
+					n.nspname as schema_name,
+					COALESCE(SUM(pg_total_relation_size(c.oid)), 0)::bigint as size_bytes,
+					COALESCE(SUM(CASE WHEN c.relkind = 'r' THEN c.reltuples ELSE 0 END), 0)::bigint as row_count
+				FROM pg_namespace n
+				LEFT JOIN pg_class c ON c.relnamespace = n.oid AND c.relkind IN ('r', 'i', 't')
+				WHERE n.nspname IN ('agent', 'apps', 'core', 'game_servers', 'ops', 'system_info')
+				GROUP BY n.nspname
+				ORDER BY n.nspname
+			`
+		);
 
-		return result.map((row: { schema_name: string; size_bytes: string | number; row_count: string | number }) => ({
+		return result.map((row) => ({
 			name: schemaMap[row.schema_name] || row.schema_name,
 			domain: schemaMap[row.schema_name] || row.schema_name,
 			sizeBytes: Number(row.size_bytes),

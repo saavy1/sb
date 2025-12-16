@@ -7,7 +7,11 @@
  * - System events: Grafana and Alertmanager alerts that trigger agent responses
  */
 
-import { startAgentWorker, startSystemEventsWorker } from "@nexus/core/domains/agent";
+import {
+	startAgentWorker,
+	startDiscordAsksWorker,
+	startSystemEventsWorker,
+} from "@nexus/core/domains/agent";
 import { config } from "@nexus/core/infra/config";
 import { closeQueues } from "@nexus/core/infra/queue";
 import logger from "@nexus/logger";
@@ -32,11 +36,12 @@ if (!config.OPENROUTER_API_KEY) {
 // Start the workers
 const agentWorker = startAgentWorker();
 const systemEventsWorker = startSystemEventsWorker();
+const discordAsksWorker = startDiscordAsksWorker();
 
 log.info(
 	{
 		valkeyUrl: config.VALKEY_URL,
-		workers: ["agent-wake", "system-events"],
+		workers: ["agent-wake", "system-events", "discord-asks"],
 	},
 	"Agent worker started"
 );
@@ -47,6 +52,7 @@ async function shutdown(signal: string) {
 
 	await agentWorker.close();
 	await systemEventsWorker.close();
+	await discordAsksWorker.close();
 	await closeQueues();
 
 	process.exit(0);

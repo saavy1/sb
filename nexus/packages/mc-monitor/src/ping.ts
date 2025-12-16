@@ -130,6 +130,12 @@ export async function ping(
 					socket.write(statusRequest);
 				},
 
+				connectError(_socket, error) {
+					// Handle connection failures (ECONNREFUSED, etc.)
+					clearTimeout(timeoutId);
+					reject(error);
+				},
+
 				data(socket, data) {
 					// Append to buffer
 					const newBuffer = new Uint8Array(buffer.length + data.length);
@@ -223,6 +229,10 @@ export async function ping(
 					}
 				},
 			},
+		}).catch((err) => {
+			// Handle connection errors that happen before socket callbacks fire
+			clearTimeout(timeoutId);
+			reject(err);
 		});
 	});
 }

@@ -1,11 +1,13 @@
 import { Elysia, t } from "elysia";
 import logger from "@nexus/logger";
+import { withRetry } from "../../infra/db";
 import {
 	createDrive,
 	deleteDrive,
 	getDrive,
+	getDatabaseInfo,
 	getSuggestedDrives,
-	getSystemOverview,
+	getSystemStats,
 	listDrivesWithStats,
 	updateDrive,
 } from "./functions";
@@ -21,30 +23,84 @@ import {
 } from "./types";
 
 const STATS_INTERVAL_MS = 2000;
+const DB_INFO_CACHE_MS = 30000; // Cache database info for 30 seconds
 
 const wsIntervals = new Map<unknown, ReturnType<typeof setInterval>>();
+const wsSending = new WeakSet<object>(); // Track ongoing sends to prevent overlap
+
+// Cache for database info (rarely changes)
+let cachedDatabaseInfo: Awaited<ReturnType<typeof getDatabaseInfo>> | null = null;
+let cacheTimestamp = 0;
+
+async function getCachedDatabaseInfo() {
+	const now = Date.now();
+	if (!cachedDatabaseInfo || now - cacheTimestamp > DB_INFO_CACHE_MS) {
+		try {
+			cachedDatabaseInfo = await withRetry(() => getDatabaseInfo());
+			cacheTimestamp = now;
+		} catch (error) {
+			logger.error({ error }, "Failed to fetch database info");
+			// Return stale cache if available, otherwise empty
+			return cachedDatabaseInfo ?? [];
+		}
+	}
+	return cachedDatabaseInfo;
+}
 
 export const systemInfoRoutes = new Elysia({ prefix: "/systemInfo" })
 	// WebSocket for live system stats
 	.ws("/live", {
 		open(ws) {
+			logger.debug("systemInfo WebSocket opened");
 			const send = async () => {
+				// Prevent overlapping sends
+				if (wsSending.has(ws)) {
+					logger.warn("Skipping systemInfo send - previous still in progress");
+					return;
+				}
+				wsSending.add(ws);
+
+				const start = Date.now();
 				try {
-					const overview = await getSystemOverview();
-					ws.send(JSON.stringify(overview));
+					// Get stats (always fresh) and drives/databases (with retry + caching)
+					const statsStart = Date.now();
+					const stats = await getSystemStats();
+					const statsTime = Date.now() - statsStart;
+
+					const drivesStart = Date.now();
+					const drivesWithStats = await withRetry(() => listDrivesWithStats());
+					const drivesTime = Date.now() - drivesStart;
+
+					const dbStart = Date.now();
+					const databases = await getCachedDatabaseInfo();
+					const dbTime = Date.now() - dbStart;
+
+					const total = Date.now() - start;
+					if (total > 1000) {
+						logger.warn(
+							{ total, statsTime, drivesTime, dbTime },
+							"systemInfo send took over 1s"
+						);
+					}
+
+					ws.send(JSON.stringify({ drives: drivesWithStats, stats, databases }));
 				} catch (error) {
 					logger.error({ error }, "Failed to send system overview");
+				} finally {
+					wsSending.delete(ws);
 				}
 			};
 			send();
 			wsIntervals.set(ws, setInterval(send, STATS_INTERVAL_MS));
 		},
 		close(ws) {
+			logger.debug("systemInfo WebSocket closed");
 			const interval = wsIntervals.get(ws);
 			if (interval) {
 				clearInterval(interval);
 				wsIntervals.delete(ws);
 			}
+			wsSending.delete(ws);
 		},
 	})
 
@@ -52,7 +108,12 @@ export const systemInfoRoutes = new Elysia({ prefix: "/systemInfo" })
 	.get(
 		"/overview",
 		async () => {
-			return await getSystemOverview();
+			const [stats, drivesWithStats, databases] = await Promise.all([
+				getSystemStats(),
+				withRetry(() => listDrivesWithStats()),
+				getCachedDatabaseInfo(),
+			]);
+			return { drives: drivesWithStats, stats, databases };
 		},
 		{
 			detail: {

@@ -6,7 +6,7 @@
       "name": "docker-discord-bot",
       "dependencies": {
         "discord.js": "15.0.0-pr-10758.1765463096-d081e1706",
-        "zod": "^4.1.13",
+        "zod": "catalog:",
       },
       "devDependencies": {
         "@types/bun": "latest",
