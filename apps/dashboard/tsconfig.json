@@ -26,6 +26,7 @@
 		"paths": {
 			"@/*": ["./src/*"],
 			"@nexus/*": ["../nexus/src/*"],
+			"@nexus-core/*": ["../nexus-core/src/*"],
 			"@elysiajs/*": ["../node_modules/@elysiajs/*"],
 			"elysia": ["../node_modules/elysia"],
 			"k8s": ["../k8s/src/index.ts"],

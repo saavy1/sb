@@ -1,6 +1,6 @@
 import { Elysia } from "elysia";
 import logger from "logger";
-import { type AppEventName, appEvents } from "../infra/events";
+import { type AppEventName, appEvents } from "@nexus-core/infra/events";
 import { autheliaMiddleware } from "../middleware/authelia";
 
 const log = logger.child({ module: "events-ws" });

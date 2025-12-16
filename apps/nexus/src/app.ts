@@ -5,7 +5,7 @@ import { openapi } from "@elysiajs/openapi";
 import { opentelemetry } from "@elysiajs/opentelemetry";
 import { Elysia } from "elysia";
 import logger from "logger";
-import { config } from "./infra/config";
+import { config } from "@nexus-core/infra/config";
 import { internalRoutes } from "./routes/internal";
 import { privateRoutes } from "./routes/private";
 import { publicRoutes } from "./routes/public";

@@ -1,8 +1,8 @@
 import { Elysia, t } from "elysia";
 import logger from "logger";
-import { triggerOperation } from "../domains/ops/functions";
-import { config } from "../infra/config";
-import { systemEventQueue } from "../infra/queue";
+import { triggerOperation } from "@nexus-core/domains/ops";
+import { config } from "@nexus-core/infra/config";
+import { systemEventQueue } from "@nexus-core/infra/queue";
 
 // Grafana webhook payload - permissive schema, we'll extract what we need
 // Grafana's actual payload structure can vary, so we accept any object and validate at runtime

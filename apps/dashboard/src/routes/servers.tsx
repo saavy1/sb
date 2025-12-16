@@ -1,5 +1,5 @@
-import type { GameServerType } from "@nexus/domains/game-servers/types";
-import type { MinecraftStatusPayloadType } from "@nexus/infra/events";
+import type { GameServerType } from "@nexus-core/domains/game-servers";
+import type { MinecraftStatusPayloadType } from "@nexus-core/infra/events";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
 	ChevronDown,

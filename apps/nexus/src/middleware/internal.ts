@@ -1,5 +1,5 @@
 import { Elysia } from "elysia";
-import { config } from "../infra/config";
+import { config } from "@nexus-core/infra/config";
 
 export const internalMiddleware = new Elysia({ name: "internal" })
 	.derive({ as: "scoped" }, ({ request }): { isInternal: boolean } => {

@@ -4,11 +4,11 @@ import {
 	startAgentWorker,
 	startEmbeddingsWorker,
 	startSystemEventsWorker,
-} from "./domains/agent/worker";
-import { config } from "./infra/config";
-import { closePubSub, initPubSub } from "./infra/pubsub";
-import { initializeQdrant } from "./infra/qdrant";
-import { closeQueues, redis } from "./infra/queue";
+} from "@nexus-core/domains/agent";
+import { config } from "@nexus-core/infra/config";
+import { closePubSub, initPubSub } from "@nexus-core/infra/pubsub";
+import { initializeQdrant } from "@nexus-core/infra/qdrant";
+import { closeQueues, redis } from "@nexus-core/infra/queue";
 
 // Initialize Qdrant collections (creates if not exists)
 try {

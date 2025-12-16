@@ -1,9 +1,8 @@
 import type { Job } from "bullmq";
 import { Elysia, t } from "elysia";
-import { createThread } from "../domains/agent/functions";
-import type { WakeJobDataType } from "../domains/agent/types";
-import { appEvents } from "../infra/events";
-import { agentWakeQueue, emitAllQueueStats, QUEUES, systemEventQueue } from "../infra/queue";
+import { createThread, type WakeJobDataType } from "@nexus-core/domains/agent";
+import { appEvents } from "@nexus-core/infra/events";
+import { agentWakeQueue, emitAllQueueStats, QUEUES, systemEventQueue } from "@nexus-core/infra/queue";
 
 const QueueStats = t.Object({
 	name: t.String(),

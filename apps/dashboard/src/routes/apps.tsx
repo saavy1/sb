@@ -1,4 +1,4 @@
-import type { AppCategoryType, AppWithStatusType } from "@nexus/domains/apps/types";
+import type { AppCategoryType, AppWithStatusType } from "@nexus-core/domains/apps";
 import { useForm } from "@tanstack/react-form";
 import { createFileRoute } from "@tanstack/react-router";
 import {
