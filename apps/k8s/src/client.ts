@@ -3,7 +3,7 @@
  * Uses Bun's fetch with TLS options for client certificate authentication.
  */
 
-import { readFileSync, existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import yaml from "js-yaml";
@@ -165,11 +165,7 @@ export class K8sClient {
 		return this.config.server;
 	}
 
-	private async request<T>(
-		method: string,
-		path: string,
-		body?: unknown
-	): Promise<T> {
+	private async request<T>(method: string, path: string, body?: unknown): Promise<T> {
 		const url = `${this.config.server}${path}`;
 
 		const headers: Record<string, string> = {
@@ -251,7 +247,10 @@ export class K8sClient {
 		);
 	}
 
-	async getDeployment(namespace: string, name: string): Promise<(Deployment & { status?: DeploymentStatus }) | null> {
+	async getDeployment(
+		namespace: string,
+		name: string
+	): Promise<(Deployment & { status?: DeploymentStatus }) | null> {
 		try {
 			return await this.request<Deployment & { status?: DeploymentStatus }>(
 				"GET",
@@ -263,7 +262,11 @@ export class K8sClient {
 		}
 	}
 
-	async updateDeployment(namespace: string, name: string, deployment: Deployment): Promise<Deployment> {
+	async updateDeployment(
+		namespace: string,
+		name: string,
+		deployment: Deployment
+	): Promise<Deployment> {
 		return this.request<Deployment>(
 			"PUT",
 			`/apis/apps/v1/namespaces/${namespace}/deployments/${name}`,
@@ -300,19 +303,12 @@ export class K8sClient {
 	// === Service operations ===
 
 	async createService(namespace: string, service: Service): Promise<Service> {
-		return this.request<Service>(
-			"POST",
-			`/api/v1/namespaces/${namespace}/services`,
-			service
-		);
+		return this.request<Service>("POST", `/api/v1/namespaces/${namespace}/services`, service);
 	}
 
 	async getService(namespace: string, name: string): Promise<Service | null> {
 		try {
-			return await this.request<Service>(
-				"GET",
-				`/api/v1/namespaces/${namespace}/services/${name}`
-			);
+			return await this.request<Service>("GET", `/api/v1/namespaces/${namespace}/services/${name}`);
 		} catch (err) {
 			if ((err as K8sError).status === 404) return null;
 			throw err;
@@ -329,10 +325,7 @@ export class K8sClient {
 
 	async deleteService(namespace: string, name: string): Promise<void> {
 		try {
-			await this.request<K8sStatus>(
-				"DELETE",
-				`/api/v1/namespaces/${namespace}/services/${name}`
-			);
+			await this.request<K8sStatus>("DELETE", `/api/v1/namespaces/${namespace}/services/${name}`);
 		} catch (err) {
 			if ((err as K8sError).status === 404) return;
 			throw err;

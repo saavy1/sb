@@ -21,7 +21,7 @@
  * ```
  */
 
-export { K8sClient, getK8sClient, isK8sError } from "./client";
+export { getK8sClient, isK8sError, K8sClient } from "./client";
 export type {
 	Container,
 	Deployment,

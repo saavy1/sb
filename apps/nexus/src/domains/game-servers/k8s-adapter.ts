@@ -1,9 +1,9 @@
 import {
 	type Deployment,
-	type K8sError,
-	type PersistentVolumeClaim,
 	getK8sClient,
 	isK8sError,
+	type K8sError,
+	type PersistentVolumeClaim,
 } from "k8s";
 import logger from "logger";
 import { config } from "../../infra/config";

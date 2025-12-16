@@ -5,6 +5,10 @@
   home.homeDirectory = "/home/saavy";
   home.stateVersion = "25.11";
 
+  home.sessionVariables = {
+    KUBECONFIG = "/etc/rancher/k3s/k3s.yaml";
+  };
+
   home.packages = with pkgs; [
     eza
     fd
