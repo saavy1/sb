@@ -1,8 +1,12 @@
 import { Elysia, t } from "elysia";
 import logger from "logger";
-import { createThreadFromAlert } from "../domains/agent/functions";
 import { triggerOperation } from "../domains/ops/functions";
 import { config } from "../infra/config";
+import { systemEventQueue } from "../infra/queue";
+
+// Grafana webhook payload - permissive schema, we'll extract what we need
+// Grafana's actual payload structure can vary, so we accept any object and validate at runtime
+const GrafanaPayload = t.Record(t.String(), t.Unknown());
 
 // Timing-safe comparison to prevent timing attacks
 function timingSafeEqual(a: string, b: string): boolean {
@@ -60,52 +64,21 @@ export const webhookRoutes = new Elysia({ prefix: "/webhooks" })
 	.post(
 		"/alertmanager",
 		async ({ body }) => {
-			const { status, alerts } = body;
+			// Log full payload for debugging
+			logger.info({ payload: body }, "Alertmanager webhook received");
 
-			// Only process firing alerts
-			if (status !== "firing") {
-				logger.info({ status, alertCount: alerts.length }, "Ignoring non-firing alert");
-				return { message: "Ignored", threadsCreated: 0 };
-			}
+			// Queue the event for processing by a worker
+			const job = await systemEventQueue.add("alertmanager-alert", {
+				type: "alertmanager-alert",
+				payload: body,
+				receivedAt: new Date().toISOString(),
+			});
 
-			const threadsCreated: string[] = [];
-
-			for (const alert of alerts) {
-				try {
-					const alertName = alert.labels.alertname || "Unknown";
-					const severity = alert.labels.severity || "warning";
-					const annotations = alert.annotations as Record<string, string> | undefined;
-					const description =
-						annotations?.description || annotations?.summary || `Alert: ${alertName}`;
-
-					const thread = await createThreadFromAlert({
-						alertName,
-						severity,
-						description,
-						labels: alert.labels,
-						annotations: annotations || {},
-						startsAt: alert.startsAt,
-						fingerprint: alert.fingerprint,
-						generatorURL: alert.generatorURL,
-					});
-
-					threadsCreated.push(thread.id);
-					logger.info(
-						{ threadId: thread.id, alertName, severity },
-						"Created agent thread for alert"
-					);
-				} catch (error) {
-					logger.error(
-						{ error, alert: alert.labels.alertname },
-						"Failed to create thread for alert"
-					);
-				}
-			}
+			logger.info({ jobId: job.id }, "Queued Alertmanager alert for processing");
 
 			return {
-				message: "Alerts processed",
-				threadsCreated: threadsCreated.length,
-				threadIds: threadsCreated,
+				message: "Alert queued",
+				jobId: job.id,
 			};
 		},
 		{
@@ -114,8 +87,7 @@ export const webhookRoutes = new Elysia({ prefix: "/webhooks" })
 			response: {
 				200: t.Object({
 					message: t.String(),
-					threadsCreated: t.Number(),
-					threadIds: t.Optional(t.Array(t.String())),
+					jobId: t.Optional(t.String()),
 				}),
 			},
 		}
@@ -175,6 +147,63 @@ export const webhookRoutes = new Elysia({ prefix: "/webhooks" })
 			}),
 			response: {
 				200: t.Object({ message: t.String() }),
+				401: t.Object({ message: t.String() }),
+				500: t.Object({ message: t.String() }),
+			},
+		}
+	)
+	.post(
+		"/grafana",
+		async ({ body, headers, set }) => {
+			const token = config.GRAFANA_WEBHOOK_TOKEN;
+
+			// Require token in production
+			if (!token) {
+				logger.error("GRAFANA_WEBHOOK_TOKEN not configured");
+				set.status = 500;
+				return { message: "Webhook not configured" };
+			}
+
+			// Verify bearer token
+			const authHeader = headers.authorization;
+			if (!authHeader?.startsWith("Bearer ")) {
+				logger.warn("Grafana webhook missing bearer token");
+				set.status = 401;
+				return { message: "Missing authorization" };
+			}
+
+			const providedToken = authHeader.slice(7);
+			if (!timingSafeEqual(providedToken, token)) {
+				logger.warn("Grafana webhook invalid token");
+				set.status = 401;
+				return { message: "Invalid token" };
+			}
+
+			// Log full payload for debugging
+			logger.info({ payload: body }, "Grafana webhook received");
+
+			// Queue the event for processing by a worker
+			const job = await systemEventQueue.add("grafana-alert", {
+				type: "grafana-alert",
+				payload: body,
+				receivedAt: new Date().toISOString(),
+			});
+
+			logger.info({ jobId: job.id }, "Queued Grafana alert for processing");
+
+			return {
+				message: "Alert queued",
+				jobId: job.id,
+			};
+		},
+		{
+			detail: { tags: ["Webhooks"], summary: "Grafana webhook for alert notifications" },
+			body: GrafanaPayload,
+			response: {
+				200: t.Object({
+					message: t.String(),
+					jobId: t.Optional(t.String()),
+				}),
 				401: t.Object({ message: t.String() }),
 				500: t.Object({ message: t.String() }),
 			},

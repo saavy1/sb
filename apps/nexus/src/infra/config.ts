@@ -32,6 +32,9 @@ export const config = {
 	OPS_FLAKE_TARGET: Bun.env.OPS_FLAKE_TARGET || "superbloom",
 	GITHUB_WEBHOOK_SECRET: Bun.env.GITHUB_WEBHOOK_SECRET,
 
+	// Grafana webhook for alerts
+	GRAFANA_WEBHOOK_TOKEN: Bun.env.GRAFANA_WEBHOOK_TOKEN,
+
 	// AI / OpenRouter
 	OPENROUTER_API_KEY: Bun.env.OPENROUTER_API_KEY,
 	AI_MODEL: Bun.env.AI_MODEL || "deepseek/deepseek-chat",

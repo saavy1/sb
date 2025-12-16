@@ -3,7 +3,11 @@
 	"version": "1.0.0",
 	"scripts": {
 		"dev": "bun run --watch src/index.ts | jq 'del(.hostname, .level, .pid, .time)'",
+		"dev:api": "MODE=api bun run --watch src/index.ts | jq 'del(.hostname, .level, .pid, .time)'",
+		"dev:worker": "MODE=worker bun run --watch src/index.ts | jq 'del(.hostname, .level, .pid, .time)'",
 		"start": "bun run src/index.ts",
+		"start:api": "MODE=api bun run src/index.ts",
+		"start:worker": "MODE=worker bun run src/index.ts",
 		"build": "bun build src/index.ts --outdir=dist --target=bun",
 		"typecheck": "tsc --noEmit",
 		"lint": "biome lint .",
