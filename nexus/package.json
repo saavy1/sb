@@ -25,6 +25,7 @@
 		"dev:bot": "turbo dev --filter=@nexus/bot",
 		"dev:workers": "turbo dev --filter='@nexus/worker-*'",
 		"build": "turbo run build",
+		"test": "turbo run test",
 		"typecheck": "turbo run typecheck",
 		"lint": "turbo run lint",
 		"lint:fix": "turbo run lint:fix",

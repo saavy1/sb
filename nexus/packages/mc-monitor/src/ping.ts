@@ -78,8 +78,9 @@ function buildPingPacket(timestamp: bigint): Uint8Array {
 
 /**
  * Parse description to plain text
+ * @internal Exported for testing
  */
-function parseDescription(desc: ServerStatusRaw["description"]): string {
+export function parseDescription(desc: ServerStatusRaw["description"]): string {
 	if (typeof desc === "string") {
 		return desc;
 	}
