@@ -51,38 +51,17 @@ export const systemInfoRoutes = new Elysia({ prefix: "/systemInfo" })
 	// WebSocket for live system stats
 	.ws("/live", {
 		open(ws) {
-			logger.debug("systemInfo WebSocket opened");
 			const send = async () => {
-				// Prevent overlapping sends
-				if (wsSending.has(ws)) {
-					logger.warn("Skipping systemInfo send - previous still in progress");
-					return;
-				}
+				// Prevent overlapping sends (if previous is still running, skip this tick)
+				if (wsSending.has(ws)) return;
 				wsSending.add(ws);
 
-				const start = Date.now();
 				try {
-					// Get stats (always fresh) and drives/databases (with retry + caching)
-					const statsStart = Date.now();
-					const stats = await getSystemStats();
-					const statsTime = Date.now() - statsStart;
-
-					const drivesStart = Date.now();
-					const drivesWithStats = await withRetry(() => listDrivesWithStats());
-					const drivesTime = Date.now() - drivesStart;
-
-					const dbStart = Date.now();
-					const databases = await getCachedDatabaseInfo();
-					const dbTime = Date.now() - dbStart;
-
-					const total = Date.now() - start;
-					if (total > 1000) {
-						logger.warn(
-							{ total, statsTime, drivesTime, dbTime },
-							"systemInfo send took over 1s"
-						);
-					}
-
+					const [stats, drivesWithStats, databases] = await Promise.all([
+						getSystemStats(),
+						withRetry(() => listDrivesWithStats()),
+						getCachedDatabaseInfo(),
+					]);
 					ws.send(JSON.stringify({ drives: drivesWithStats, stats, databases }));
 				} catch (error) {
 					logger.error({ error }, "Failed to send system overview");
@@ -94,7 +73,6 @@ export const systemInfoRoutes = new Elysia({ prefix: "/systemInfo" })
 			wsIntervals.set(ws, setInterval(send, STATS_INTERVAL_MS));
 		},
 		close(ws) {
-			logger.debug("systemInfo WebSocket closed");
 			const interval = wsIntervals.get(ws);
 			if (interval) {
 				clearInterval(interval);

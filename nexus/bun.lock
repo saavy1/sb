@@ -110,7 +110,6 @@
         "elysia": "catalog:",
         "ioredis": "catalog:",
         "openai": "^6.13.0",
-        "postgres": "^3.4.7",
         "zod": "catalog:",
       },
       "devDependencies": {

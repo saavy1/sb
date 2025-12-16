@@ -1,5 +1,5 @@
-import { drizzle } from "drizzle-orm/postgres-js";
-import postgres from "postgres";
+import { drizzle } from "drizzle-orm/bun-sql";
+import { SQL } from "bun";
 import logger from "@nexus/logger";
 import * as agentSchema from "../domains/agent/schema";
 import * as appsSchema from "../domains/apps/schema";
@@ -39,15 +39,10 @@ try {
 	log.info("Database URL configured");
 }
 
-// Create postgres client with connection pool
-export const pgClient = postgres(databaseUrl, {
-	max: 10, // Max connections in pool
-	idle_timeout: 30, // Close idle connections after 30 seconds
-	connect_timeout: 10, // 10 second connection timeout
-	onnotice: () => {}, // Suppress notice messages
-});
+// Create Bun SQL client
+export const pgClient = new SQL(databaseUrl);
 
-// All Drizzle instances share the same postgres client
+// All Drizzle instances share the same SQL client
 export const agentDb = drizzle(pgClient, { schema: agentSchema });
 export const appsDb = drizzle(pgClient, { schema: appsSchema });
 export const coreDb = drizzle(pgClient, { schema: coreSchema });
@@ -74,7 +69,7 @@ function isConnectionError(err: unknown): boolean {
 }
 
 // Helper for raw SQL queries with retry
-export async function withDb<T>(fn: (client: typeof pgClient) => Promise<T>): Promise<T> {
+export async function withDb<T>(fn: (client: SQL) => Promise<T>): Promise<T> {
 	try {
 		return await fn(pgClient);
 	} catch (err) {
@@ -116,10 +111,10 @@ export async function checkDatabaseHealth(): Promise<{ ok: boolean; latencyMs?: 
 	}
 }
 
-// Graceful shutdown - handle multiple signals for hot reload scenarios
+// Graceful shutdown
 async function cleanup() {
 	try {
-		await pgClient.end({ timeout: 3 });
+		pgClient.close();
 	} catch {
 		// Ignore cleanup errors
 	}
@@ -127,9 +122,3 @@ async function cleanup() {
 
 process.on("beforeExit", cleanup);
 process.on("exit", cleanup);
-
-// For Bun hot reload - these fire when the process is about to restart
-if (typeof Bun !== "undefined") {
-	// @ts-expect-error - Bun-specific
-	Bun.onBeforeUnload?.(cleanup);
-}
