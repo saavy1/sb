@@ -551,10 +551,9 @@ export async function getDatabaseInfo(): Promise<Static<typeof DatabaseInfo>[]> 
 		system_info: "system-info",
 	};
 
-	const schemaNames = Object.keys(schemaMap);
-
 	try {
 		// Query Postgres for schema sizes and row counts
+		// Note: Schema names are hardcoded in the query since Bun.sql doesn't support array parameters with ANY()
 		const result = await pgClient`
 			SELECT
 				n.nspname as schema_name,
@@ -562,7 +561,7 @@ export async function getDatabaseInfo(): Promise<Static<typeof DatabaseInfo>[]> 
 				COALESCE(SUM(CASE WHEN c.relkind = 'r' THEN c.reltuples ELSE 0 END), 0)::bigint as row_count
 			FROM pg_namespace n
 			LEFT JOIN pg_class c ON c.relnamespace = n.oid AND c.relkind IN ('r', 'i', 't')
-			WHERE n.nspname = ANY(${schemaNames})
+			WHERE n.nspname IN ('agent', 'apps', 'core', 'game_servers', 'ops', 'system_info')
 			GROUP BY n.nspname
 			ORDER BY n.nspname
 		`;
