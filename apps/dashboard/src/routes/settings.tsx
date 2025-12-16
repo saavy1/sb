@@ -1,6 +1,15 @@
 import type { SettingsResponseType } from "@nexus/domains/core/types";
 import { createFileRoute } from "@tanstack/react-router";
-import { CheckCircle, ChevronDown, ChevronRight, Loader2, Save, Wrench, XCircle, Zap } from "lucide-react";
+import {
+	CheckCircle,
+	ChevronDown,
+	ChevronRight,
+	Loader2,
+	Save,
+	Wrench,
+	XCircle,
+	Zap,
+} from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button, Input, Label, Panel, PanelRow } from "../components/ui";

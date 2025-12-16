@@ -1,5 +1,5 @@
-import type { MinecraftStatusPayloadType } from "@nexus/infra/events";
 import type { GameServerType } from "@nexus/domains/game-servers/types";
+import type { MinecraftStatusPayloadType } from "@nexus/infra/events";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
 	AlertTriangle,
@@ -20,7 +20,6 @@ import { Button, Panel, SkeletonStats, Sparkline, StatusDot } from "../component
 import { client } from "../lib/api";
 import { useConnection } from "../lib/ConnectionContext";
 import { useEvents } from "../lib/useEvents";
-
 
 export const Route = createFileRoute("/")({
 	component: HomePage,
@@ -329,9 +328,7 @@ function HomePage() {
 								</div>
 							)}
 							{mcStatus.latency !== undefined && (
-								<div className="mt-1 text-xs text-text-tertiary">
-									{mcStatus.latency}ms latency
-								</div>
+								<div className="mt-1 text-xs text-text-tertiary">{mcStatus.latency}ms latency</div>
 							)}
 						</div>
 					)}
