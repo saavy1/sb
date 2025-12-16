@@ -28,12 +28,14 @@ async function getQueueStats(queue: Queue) {
 
 // Emit stats for all queues (exported for use in routes)
 export async function emitAllQueueStats() {
-	const [agentStats, systemStats] = await Promise.all([
+	const [agentStats, systemStats, embeddingsStats] = await Promise.all([
 		getQueueStats(agentWakeQueue),
 		getQueueStats(systemEventQueue),
+		getQueueStats(embeddingsQueue),
 	]);
 	appEvents.emit("queue:stats:updated", agentStats);
 	appEvents.emit("queue:stats:updated", systemStats);
+	appEvents.emit("queue:stats:updated", embeddingsStats);
 }
 
 // Shared Redis connection for all queues
@@ -53,6 +55,7 @@ redis.on("error", (err) => {
 export const QUEUES = {
 	AGENT_WAKES: "agent-wakes",
 	EVENTS_SYSTEM: "events-system",
+	EMBEDDINGS: "embeddings",
 } as const;
 
 // Create queues
@@ -68,6 +71,14 @@ export const systemEventQueue = new Queue(QUEUES.EVENTS_SYSTEM, {
 	connection: redis,
 	defaultJobOptions: {
 		removeOnComplete: 100,
+		removeOnFail: 1000,
+	},
+});
+
+export const embeddingsQueue = new Queue(QUEUES.EMBEDDINGS, {
+	connection: redis,
+	defaultJobOptions: {
+		removeOnComplete: 500, // Keep more for embeddings (high volume)
 		removeOnFail: 1000,
 	},
 });
@@ -112,6 +123,7 @@ export async function closeQueues() {
 	log.info("Closing queue connections...");
 	await agentWakeQueue.close();
 	await systemEventQueue.close();
+	await embeddingsQueue.close();
 	await redis.quit();
 	log.info("Queue connections closed");
 }

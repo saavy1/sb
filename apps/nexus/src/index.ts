@@ -1,13 +1,26 @@
 import logger from "logger";
 import { app } from "./app";
-import { startAgentWorker, startSystemEventsWorker } from "./domains/agent/worker";
+import {
+	startAgentWorker,
+	startEmbeddingsWorker,
+	startSystemEventsWorker,
+} from "./domains/agent/worker";
 import { config } from "./infra/config";
+import { initializeQdrant } from "./infra/qdrant";
 import { closeQueues } from "./infra/queue";
+
+// Initialize Qdrant collections (creates if not exists)
+try {
+	await initializeQdrant();
+} catch (error) {
+	logger.warn({ error }, "Qdrant initialization failed - embeddings will be unavailable");
+}
 
 // Conditional startup based on MODE
 let server: ReturnType<typeof app.listen> | null = null;
 let agentWorker: Awaited<ReturnType<typeof startAgentWorker>> | null = null;
 let systemEventsWorker: Awaited<ReturnType<typeof startSystemEventsWorker>> | null = null;
+let embeddingsWorker: Awaited<ReturnType<typeof startEmbeddingsWorker>> | null = null;
 
 // Start API server if MODE is "api" or "both"
 if (config.MODE === "api" || config.MODE === "both") {
@@ -29,7 +42,12 @@ if (config.MODE === "api" || config.MODE === "both") {
 if (config.MODE === "worker" || config.MODE === "both") {
 	agentWorker = startAgentWorker();
 	systemEventsWorker = startSystemEventsWorker();
-	logger.info({ mode: config.MODE }, "Workers started (agent, system-events)");
+	embeddingsWorker = startEmbeddingsWorker();
+	const workersStarted = ["agent", "system-events"];
+	if (embeddingsWorker) {
+		workersStarted.push("embeddings");
+	}
+	logger.info({ mode: config.MODE, workers: workersStarted }, "Workers started");
 }
 
 logger.info({ mode: config.MODE }, "Nexus started");
@@ -42,6 +60,9 @@ async function shutdown(signal: string) {
 	}
 	if (systemEventsWorker) {
 		await systemEventsWorker.close();
+	}
+	if (embeddingsWorker) {
+		await embeddingsWorker.close();
 	}
 	await closeQueues();
 	if (server) {
