@@ -118,3 +118,56 @@ export const WakeJobData = t.Object({
 	reason: t.String(),
 });
 export type WakeJobDataType = typeof WakeJobData.static;
+
+// === System event job data ===
+
+export const SystemEventType = t.Union([
+	t.Literal("grafana-alert"),
+	t.Literal("alertmanager-alert"),
+]);
+export type SystemEventTypeValue = typeof SystemEventType.static;
+
+export const SystemEventJob = t.Object({
+	type: SystemEventType,
+	payload: t.Record(t.String(), t.Unknown()),
+	receivedAt: t.String(),
+});
+export type SystemEventJobType = typeof SystemEventJob.static;
+
+// Grafana alert structure (from webhook payload)
+export const GrafanaAlert = t.Object({
+	status: t.String(),
+	labels: t.Record(t.String(), t.String()),
+	annotations: t.Optional(t.Record(t.String(), t.String())),
+	startsAt: t.String(),
+	fingerprint: t.String(),
+	generatorURL: t.Optional(t.String()),
+	dashboardURL: t.Optional(t.String()),
+	panelURL: t.Optional(t.String()),
+	silenceURL: t.Optional(t.String()),
+	valueString: t.Optional(t.String()),
+});
+
+export const GrafanaAlertPayload = t.Object({
+	status: t.String(),
+	alerts: t.Array(GrafanaAlert),
+	title: t.Optional(t.String()),
+	message: t.Optional(t.String()),
+});
+export type GrafanaAlertPayloadType = typeof GrafanaAlertPayload.static;
+
+// Alertmanager alert structure
+export const AlertmanagerAlert = t.Object({
+	status: t.String(),
+	labels: t.Record(t.String(), t.String()),
+	annotations: t.Optional(t.Record(t.String(), t.String())),
+	startsAt: t.String(),
+	fingerprint: t.String(),
+	generatorURL: t.Optional(t.String()),
+});
+
+export const AlertmanagerPayload = t.Object({
+	status: t.String(),
+	alerts: t.Array(AlertmanagerAlert),
+});
+export type AlertmanagerPayloadType = typeof AlertmanagerPayload.static;

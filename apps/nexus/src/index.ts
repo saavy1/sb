@@ -1,12 +1,13 @@
 import logger from "logger";
 import { app } from "./app";
-import { startAgentWorker } from "./domains/agent/worker";
+import { startAgentWorker, startSystemEventsWorker } from "./domains/agent/worker";
 import { config } from "./infra/config";
 import { closeQueues } from "./infra/queue";
 
 // Conditional startup based on MODE
 let server: ReturnType<typeof app.listen> | null = null;
 let agentWorker: Awaited<ReturnType<typeof startAgentWorker>> | null = null;
+let systemEventsWorker: Awaited<ReturnType<typeof startSystemEventsWorker>> | null = null;
 
 // Start API server if MODE is "api" or "both"
 if (config.MODE === "api" || config.MODE === "both") {
@@ -24,10 +25,11 @@ if (config.MODE === "api" || config.MODE === "both") {
 	logger.info(`OpenAPI docs at http://${server.server?.hostname}:${server.server?.port}/openapi`);
 }
 
-// Start worker if MODE is "worker" or "both"
+// Start workers if MODE is "worker" or "both"
 if (config.MODE === "worker" || config.MODE === "both") {
 	agentWorker = startAgentWorker();
-	logger.info({ mode: config.MODE }, "Agent worker started");
+	systemEventsWorker = startSystemEventsWorker();
+	logger.info({ mode: config.MODE }, "Workers started (agent, system-events)");
 }
 
 logger.info({ mode: config.MODE }, "Nexus started");
@@ -37,6 +39,9 @@ async function shutdown(signal: string) {
 	logger.info(`Received ${signal}, shutting down...`);
 	if (agentWorker) {
 		await agentWorker.close();
+	}
+	if (systemEventsWorker) {
+		await systemEventsWorker.close();
 	}
 	await closeQueues();
 	if (server) {
