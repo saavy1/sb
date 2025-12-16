@@ -8,6 +8,7 @@ COPY nexus/package.json ./nexus/
 COPY dashboard/package.json ./dashboard/
 COPY the-machine/package.json ./the-machine/
 COPY logger/package.json ./logger/
+COPY k8s/package.json ./k8s/
 
 # Install ALL dependencies (including dev) for build
 # --ignore-scripts skips postinstall scripts that may fail on arm64
@@ -32,13 +33,15 @@ COPY nexus/package.json ./nexus/
 COPY dashboard/package.json ./dashboard/
 COPY the-machine/package.json ./the-machine/
 COPY logger/package.json ./logger/
+COPY k8s/package.json ./k8s/
 
 # Install production dependencies only
 # --ignore-scripts skips postinstall scripts that may fail on arm64
 RUN bun install --frozen-lockfile --production --ignore-scripts
 
-# Copy source code (only nexus and logger needed at runtime)
+# Copy source code (nexus, logger, and k8s needed at runtime)
 COPY logger ./logger/
+COPY k8s ./k8s/
 COPY nexus ./nexus/
 
 # Copy built dashboard from builder stage
