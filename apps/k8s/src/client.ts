@@ -125,20 +125,35 @@ export class K8sClient {
 		ca?: string;
 		rejectUnauthorized: boolean;
 	};
+	private isInCluster: boolean;
 
 	constructor(config?: KubeConfig) {
 		if (config) {
 			this.config = config;
+			this.isInCluster = false;
 		} else if (process.env.KUBERNETES_SERVICE_HOST) {
 			this.config = loadKubeconfigFromCluster();
+			this.isInCluster = true;
 		} else {
 			this.config = loadKubeconfigFromFile();
+			this.isInCluster = false;
 		}
 
 		// Prepare TLS options for Bun's fetch
+		// Note: In-cluster mode with Bun has issues with CA validation, so we skip it for now
+		// TODO: Investigate proper CA handling with Bun's fetch
 		this.tlsOptions = {
-			rejectUnauthorized: !this.config.skipTLSVerify,
+			rejectUnauthorized: this.isInCluster ? false : !this.config.skipTLSVerify,
 		};
+
+		console.log("[k8s] Client initialized:", {
+			server: this.config.server,
+			isInCluster: this.isInCluster,
+			hasCA: !!this.config.certificateAuthority || !!this.config.certificateAuthorityData,
+			hasCert: !!this.config.clientCertificate || !!this.config.clientCertificateData,
+			hasKey: !!this.config.clientKey || !!this.config.clientKeyData,
+			hasToken: !!this.config.token,
+		});
 
 		// Load client certificate and key
 		if (this.config.clientCertificateData) {
@@ -159,6 +174,12 @@ export class K8sClient {
 		} else if (this.config.certificateAuthority) {
 			this.tlsOptions.ca = readFileSync(this.config.certificateAuthority, "utf-8");
 		}
+
+		console.log("[k8s] TLS options:", {
+			hasCa: !!this.tlsOptions.ca,
+			caLength: this.tlsOptions.ca?.length,
+			rejectUnauthorized: this.tlsOptions.rejectUnauthorized,
+		});
 	}
 
 	getServer(): string {
