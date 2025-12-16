@@ -20,6 +20,7 @@ export default defineConfig({
 		alias: {
 			"@": fileURLToPath(new URL("./src", import.meta.url)),
 			"@nexus": fileURLToPath(new URL("../nexus/src", import.meta.url)),
+			"@nexus-core": fileURLToPath(new URL("../nexus-core/src", import.meta.url)),
 		},
 	},
 });
