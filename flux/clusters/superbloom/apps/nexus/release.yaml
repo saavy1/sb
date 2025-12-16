@@ -26,7 +26,7 @@ spec:
             command:
               - bun
               - run
-              - src/infra/migrate.ts
+              - src/migrate.ts
             env:
               DB_PATH: /app/db
             envFrom:
