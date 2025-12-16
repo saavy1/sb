@@ -135,24 +135,38 @@ export const SystemEventJob = t.Object({
 export type SystemEventJobType = typeof SystemEventJob.static;
 
 // Grafana alert structure (from webhook payload)
+// Based on actual Grafana Cloud webhook payload
 export const GrafanaAlert = t.Object({
-	status: t.String(),
+	status: t.String(), // "firing" | "resolved"
 	labels: t.Record(t.String(), t.String()),
 	annotations: t.Optional(t.Record(t.String(), t.String())),
-	startsAt: t.String(),
-	fingerprint: t.String(),
+	startsAt: t.String(), // ISO timestamp
+	endsAt: t.Optional(t.String()), // ISO timestamp, "0001-01-01T00:00:00Z" when not resolved
 	generatorURL: t.Optional(t.String()),
+	fingerprint: t.String(),
+	silenceURL: t.Optional(t.String()),
 	dashboardURL: t.Optional(t.String()),
 	panelURL: t.Optional(t.String()),
-	silenceURL: t.Optional(t.String()),
-	valueString: t.Optional(t.String()),
+	values: t.Optional(t.Nullable(t.Record(t.String(), t.Unknown()))),
+	valueString: t.Optional(t.String()), // e.g. "[ metric='foo' labels={instance=bar} value=10 ]"
 });
+export type GrafanaAlertType = typeof GrafanaAlert.static;
 
 export const GrafanaAlertPayload = t.Object({
-	status: t.String(),
+	receiver: t.Optional(t.String()), // Contact point name, e.g. "webhook"
+	status: t.String(), // "firing" | "resolved"
 	alerts: t.Array(GrafanaAlert),
-	title: t.Optional(t.String()),
-	message: t.Optional(t.String()),
+	groupLabels: t.Optional(t.Record(t.String(), t.String())),
+	commonLabels: t.Optional(t.Record(t.String(), t.String())),
+	commonAnnotations: t.Optional(t.Record(t.String(), t.String())),
+	externalURL: t.Optional(t.String()), // Alertmanager URL
+	version: t.Optional(t.String()), // "1"
+	groupKey: t.Optional(t.String()), // e.g. "webhook-57c6d9296de2ad39-1765846417"
+	truncatedAlerts: t.Optional(t.Number()), // Number of alerts truncated
+	orgId: t.Optional(t.Number()), // Grafana org ID
+	title: t.Optional(t.String()), // e.g. "[FIRING:1] TestAlert Grafana"
+	state: t.Optional(t.String()), // "alerting" | "ok" | "pending" | "nodata"
+	message: t.Optional(t.String()), // Formatted alert message with labels/annotations
 });
 export type GrafanaAlertPayloadType = typeof GrafanaAlertPayload.static;
 
