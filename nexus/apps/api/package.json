@@ -23,11 +23,10 @@
 		"@elysiajs/static": "^1.1.1",
 		"@nexus/core": "workspace:*",
 		"@nexus/logger": "workspace:*",
+		"bullmq": "catalog:",
 		"elysia": "catalog:"
 	},
 	"devDependencies": {
-		"@biomejs/biome": "catalog:",
-		"bullmq": "^5.66.0",
 		"bun-types": "catalog:",
 		"typescript": "catalog:"
 	},

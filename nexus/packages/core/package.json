@@ -23,7 +23,7 @@
 		"@qdrant/js-client-rest": "^1.16.2",
 		"@tanstack/ai": "^0.0.3",
 		"@tanstack/ai-openai": "^0.0.3",
-		"bullmq": "^5.66.0",
+		"bullmq": "catalog:",
 		"drizzle-orm": "^0.45.1",
 		"elysia": "catalog:",
 		"ioredis": "^5.8.2",
