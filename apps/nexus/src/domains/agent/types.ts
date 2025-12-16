@@ -185,3 +185,14 @@ export const AlertmanagerPayload = t.Object({
 	alerts: t.Array(AlertmanagerAlert),
 });
 export type AlertmanagerPayloadType = typeof AlertmanagerPayload.static;
+
+// === Embeddings job data ===
+
+export const EmbeddingJobData = t.Object({
+	threadId: t.String(),
+	messageId: t.String(),
+	role: t.Union([t.Literal("user"), t.Literal("assistant"), t.Literal("system")]),
+	content: t.String(),
+	createdAt: t.String(), // ISO timestamp
+});
+export type EmbeddingJobDataType = typeof EmbeddingJobData.static;

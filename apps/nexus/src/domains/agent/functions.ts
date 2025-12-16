@@ -6,7 +6,7 @@ import { generateConversationTitle } from "../../infra/ai";
 import { config } from "../../infra/config";
 import { notify } from "../../infra/discord";
 import { appEvents } from "../../infra/events";
-import { agentWakeQueue } from "../../infra/queue";
+import { agentWakeQueue, embeddingsQueue } from "../../infra/queue";
 import { runWithToolContext, withTool } from "../../infra/tools";
 import { appTools } from "../apps/functions";
 import { getAiModel } from "../core/functions";
@@ -17,6 +17,7 @@ import { agentRepository } from "./repository";
 import type { AgentThread } from "./schema";
 import type {
 	ChatMessageType,
+	EmbeddingJobDataType,
 	ThreadMessageType,
 	ThreadSourceType,
 	WakeJobDataType,
@@ -100,6 +101,36 @@ function parseDelay(delay: string): number {
 		d: 86400_000,
 	};
 	return parseInt(amount, 10) * multipliers[unit];
+}
+
+/**
+ * Queue a message for embedding generation.
+ * Skips tool messages and empty content.
+ */
+async function queueEmbedding(
+	threadId: string,
+	messageId: string,
+	role: "user" | "assistant" | "system",
+	content: string
+): Promise<void> {
+	// Skip empty or very short content
+	if (!content || content.trim().length < 10) {
+		return;
+	}
+
+	try {
+		await embeddingsQueue.add("embedding", {
+			threadId,
+			messageId,
+			role,
+			content,
+			createdAt: new Date().toISOString(),
+		} satisfies EmbeddingJobDataType);
+		log.debug({ threadId, messageId, role }, "Queued embedding job");
+	} catch (err) {
+		// Don't fail the main flow if embedding queue fails
+		log.warn({ err, threadId, messageId }, "Failed to queue embedding job");
+	}
 }
 
 // === Meta-tools (agent lifecycle control) ===
@@ -335,6 +366,8 @@ export async function runAgentLoop(
 			content: trigger.content,
 			done: true,
 		});
+		// Queue embedding for user message
+		queueEmbedding(thread.id, userMsgId, "user", trigger.content);
 	} else {
 		// Wake trigger - inject as system message
 		const wakeMsgId = generateId();
@@ -351,6 +384,8 @@ export async function runAgentLoop(
 			content: wakeContent,
 			done: true,
 		});
+		// Queue embedding for system/wake message
+		queueEmbedding(thread.id, wakeMsgId, "system", wakeContent);
 	}
 
 	// Clear wake state if this was a wake
@@ -454,6 +489,10 @@ export async function runAgentLoop(
 							content: assistantMessage.content || "",
 							done: true,
 						});
+						// Queue embedding for assistant message before tool call
+						if (assistantMessage.content) {
+							queueEmbedding(thread.id, currentMessageId, "assistant", assistantMessage.content);
+						}
 
 						// Create new message for post-tool response
 						currentMessageId = generateId();
@@ -506,6 +545,8 @@ export async function runAgentLoop(
 					content: response,
 					done: true,
 				});
+				// Queue embedding for final assistant response
+				queueEmbedding(thread.id, currentMessageId, "assistant", response);
 
 				llmMessages.push({
 					role: "assistant" as const,

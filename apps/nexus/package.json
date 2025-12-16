@@ -29,6 +29,7 @@
 		"@elysiajs/opentelemetry": "^1.4.9",
 		"@elysiajs/static": "^1.1.1",
 		"@kubernetes/client-node": "^1.4.0",
+		"@qdrant/js-client-rest": "^1.16.2",
 		"@tanstack/ai": "^0.0.3",
 		"@tanstack/ai-openai": "^0.0.3",
 		"bullmq": "^5.66.0",
@@ -36,6 +37,7 @@
 		"elysia": "catalog:",
 		"ioredis": "^5.8.2",
 		"logger": "workspace:*",
+		"openai": "^6.13.0",
 		"postgres": "^3.4.7",
 		"zod": "^4.1.13"
 	},
