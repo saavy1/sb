@@ -150,6 +150,19 @@
         "typescript": "catalog:",
       },
     },
+    "nexus-embeddings-worker": {
+      "name": "nexus-embeddings-worker",
+      "version": "1.0.0",
+      "dependencies": {
+        "logger": "workspace:*",
+        "nexus-core": "workspace:*",
+      },
+      "devDependencies": {
+        "@biomejs/biome": "catalog:",
+        "bun-types": "catalog:",
+        "typescript": "catalog:",
+      },
+    },
     "nexus-mc-monitor": {
       "name": "nexus-mc-monitor",
       "version": "1.0.0",
@@ -1184,6 +1197,8 @@
     "nexus-agent-worker": ["nexus-agent-worker@workspace:nexus-agent-worker"],
 
     "nexus-core": ["nexus-core@workspace:nexus-core"],
+
+    "nexus-embeddings-worker": ["nexus-embeddings-worker@workspace:nexus-embeddings-worker"],
 
     "nexus-mc-monitor": ["nexus-mc-monitor@workspace:nexus-mc-monitor"],
 
