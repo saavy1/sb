@@ -41,8 +41,8 @@
 
       fr = "flux reconcile kustomization flux-system -n flux-system --with-source";
       krr = "kubectl rollout restart deployment -n";
-      nr = "nixos-rebuild switch --flake .#polyphony";
-      nrs = "nixos-rebuild switch --flake .#polyphony --fast";
+      nr = "nixos-rebuild switch --flake .#superbloom";
+      nrs = "nixos-rebuild switch --flake .#superbloom --fast";
     };
 
     oh-my-zsh = {
