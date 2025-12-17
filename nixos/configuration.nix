@@ -13,6 +13,7 @@
       ./modules/k3s.nix
       ./modules/firewall.nix
       ./modules/intel-gpu.nix
+      ./modules/zfs-nas.nix
     ];
 
   # Bootloader.
@@ -21,4 +22,7 @@
   boot.loader.grub.useOSProber = true;
 
   networking.hostName = "superbloom"; # Define your hostname.
+
+  # Required for ZFS - generate with: head -c 8 /etc/machine-id
+  networking.hostId = "a8c07cb4";
 }
