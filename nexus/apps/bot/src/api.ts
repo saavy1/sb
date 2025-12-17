@@ -9,3 +9,6 @@ export const client = treaty<App>(config.ELYSIA_API_URL, {
 // Convenience exports
 export const gameServers = client.api.gameServers;
 export const health = client.health;
+export const systemInfo = client.api.systemInfo;
+export const apps = client.api.apps;
+export const ops = client.api.ops;
