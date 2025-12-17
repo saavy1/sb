@@ -6,8 +6,8 @@
   boot.zfs.forceImportRoot = false;
   boot.zfs.forceImportAll = false;
 
-  # Don't use latest kernel if ZFS doesn't support it yet
-  boot.kernelPackages = config.boot.zfs.package.latestCompatibleLinuxPackages;
+  # Use LTS kernel for ZFS compatibility
+  boot.kernelPackages = pkgs.linuxPackages;
 
   # ZFS auto-scrubbing (monthly by default)
   services.zfs.autoScrub = {
@@ -32,10 +32,9 @@
     interval = "weekly";
   };
 
-  # Install ZFS utilities
+  # Install ZFS utilities (zpool iostat is included in zfs package)
   environment.systemPackages = with pkgs; [
     zfs
-    zpool-iostat
   ];
 
   # Networking configuration for NFS over Tailscale

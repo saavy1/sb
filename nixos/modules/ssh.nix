@@ -1,11 +1,7 @@
 {
-  services.openssh = {
-    enable = true;
-    listenAddresses = [
-      {
-        addr = "100.66.91.56";
-        port = 22;
-      }
-    ];
+  systemd.services.sshd = {
+    after = [ "tailscaled.service" ];
+    wants = [ "tailscaled.service" ];
   };
+  services.openssh.enable = true;
 }
