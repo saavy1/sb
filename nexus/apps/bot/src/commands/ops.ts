@@ -21,8 +21,12 @@ const log = logger.child({ module: "ops-command" });
 export const opsCommand = new ChatInputCommandBuilder()
 	.setName("ops")
 	.setDescription("Infrastructure operations")
-	.addSubcommands((sub) => sub.setName("status").setDescription("Check infrastructure connectivity"))
-	.addSubcommands((sub) => sub.setName("reconcile").setDescription("Trigger Flux GitOps reconciliation"))
+	.addSubcommands((sub) =>
+		sub.setName("status").setDescription("Check infrastructure connectivity")
+	)
+	.addSubcommands((sub) =>
+		sub.setName("reconcile").setDescription("Trigger Flux GitOps reconciliation")
+	)
 	.addSubcommands((sub) => sub.setName("rebuild").setDescription("Trigger NixOS system rebuild"))
 	.addSubcommands((sub) => sub.setName("history").setDescription("Show recent operations"));
 
@@ -175,7 +179,9 @@ async function handleReconcile(interaction: ChatInputCommandInteraction) {
 					new EmbedBuilder()
 						.setColor(COLORS.SUCCESS)
 						.setTitle("✓ Reconcile Started")
-						.setDescription(`Operation ID: \`${data.id}\`\n\nUse \`/ops history\` to check status.`),
+						.setDescription(
+							`Operation ID: \`${data.id}\`\n\nUse \`/ops history\` to check status.`
+						),
 				],
 			});
 		} else {
@@ -229,7 +235,9 @@ async function handleRebuild(interaction: ChatInputCommandInteraction) {
 			new EmbedBuilder()
 				.setColor(COLORS.WARNING)
 				.setTitle("⚠ Confirm NixOS Rebuild")
-				.setDescription("This will trigger a full NixOS system rebuild.\n\n**Warning:** This may cause brief service interruptions."),
+				.setDescription(
+					"This will trigger a full NixOS system rebuild.\n\n**Warning:** This may cause brief service interruptions."
+				),
 		],
 		components: [row],
 		flags: MessageFlags.Ephemeral,
@@ -279,7 +287,9 @@ async function handleRebuild(interaction: ChatInputCommandInteraction) {
 					new EmbedBuilder()
 						.setColor(COLORS.SUCCESS)
 						.setTitle("✓ Rebuild Started")
-						.setDescription(`Operation ID: \`${data.id}\`\n\nUse \`/ops history\` to check status.`),
+						.setDescription(
+							`Operation ID: \`${data.id}\`\n\nUse \`/ops history\` to check status.`
+						),
 				],
 			});
 		} else {

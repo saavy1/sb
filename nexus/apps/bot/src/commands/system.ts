@@ -7,11 +7,11 @@ import { ChatInputCommandBuilder, type ChatInputCommandInteraction } from "disco
 import { client } from "../api";
 import {
 	COLORS,
+	errorEmbed,
 	formatBytes,
 	formatPercent,
 	machineEmbed,
 	progressBar,
-	errorEmbed,
 } from "../utils/embeds";
 
 const log = logger.child({ module: "system-command" });
