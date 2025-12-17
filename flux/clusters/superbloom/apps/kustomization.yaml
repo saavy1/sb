@@ -5,6 +5,7 @@ resources:
   - postgres/
   - qdrant/
   - nexus/
+  - nexus-box/
   - nexus-agent-worker/
   - nexus-embeddings-worker/
   - nexus-mc-monitor/

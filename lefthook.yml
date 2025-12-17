@@ -2,8 +2,8 @@ pre-push:
   parallel: true
   jobs:
     - name: check
-      root: apps/
-      run: bunx --bun biome check .
+      root: nexus/
+      run: bun check
     - name: typecheck
-      root: apps/
-      run: bun run typecheck
+      root: nexus/
+      run: bun typecheck
