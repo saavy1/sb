@@ -69,7 +69,9 @@ export async function handleAppsCommand(interaction: ChatInputCommandInteraction
 
 		// Build app list
 		const appLines = apps.map((app) => {
-			const emoji = statusEmoji(app.status === "up" ? "healthy" : app.status === "down" ? "error" : "unknown");
+			const emoji = statusEmoji(
+				app.status === "up" ? "healthy" : app.status === "down" ? "error" : "unknown"
+			);
 			const url = app.url ? ` • [${new URL(app.url).hostname}](${app.url})` : "";
 			return `${emoji} **${app.name}**${url}`;
 		});
