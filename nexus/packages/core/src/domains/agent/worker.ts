@@ -305,6 +305,10 @@ export function startEmbeddingsWorker() {
 	return worker;
 }
 
+// Discord embed color for agent responses (purple)
+const AGENT_COLOR = 0x8b5cf6;
+const ERROR_COLOR = 0xef4444;
+
 /**
  * Start the Discord asks worker.
  * This processes /ask commands from Discord and replies with agent responses.
@@ -327,18 +331,28 @@ export function startDiscordAsksWorker() {
 				// Run the agent loop
 				const { response } = await sendMessage(threadId, content);
 
-				// Truncate response if too long for Discord (max 2000 chars for content)
+				// Truncate response if too long for Discord embed (max 4096 chars for description)
 				const truncatedResponse =
-					response.length > 1900 ? `${response.slice(0, 1897)}...` : response;
+					response.length > 4000 ? `${response.slice(0, 3997)}...` : response;
 
-				// Edit the deferred reply via Discord REST API
+				// Edit the deferred reply via Discord REST API with a pretty embed
 				const webhookUrl = `https://discord.com/api/v10/webhooks/${applicationId}/${interactionToken}/messages/@original`;
 
+				const durationMs = Date.now() - startTime;
 				const discordResponse = await fetch(webhookUrl, {
 					method: "PATCH",
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({
-						content: truncatedResponse,
+						content: "",
+						embeds: [
+							{
+								author: { name: "The Machine" },
+								description: truncatedResponse,
+								color: AGENT_COLOR,
+								footer: { text: `Thread: ${threadId} • ${(durationMs / 1000).toFixed(1)}s` },
+								timestamp: new Date().toISOString(),
+							},
+						],
 					}),
 				});
 
@@ -356,7 +370,6 @@ export function startDiscordAsksWorker() {
 					throw new Error(`Discord API error: ${discordResponse.status} - ${errorText}`);
 				}
 
-				const durationMs = Date.now() - startTime;
 				log.info(
 					{
 						jobId: job.id,
@@ -370,14 +383,23 @@ export function startDiscordAsksWorker() {
 				const durationMs = Date.now() - startTime;
 				log.error({ err, jobId: job.id, threadId, durationMs }, "Discord ask job failed");
 
-				// Try to notify the user of the error
+				// Try to notify the user of the error with a pretty error embed
 				try {
 					const webhookUrl = `https://discord.com/api/v10/webhooks/${applicationId}/${interactionToken}/messages/@original`;
 					await fetch(webhookUrl, {
 						method: "PATCH",
 						headers: { "Content-Type": "application/json" },
 						body: JSON.stringify({
-							content: "Sorry, I encountered an error processing your request. Please try again.",
+							content: "",
+							embeds: [
+								{
+									title: "✗ Error",
+									description:
+										"Sorry, I encountered an error processing your request. Please try again.",
+									color: ERROR_COLOR,
+									timestamp: new Date().toISOString(),
+								},
+							],
 						}),
 					});
 				} catch {
