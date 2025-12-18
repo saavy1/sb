@@ -35,7 +35,7 @@ export const config = {
 
 	// AI / OpenRouter
 	OPENROUTER_API_KEY: Bun.env.OPENROUTER_API_KEY,
-	AI_MODEL: Bun.env.AI_MODEL || "anthropic/claude-haiku-4",
+	AI_MODEL: Bun.env.AI_MODEL || "deepseek/deepseek-v3.2",
 	AI_MODELS: Bun.env.AI_MODELS, // Additional models (format: "id:name:provider,id:name:provider")
 
 	// OpenAI (for embeddings)

@@ -1,6 +1,7 @@
 import type { GameServerType } from "@nexus/core/domains/game-servers";
 import type {
 	DirectorySizeType,
+	QdrantInfoType,
 	ZfsPoolStatusType,
 	ZfsPoolType,
 } from "@nexus/core/domains/system-info";
@@ -8,6 +9,7 @@ import type { MinecraftStatusPayloadType } from "@nexus/core/infra/events";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
 	AlertTriangle,
+	Boxes,
 	CheckCircle2,
 	ChevronDown,
 	ChevronUp,
@@ -49,6 +51,7 @@ function HomePage() {
 	const [zfsPools, setZfsPools] = useState<ZfsPoolType[]>([]);
 	const [zfsPoolStatus, setZfsPoolStatus] = useState<ZfsPoolStatusType | null>(null);
 	const [directorySizes, setDirectorySizes] = useState<DirectorySizeType[]>([]);
+	const [qdrantInfo, setQdrantInfo] = useState<QdrantInfoType | null>(null);
 
 	// Subscribe to Minecraft status events via WebSocket
 	useEvents("minecraft:status", (payload) => {
@@ -119,13 +122,32 @@ function HomePage() {
 		}
 	}, []);
 
+	const fetchQdrantInfo = useCallback(async () => {
+		try {
+			const { data } = await client.api.systemInfo.qdrant.get();
+			if (data) {
+				setQdrantInfo(data);
+			}
+		} catch (error) {
+			console.error("Failed to fetch Qdrant info:", error);
+		}
+	}, []);
+
 	useEffect(() => {
 		fetchServers();
 		fetchSuggestions();
 		fetchMinecraftStatus(); // Initial fetch, then WebSocket takes over
 		fetchZfsPools();
 		fetchDirectorySizes();
-	}, [fetchServers, fetchSuggestions, fetchMinecraftStatus, fetchZfsPools, fetchDirectorySizes]);
+		fetchQdrantInfo();
+	}, [
+		fetchServers,
+		fetchSuggestions,
+		fetchMinecraftStatus,
+		fetchZfsPools,
+		fetchDirectorySizes,
+		fetchQdrantInfo,
+	]);
 
 	const handleStart = async (name: string) => {
 		toast.promise(client.api.gameServers({ name }).start.post(), {
@@ -614,6 +636,72 @@ function HomePage() {
 					) : (
 						<div className="text-center py-4 text-text-tertiary text-sm">
 							No directory data available
+						</div>
+					)}
+				</Panel>
+
+				{/* Qdrant (Vector DB) Panel */}
+				<Panel
+					title={`Qdrant${qdrantInfo?.totalPoints ? ` (${qdrantInfo.totalPoints.toLocaleString()} vectors)` : ""}`}
+					actions={
+						<button
+							type="button"
+							onClick={fetchQdrantInfo}
+							className="p-1 rounded hover:bg-surface-elevated text-text-tertiary"
+							title="Refresh"
+						>
+							<RefreshCw size={12} />
+						</button>
+					}
+				>
+					{qdrantInfo ? (
+						<div className="space-y-2">
+							<div className="flex items-center gap-2 text-sm">
+								<span
+									className={`w-2 h-2 rounded-full ${qdrantInfo.healthy ? "bg-success" : "bg-error"}`}
+								/>
+								<span className="text-text-secondary">
+									{qdrantInfo.healthy ? "Connected" : "Disconnected"}
+								</span>
+								{qdrantInfo.totalDiskSizeFormatted && (
+									<span className="text-xs text-text-tertiary ml-auto">
+										~{qdrantInfo.totalDiskSizeFormatted}
+									</span>
+								)}
+							</div>
+							{qdrantInfo.collections.length > 0 ? (
+								<div className="space-y-1">
+									{qdrantInfo.collections.map((col) => (
+										<div
+											key={col.name}
+											className="flex items-center justify-between py-1.5 px-2 -mx-2 bg-surface-elevated/30 rounded"
+										>
+											<div className="flex items-center gap-2">
+												<Boxes size={12} className="text-text-tertiary" />
+												<span className="text-sm">{col.name}</span>
+												<span
+													className={`text-xs px-1 py-0.5 rounded ${
+														col.status === "green"
+															? "bg-success-bg text-success"
+															: "bg-warning-bg text-warning"
+													}`}
+												>
+													{col.status}
+												</span>
+											</div>
+											<div className="text-xs text-text-tertiary tabular-nums">
+												{col.pointsCount.toLocaleString()} pts
+											</div>
+										</div>
+									))}
+								</div>
+							) : (
+								<div className="text-xs text-text-tertiary">No collections</div>
+							)}
+						</div>
+					) : (
+						<div className="text-center py-4 text-text-tertiary text-sm">
+							Loading Qdrant info...
 						</div>
 					)}
 				</Panel>

@@ -1,5 +1,6 @@
 import { QdrantClient } from "@qdrant/js-client-rest";
 import logger from "@nexus/logger";
+import type { QdrantCollectionInfoType, QdrantInfoType } from "../domains/system-info/types";
 import { config } from "./config";
 
 const log = logger.child({ module: "qdrant" });
@@ -73,5 +74,63 @@ export async function checkQdrantHealth(): Promise<boolean> {
 		return true;
 	} catch {
 		return false;
+	}
+}
+
+function formatBytes(bytes: number): string {
+	if (bytes === 0) return "0 B";
+	const k = 1024;
+	const sizes = ["B", "KB", "MB", "GB", "TB"];
+	const i = Math.floor(Math.log(bytes) / Math.log(k));
+	return `${parseFloat((bytes / k ** i).toFixed(2))} ${sizes[i]}`;
+}
+
+/**
+ * Get Qdrant collection statistics for dashboard.
+ */
+export async function getQdrantInfo(): Promise<QdrantInfoType> {
+	try {
+		const collectionsResponse = await qdrant.getCollections();
+		const collections: QdrantCollectionInfoType[] = [];
+		let totalPoints = 0;
+		let totalDiskSize = 0;
+
+		for (const col of collectionsResponse.collections) {
+			try {
+				const info = await qdrant.getCollection(col.name);
+				const diskSize = (info.points_count ?? 0) * EMBEDDING_DIMENSION * 4; // Rough estimate: 4 bytes per float32
+
+				collections.push({
+					name: col.name,
+					pointsCount: info.points_count ?? 0,
+					segmentsCount: info.segments_count ?? 0,
+					status: info.status,
+					diskSizeBytes: diskSize,
+					diskSizeFormatted: formatBytes(diskSize),
+				});
+
+				totalPoints += info.points_count ?? 0;
+				totalDiskSize += diskSize;
+			} catch (err) {
+				log.warn({ err, collection: col.name }, "Failed to get collection info");
+			}
+		}
+
+		return {
+			healthy: true,
+			collections,
+			totalPoints,
+			totalDiskSize,
+			totalDiskSizeFormatted: formatBytes(totalDiskSize),
+		};
+	} catch (error) {
+		log.error({ error }, "Failed to get Qdrant info");
+		return {
+			healthy: false,
+			collections: [],
+			totalPoints: 0,
+			totalDiskSize: 0,
+			totalDiskSizeFormatted: "0 B",
+		};
 	}
 }
