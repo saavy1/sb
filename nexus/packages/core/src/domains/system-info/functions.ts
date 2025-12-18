@@ -687,7 +687,7 @@ function formatBytesZfs(bytes: number): string {
 export async function getZfsPools(): Promise<ZfsPoolType[]> {
 	const result = await executeZpool("list -Hp -o name,health,size,alloc,free,frag,cap");
 	if (!result.success) {
-		logger.error({ error: result.errorMessage }, "Failed to get ZFS pools");
+		logger.error({ error: result.errorMessage, output: result.output }, "Failed to get ZFS pools");
 		return [];
 	}
 
@@ -722,7 +722,7 @@ export async function getZfsPoolStatus(poolName: string): Promise<ZfsPoolStatusT
 
 	const result = await executeZpool(`status ${poolName}`);
 	if (!result.success) {
-		logger.error({ error: result.errorMessage, poolName }, "Failed to get ZFS pool status");
+		logger.error({ error: result.errorMessage, output: result.output, poolName }, "Failed to get ZFS pool status");
 		return null;
 	}
 
@@ -830,7 +830,7 @@ export async function getZfsPoolStatus(poolName: string): Promise<ZfsPoolStatusT
 export async function getZfsDatasets(): Promise<ZfsDatasetType[]> {
 	const result = await executeZfs("list -Hp -o name,used,avail,refer,compressratio,mountpoint");
 	if (!result.success) {
-		logger.error({ error: result.errorMessage }, "Failed to get ZFS datasets");
+		logger.error({ error: result.errorMessage, output: result.output }, "Failed to get ZFS datasets");
 		return [];
 	}
 
@@ -869,7 +869,7 @@ export async function getZfsIostat(poolName: string): Promise<ZfsIostatType | nu
 	// Get a single iostat sample (get 2 samples, 1 second apart, use the second one for actual throughput)
 	const result = await executeZpool(`iostat -Hp ${poolName} 1 2`);
 	if (!result.success) {
-		logger.error({ error: result.errorMessage, poolName }, "Failed to get ZFS iostat");
+		logger.error({ error: result.errorMessage, output: result.output, poolName }, "Failed to get ZFS iostat");
 		return null;
 	}
 
