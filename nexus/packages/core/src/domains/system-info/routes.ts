@@ -6,20 +6,30 @@ import {
 	deleteDrive,
 	getDrive,
 	getDatabaseInfo,
+	getDirectorySizes,
 	getSuggestedDrives,
 	getSystemStats,
+	getZfsDatasets,
+	getZfsIostat,
+	getZfsPools,
+	getZfsPoolStatus,
 	listDrivesWithStats,
 	updateDrive,
 } from "./functions";
 import {
 	ApiError,
 	CreateDriveRequest,
+	DirectorySize,
 	Drive,
 	DriveIdParam,
 	DriveWithStats,
 	SuggestedDrive,
 	SystemOverview,
 	UpdateDriveRequest,
+	ZfsDataset,
+	ZfsIostat,
+	ZfsPool,
+	ZfsPoolStatus,
 } from "./types";
 
 const STATS_INTERVAL_MS = 2000;
@@ -228,5 +238,106 @@ export const systemInfoRoutes = new Elysia({ prefix: "/systemInfo" })
 			},
 			params: DriveIdParam,
 			response: { 200: t.Object({ success: t.Boolean() }), 400: ApiError, 404: ApiError },
+		}
+	)
+
+	// === ZFS Routes ===
+
+	// List all ZFS pools
+	.get(
+		"/zfs/pools",
+		async () => {
+			return await getZfsPools();
+		},
+		{
+			detail: {
+				tags: ["System Info", "ZFS"],
+				summary: "List ZFS pools with health and capacity",
+			},
+			response: { 200: t.Array(ZfsPool) },
+		}
+	)
+
+	// Get detailed status for a ZFS pool
+	.get(
+		"/zfs/pools/:name/status",
+		async ({ params, set }) => {
+			const status = await getZfsPoolStatus(params.name);
+			if (!status) {
+				set.status = 404;
+				return { error: "Pool not found" };
+			}
+			return status;
+		},
+		{
+			detail: {
+				tags: ["System Info", "ZFS"],
+				summary: "Get detailed ZFS pool status including drives and scrub info",
+			},
+			params: t.Object({ name: t.String() }),
+			response: { 200: ZfsPoolStatus, 404: ApiError },
+		}
+	)
+
+	// Get ZFS pool I/O stats
+	.get(
+		"/zfs/pools/:name/iostat",
+		async ({ params, set }) => {
+			const iostat = await getZfsIostat(params.name);
+			if (!iostat) {
+				set.status = 404;
+				return { error: "Pool not found or iostat unavailable" };
+			}
+			return iostat;
+		},
+		{
+			detail: {
+				tags: ["System Info", "ZFS"],
+				summary: "Get ZFS pool I/O statistics",
+			},
+			params: t.Object({ name: t.String() }),
+			response: { 200: ZfsIostat, 404: ApiError },
+		}
+	)
+
+	// List all ZFS datasets
+	.get(
+		"/zfs/datasets",
+		async () => {
+			return await getZfsDatasets();
+		},
+		{
+			detail: {
+				tags: ["System Info", "ZFS"],
+				summary: "List ZFS datasets with usage and compression",
+			},
+			response: { 200: t.Array(ZfsDataset) },
+		}
+	)
+
+	// Get directory sizes
+	.get(
+		"/zfs/directories",
+		async ({ query, set }) => {
+			const path = query.path || "/tank";
+			const depth = query.depth ? parseInt(query.depth, 10) : 2;
+
+			const sizes = await getDirectorySizes(path, depth);
+			if (sizes.length === 0) {
+				set.status = 400;
+				return { error: "Path not allowed or no data available" };
+			}
+			return sizes;
+		},
+		{
+			detail: {
+				tags: ["System Info", "ZFS"],
+				summary: "Get directory sizes (du equivalent)",
+			},
+			query: t.Object({
+				path: t.Optional(t.String()),
+				depth: t.Optional(t.String()),
+			}),
+			response: { 200: t.Array(DirectorySize), 400: ApiError },
 		}
 	);
