@@ -601,13 +601,8 @@ function HomePage() {
 										style={{ paddingLeft: `${depth * 12 + 4}px` }}
 									>
 										<div className="flex items-center gap-1.5 min-w-0">
-											<Folder
-												size={12}
-												className={isRoot ? "text-accent" : "text-text-tertiary"}
-											/>
-											<span className={`truncate ${isRoot ? "font-medium" : ""}`}>
-												{name}
-											</span>
+											<Folder size={12} className={isRoot ? "text-accent" : "text-text-tertiary"} />
+											<span className={`truncate ${isRoot ? "font-medium" : ""}`}>{name}</span>
 										</div>
 										<span className="text-xs text-text-tertiary tabular-nums ml-2">
 											{dir.sizeFormatted}
