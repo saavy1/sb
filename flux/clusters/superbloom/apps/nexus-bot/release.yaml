@@ -28,6 +28,8 @@ spec:
               ELYSIA_API_URL: http://nexus.nexus.svc.cluster.local:3000
             envFrom:
               - secretRef:
+                  name: nexus-env
+              - secretRef:
                   name: nexus-bot-env
     service:
       main:
