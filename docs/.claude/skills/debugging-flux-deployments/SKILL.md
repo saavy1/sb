@@ -223,6 +223,55 @@ kubectl describe pod <pod> -n <namespace> | grep -A5 "Events"
 - Verify image tag is correct
 - Check imagePullSecrets if private registry
 
+### Exec Format Error (Corrupted Image Cache)
+
+**Symptom**: Container crashes with `exec /usr/local/bin/<binary>: exec format error`
+
+**Cause**: Containerd cached a wrong-architecture image (common with multi-arch `latest` tags)
+
+**Diagnosis**:
+```bash
+kubectl logs -n <namespace> <pod> -c <container>
+# Shows "exec format error"
+
+# Check cached images
+ssh superbloom "sudo ctr --address /run/k3s/containerd/containerd.sock -n k8s.io images ls | grep <image>"
+```
+
+**Fix**: Remove corrupted image from containerd cache:
+```bash
+ssh superbloom "sudo ctr --address /run/k3s/containerd/containerd.sock -n k8s.io images rm <image>:<tag>"
+
+# Delete pods to force fresh pull
+kubectl delete pod -n <namespace> -l app.kubernetes.io/instance=<app>
+```
+
+**Prevention**: Pin to specific version tags instead of `latest` for sidecars like Tailscale.
+
+### Container Exits Immediately (Exit Code 0)
+
+**Symptom**: Container shows `Completed` with exit code 0, restarts in CrashLoopBackOff
+
+**Cause**: Often a Docker build issue - source files are empty (0 bytes)
+
+**Diagnosis**:
+```bash
+# Check file sizes in image
+kubectl run debug --rm -it --image=<image>:<tag> -- ls -la /app/src/
+# If files show 0 bytes, the build is broken
+```
+
+**Fix**: Rebuild with cache disabled:
+```yaml
+# In .github/workflows/<app>.yml
+- name: Build and push
+  uses: docker/build-push-action@v5
+  with:
+    no-cache: true  # Temporarily disable cache
+```
+
+After successful rebuild, re-enable caching.
+
 ## Useful Patterns
 
 ### Watch Resources

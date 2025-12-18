@@ -178,6 +178,23 @@ persistence:
       - path: /cache
 ```
 
+## Post-Deploy: Certificate Provisioning
+
+After adding a new domain, **restart Caddy** so it provisions the TLS certificate:
+
+```bash
+# Restart Caddy to trigger cert provisioning
+kubectl rollout restart deployment/caddy -n caddy-system
+
+# Watch logs for certificate acquisition
+kubectl logs deployment/caddy -n caddy-system -f | grep -E "(obtain|certificate|watch)"
+```
+
+If cert fails with 520 error:
+1. Check DDNS logs: `kubectl logs deployment/ddns -n ddns`
+2. Verify DNS points to correct IP: `dig +short <subdomain>.saavylab.dev`
+3. Restart DDNS if needed: `kubectl rollout restart deployment/ddns -n ddns`
+
 ## Debugging
 
 ```bash
