@@ -5,7 +5,7 @@ resources:
   - postgres/
   - qdrant/
   - nexus/
-  - nexus-box/
+  - nexus-bot/
   - nexus-agent-worker/
   - nexus-embeddings-worker/
   - nexus-mc-monitor/
