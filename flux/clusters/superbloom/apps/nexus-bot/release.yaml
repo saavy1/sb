@@ -26,6 +26,7 @@ spec:
             env:
               NODE_ENV: production
               ELYSIA_API_URL: http://nexus.nexus.svc.cluster.local:3000
+              VALKEY_URL: redis://valkey.valkey.svc.cluster.local:6379
             envFrom:
               - secretRef:
                   name: nexus-env
