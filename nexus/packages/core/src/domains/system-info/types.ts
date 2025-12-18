@@ -162,3 +162,110 @@ export const SuggestedDrive = t.Object({
 export const ApiError = t.Object({
 	error: t.String(),
 });
+
+// === ZFS schemas ===
+
+export const ZfsPoolHealth = t.Union([
+	t.Literal("ONLINE"),
+	t.Literal("DEGRADED"),
+	t.Literal("FAULTED"),
+	t.Literal("OFFLINE"),
+	t.Literal("UNAVAIL"),
+	t.Literal("REMOVED"),
+]);
+export type ZfsPoolHealthType = typeof ZfsPoolHealth.static;
+
+export const ZfsPool = t.Object({
+	name: t.String(),
+	health: ZfsPoolHealth,
+	size: t.Number(), // bytes
+	allocated: t.Number(), // bytes
+	free: t.Number(), // bytes
+	fragmentation: t.Number(), // percentage
+	capacity: t.Number(), // percentage used
+	sizeFormatted: t.String(),
+	allocatedFormatted: t.String(),
+	freeFormatted: t.String(),
+});
+export type ZfsPoolType = typeof ZfsPool.static;
+
+export const ZfsDriveStatus = t.Object({
+	name: t.String(),
+	state: t.String(), // ONLINE, DEGRADED, FAULTED, etc.
+	read: t.Number(), // error count
+	write: t.Number(), // error count
+	cksum: t.Number(), // checksum error count
+});
+export type ZfsDriveStatusType = typeof ZfsDriveStatus.static;
+
+export const ZfsVdev = t.Object({
+	type: t.String(), // raidz2, mirror, etc.
+	state: t.String(),
+	drives: t.Array(ZfsDriveStatus),
+});
+export type ZfsVdevType = typeof ZfsVdev.static;
+
+export const ZfsScrubStatus = t.Object({
+	state: t.Union([t.Literal("none"), t.Literal("scrubbing"), t.Literal("completed")]),
+	progress: t.Optional(t.Number()), // percentage if scrubbing
+	scanned: t.Optional(t.String()),
+	issued: t.Optional(t.String()),
+	speed: t.Optional(t.String()),
+	errors: t.Number(),
+	lastCompleted: t.Optional(t.String()), // date string
+	duration: t.Optional(t.String()),
+});
+export type ZfsScrubStatusType = typeof ZfsScrubStatus.static;
+
+export const ZfsPoolStatus = t.Object({
+	name: t.String(),
+	state: t.String(),
+	status: t.Optional(t.String()), // status message if any
+	action: t.Optional(t.String()), // recommended action if any
+	scan: ZfsScrubStatus,
+	vdevs: t.Array(ZfsVdev),
+	errors: t.String(), // "No known data errors" or error description
+});
+export type ZfsPoolStatusType = typeof ZfsPoolStatus.static;
+
+export const ZfsDataset = t.Object({
+	name: t.String(),
+	used: t.Number(), // bytes
+	available: t.Number(), // bytes
+	referenced: t.Number(), // bytes
+	compressRatio: t.Number(), // e.g., 1.5 means 1.5x compression
+	mountpoint: t.String(),
+	usedFormatted: t.String(),
+	availableFormatted: t.String(),
+});
+export type ZfsDatasetType = typeof ZfsDataset.static;
+
+export const ZfsIostat = t.Object({
+	pool: t.String(),
+	readOps: t.Number(), // operations per second
+	writeOps: t.Number(),
+	readBandwidth: t.Number(), // bytes per second
+	writeBandwidth: t.Number(),
+	readBandwidthFormatted: t.String(),
+	writeBandwidthFormatted: t.String(),
+});
+export type ZfsIostatType = typeof ZfsIostat.static;
+
+export const DirectorySize = t.Object({
+	path: t.String(),
+	sizeBytes: t.Number(),
+	sizeFormatted: t.String(),
+});
+export type DirectorySizeType = typeof DirectorySize.static;
+
+export const DriveSmartStatus = t.Object({
+	device: t.String(),
+	model: t.String(),
+	serial: t.String(),
+	healthy: t.Boolean(),
+	temperature: t.Optional(t.Number()), // Celsius
+	powerOnHours: t.Optional(t.Number()),
+	reallocatedSectors: t.Optional(t.Number()),
+	pendingSectors: t.Optional(t.Number()),
+	uncorrectableSectors: t.Optional(t.Number()),
+});
