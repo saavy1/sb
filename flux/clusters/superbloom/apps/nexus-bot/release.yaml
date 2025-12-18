@@ -20,7 +20,7 @@ spec:
         containers:
           main:
             image:
-              repository: ghcr.io/sb/the-machine
+              repository: ghcr.io/saavy1/nexus-bot
               tag: latest
               pullPolicy: Always
             env:

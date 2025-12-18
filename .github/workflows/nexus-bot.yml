@@ -1,4 +1,4 @@
-name: Build The Machine
+name: Build Nexus Bot
 
 on:
   push:
@@ -7,14 +7,14 @@ on:
       - "nexus/apps/bot/**"
       - "nexus/packages/logger/**"
       - "nexus/package.json"
-      - ".github/workflows/the-machine.yml"
+      - ".github/workflows/nexus-bot.yml"
   schedule:
     - cron: "0 0 * * 0"
   workflow_dispatch:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository_owner }}/the-machine
+  IMAGE_NAME: ${{ github.repository_owner }}/nexus-bot
 
 jobs:
   build-and-push:
