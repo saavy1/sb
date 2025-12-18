@@ -40,6 +40,8 @@
     fluxcd
     jq
     curl
+    pciutils  # lspci
+    usbutils  # lsusb
   ];
 
   programs.zsh.enable = true;

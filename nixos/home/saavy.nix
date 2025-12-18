@@ -18,6 +18,7 @@
     kubectl
     kubernetes-helm
     ripgrep
+    tmux
   ];
 
   programs.home-manager.enable = true;

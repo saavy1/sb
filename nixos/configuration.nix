@@ -13,7 +13,7 @@
       ./modules/k3s.nix
       ./modules/firewall.nix
       ./modules/intel-gpu.nix
-      ./modules/zfs-nas.nix
+      ./modules/zfs.nix
     ];
 
   # Bootloader.
