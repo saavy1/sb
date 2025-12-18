@@ -20,7 +20,7 @@ export const DEFAULT_MODELS = [
 	{ id: "anthropic/claude-sonnet-4.5", name: "Claude Sonnet 4.5", provider: "Anthropic" },
 	{ id: "anthropic/claude-haiku-4.5", name: "Claude Haiku 4.5", provider: "Anthropic" },
 	{ id: "google/gemini-2.5-flash-lite", name: "Gemini 2.5 Flash Lite", provider: "Google" },
-	{ id: "google/gemini-3.0-flash-preview", name: "Gemini 3.0 Flash Preview", provider: "Google" },
+	{ id: "google/gemini-3-flash-preview", name: "Gemini 3 Flash Preview", provider: "Google" },
 ] as const;
 
 // === API schemas ===
