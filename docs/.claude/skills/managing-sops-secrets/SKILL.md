@@ -212,6 +212,39 @@ kubectl get secret sops-age -n flux-system
 flux reconcile kustomization flux-system --with-source
 ```
 
+### "expected string, got &value.valueUnstructured{Value:...}"
+
+**Cause**: SOPS preserved a numeric type. Look for `type:int` in the encrypted value:
+```yaml
+DISCORD_CLIENT_ID: ENC[AES256_GCM,data:...,type:int]  # ← problem
+```
+
+When decrypted, this becomes a number, but `stringData` requires strings.
+
+**Fix**: Re-encrypt as string:
+```bash
+cd flux
+sops clusters/superbloom/apps/<app>/secrets.yaml
+# In editor, ensure the value is quoted: "1234567890"
+# Save - SOPS will re-encrypt with type:str
+```
+
+Or decrypt, fix, re-encrypt:
+```bash
+sops -d clusters/superbloom/apps/<app>/secrets.yaml > /tmp/secrets.yaml
+# Edit /tmp/secrets.yaml - quote numeric values: "1234567890"
+cp /tmp/secrets.yaml clusters/superbloom/apps/<app>/secrets.yaml
+sops --encrypt --in-place clusters/superbloom/apps/<app>/secrets.yaml
+rm /tmp/secrets.yaml
+```
+
+**Prevention**: Always quote values that look like numbers:
+```yaml
+stringData:
+  DISCORD_CLIENT_ID: "1325902250497020000"  # ← quoted = string
+  PORT: "3000"                               # ← quoted = string
+```
+
 ## Security Notes
 
 - Never commit plaintext secrets
