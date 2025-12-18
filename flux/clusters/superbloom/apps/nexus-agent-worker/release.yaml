@@ -44,7 +44,7 @@ spec:
           tailscale:
             image:
               repository: ghcr.io/tailscale/tailscale
-              tag: latest
+              tag: v1.78.1
             env:
               TS_HOSTNAME: nexus-agent-worker
               TS_STATE_DIR: /var/lib/tailscale
