@@ -10,3 +10,4 @@ resources:
   - nexus-embeddings-worker/
   - nexus-mc-monitor/
   - game-servers/
+  - jellyfin/

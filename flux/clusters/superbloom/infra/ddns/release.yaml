@@ -25,7 +25,7 @@ spec:
               tag: latest
               pullPolicy: IfNotPresent
             env:
-              DOMAINS: saavylab.dev,mc.saavylab.dev,auth.saavylab.dev,nexus.saavylab.dev
+              DOMAINS: saavylab.dev,mc.saavylab.dev,auth.saavylab.dev,nexus.saavylab.dev,watch.saavylab.dev
               PROXIED: "true"
             envFrom:
               - secretRef:

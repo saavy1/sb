@@ -34,6 +34,11 @@ data:
         }
     }
 
+    # Jellyfin - no forward_auth (uses built-in auth, easier for TVs/Xbox)
+    watch.saavylab.dev {
+        reverse_proxy jellyfin.jellyfin.svc.cluster.local:8096
+    }
+
     # Health endpoint (optional - for k8s probes on the caddy service itself)
     :80 {
         respond /health 200
