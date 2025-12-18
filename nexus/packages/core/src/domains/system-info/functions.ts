@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm";
 import type { Static } from "elysia";
 import logger from "@nexus/logger";
 import { z } from "zod";
+import { config } from "../../infra/config";
 import { systemInfoDb, withDb } from "../../infra/db";
 import { withTool } from "../../infra/tools";
 import type { DriveRecord } from "./schema";
@@ -13,6 +14,7 @@ import type {
 	CpuStats,
 	CpuTimesType,
 	DatabaseInfo,
+	DirectorySizeType,
 	DiskStats,
 	GpuStats,
 	MemoryStats,
@@ -21,6 +23,12 @@ import type {
 	NetworkStats,
 	RawSampleType,
 	SystemStats,
+	ZfsDatasetType,
+	ZfsIostatType,
+	ZfsPoolStatusType,
+	ZfsPoolType,
+	ZfsScrubStatusType,
+	ZfsVdevType,
 } from "./types";
 
 // === Module-level state ===
@@ -664,4 +672,437 @@ export const getDrivesTool = withTool(
 	}
 );
 
-export const systemInfoTools = [getSystemStatsTool.tool, getDrivesTool.tool];
+// === SSH execution for ZFS commands ===
+
+const sshHost = config.OPS_SSH_HOST;
+const sshUser = config.OPS_SSH_USER;
+
+interface CommandResult {
+	success: boolean;
+	output: string;
+	errorMessage?: string;
+}
+
+async function executeSSH(command: string): Promise<CommandResult> {
+	try {
+		const result = await $`ssh -o ConnectTimeout=30 ${sshUser}@${sshHost} ${command}`.quiet();
+		return {
+			success: true,
+			output: result.stdout.toString() + result.stderr.toString(),
+		};
+	} catch (error) {
+		const err = error as { stdout?: Buffer; stderr?: Buffer; message?: string };
+		const output = (err.stdout?.toString() || "") + (err.stderr?.toString() || "");
+		return {
+			success: false,
+			output,
+			errorMessage: err.message || "SSH command failed",
+		};
+	}
+}
+
+function formatBytesZfs(bytes: number): string {
+	if (bytes === 0) return "0 B";
+	const k = 1024;
+	const sizes = ["B", "KB", "MB", "GB", "TB", "PB"];
+	const i = Math.floor(Math.log(bytes) / Math.log(k));
+	return `${parseFloat((bytes / k ** i).toFixed(2))} ${sizes[i]}`;
+}
+
+// === ZFS Pool Functions ===
+
+export async function getZfsPools(): Promise<ZfsPoolType[]> {
+	const result = await executeSSH("zpool list -Hp -o name,health,size,alloc,free,frag,cap");
+	if (!result.success) {
+		logger.error({ error: result.errorMessage }, "Failed to get ZFS pools");
+		return [];
+	}
+
+	const pools: ZfsPoolType[] = [];
+	for (const line of result.output.trim().split("\n")) {
+		if (!line.trim()) continue;
+		const [name, health, size, allocated, free, frag, cap] = line.split("\t");
+		if (!name) continue;
+
+		pools.push({
+			name,
+			health: health as ZfsPoolType["health"],
+			size: parseInt(size, 10),
+			allocated: parseInt(allocated, 10),
+			free: parseInt(free, 10),
+			fragmentation: parseInt(frag, 10),
+			capacity: parseInt(cap, 10),
+			sizeFormatted: formatBytesZfs(parseInt(size, 10)),
+			allocatedFormatted: formatBytesZfs(parseInt(allocated, 10)),
+			freeFormatted: formatBytesZfs(parseInt(free, 10)),
+		});
+	}
+	return pools;
+}
+
+export async function getZfsPoolStatus(poolName: string): Promise<ZfsPoolStatusType | null> {
+	// Validate pool name to prevent injection
+	if (!/^[a-zA-Z0-9_-]+$/.test(poolName)) {
+		logger.warn({ poolName }, "Invalid pool name");
+		return null;
+	}
+
+	const result = await executeSSH(`zpool status ${poolName}`);
+	if (!result.success) {
+		logger.error({ error: result.errorMessage, poolName }, "Failed to get ZFS pool status");
+		return null;
+	}
+
+	const output = result.output;
+	const lines = output.split("\n");
+
+	// Parse basic info
+	let state = "UNKNOWN";
+	let status: string | undefined;
+	let action: string | undefined;
+	let errors = "No known data errors";
+
+	const stateMatch = output.match(/state:\s*(\w+)/);
+	if (stateMatch) state = stateMatch[1];
+
+	const statusMatch = output.match(/status:\s*(.+?)(?=action:|config:|$)/s);
+	if (statusMatch) status = statusMatch[1].trim();
+
+	const actionMatch = output.match(/action:\s*(.+?)(?=see:|config:|$)/s);
+	if (actionMatch) action = actionMatch[1].trim();
+
+	const errorsMatch = output.match(/errors:\s*(.+)/);
+	if (errorsMatch) errors = errorsMatch[1].trim();
+
+	// Parse scrub status
+	const scan: ZfsScrubStatusType = { state: "none", errors: 0 };
+	const scanSection = output.match(/scan:\s*(.+?)(?=config:|$)/s);
+	if (scanSection) {
+		const scanText = scanSection[1];
+		if (scanText.includes("scrub in progress")) {
+			scan.state = "scrubbing";
+			const progressMatch = scanText.match(/([\d.]+)%\s*done/);
+			if (progressMatch) scan.progress = parseFloat(progressMatch[1]);
+			const speedMatch = scanText.match(/(\d+\.?\d*\s*[KMGT]?B\/s)/);
+			if (speedMatch) scan.speed = speedMatch[1];
+		} else if (scanText.includes("scrub repaired") || scanText.includes("scrub canceled")) {
+			scan.state = "completed";
+			const dateMatch = scanText.match(/on\s+(.+)/);
+			if (dateMatch) scan.lastCompleted = dateMatch[1].trim();
+			const errorsMatch = scanText.match(/(\d+)\s+errors/);
+			if (errorsMatch) scan.errors = parseInt(errorsMatch[1], 10);
+			const durationMatch = scanText.match(/after\s+([\dhms]+)/);
+			if (durationMatch) scan.duration = durationMatch[1];
+		}
+	}
+
+	// Parse vdevs and drives
+	const vdevs: ZfsVdevType[] = [];
+	let inConfig = false;
+	let currentVdev: ZfsVdevType | null = null;
+
+	for (const line of lines) {
+		if (line.includes("NAME") && line.includes("STATE")) {
+			inConfig = true;
+			continue;
+		}
+		if (!inConfig || !line.trim()) continue;
+
+		// Detect vdev lines (raidz2, mirror, etc.)
+		const vdevMatch = line.match(/^\s+(raidz\d?|mirror|spare|log|cache|special)\s+(\w+)/i);
+		if (vdevMatch || line.match(new RegExp(`^\\s+${poolName}\\s+(\\w+)`))) {
+			if (currentVdev) vdevs.push(currentVdev);
+
+			if (vdevMatch) {
+				currentVdev = { type: vdevMatch[1], state: vdevMatch[2], drives: [] };
+			} else {
+				// Pool-level line
+				const poolMatch = line.match(new RegExp(`^\\s+${poolName}\\s+(\\w+)`));
+				if (poolMatch) {
+					currentVdev = { type: "pool", state: poolMatch[1], drives: [] };
+				}
+			}
+			continue;
+		}
+
+		// Detect drive lines (by-id paths or device names)
+		const driveMatch = line.match(
+			/^\s{4,}([\w/-]+)\s+(ONLINE|DEGRADED|FAULTED|OFFLINE|UNAVAIL|REMOVED)\s+(\d+)\s+(\d+)\s+(\d+)/
+		);
+		if (driveMatch && currentVdev) {
+			currentVdev.drives.push({
+				name: driveMatch[1],
+				state: driveMatch[2],
+				read: parseInt(driveMatch[3], 10),
+				write: parseInt(driveMatch[4], 10),
+				cksum: parseInt(driveMatch[5], 10),
+			});
+		}
+	}
+	if (currentVdev) vdevs.push(currentVdev);
+
+	return {
+		name: poolName,
+		state,
+		status,
+		action,
+		scan,
+		vdevs,
+		errors,
+	};
+}
+
+// === ZFS Dataset Functions ===
+
+export async function getZfsDatasets(): Promise<ZfsDatasetType[]> {
+	const result = await executeSSH("zfs list -Hp -o name,used,avail,refer,compressratio,mountpoint");
+	if (!result.success) {
+		logger.error({ error: result.errorMessage }, "Failed to get ZFS datasets");
+		return [];
+	}
+
+	const datasets: ZfsDatasetType[] = [];
+	for (const line of result.output.trim().split("\n")) {
+		if (!line.trim()) continue;
+		const [name, used, avail, refer, ratio, mountpoint] = line.split("\t");
+		if (!name) continue;
+
+		const usedBytes = parseInt(used, 10);
+		const availBytes = parseInt(avail, 10);
+
+		datasets.push({
+			name,
+			used: usedBytes,
+			available: availBytes,
+			referenced: parseInt(refer, 10),
+			compressRatio: parseFloat(ratio.replace("x", "")),
+			mountpoint: mountpoint || "-",
+			usedFormatted: formatBytesZfs(usedBytes),
+			availableFormatted: formatBytesZfs(availBytes),
+		});
+	}
+	return datasets;
+}
+
+// === ZFS I/O Stats ===
+
+export async function getZfsIostat(poolName: string): Promise<ZfsIostatType | null> {
+	// Validate pool name
+	if (!/^[a-zA-Z0-9_-]+$/.test(poolName)) {
+		logger.warn({ poolName }, "Invalid pool name");
+		return null;
+	}
+
+	// Get a single iostat sample (skip header with -y, get 1 sample after 1 second)
+	const result = await executeSSH(`zpool iostat -Hp ${poolName} 1 2 | tail -1`);
+	if (!result.success) {
+		logger.error({ error: result.errorMessage, poolName }, "Failed to get ZFS iostat");
+		return null;
+	}
+
+	const line = result.output.trim();
+	if (!line) return null;
+
+	// Format: name alloc free read_ops write_ops read_bw write_bw
+	const parts = line.split("\t");
+	if (parts.length < 7) return null;
+
+	const readBw = parseInt(parts[5], 10);
+	const writeBw = parseInt(parts[6], 10);
+
+	return {
+		pool: poolName,
+		readOps: parseInt(parts[3], 10),
+		writeOps: parseInt(parts[4], 10),
+		readBandwidth: readBw,
+		writeBandwidth: writeBw,
+		readBandwidthFormatted: formatBytesZfs(readBw) + "/s",
+		writeBandwidthFormatted: formatBytesZfs(writeBw) + "/s",
+	};
+}
+
+// === Directory Sizes ===
+
+export async function getDirectorySizes(
+	path: string,
+	depth = 2
+): Promise<DirectorySizeType[]> {
+	// Validate path - only allow /tank paths for safety
+	if (!path.startsWith("/tank") && !path.startsWith("/srv")) {
+		logger.warn({ path }, "Directory sizes only allowed for /tank or /srv");
+		return [];
+	}
+	// Basic path validation
+	if (/[;&|`$]/.test(path)) {
+		logger.warn({ path }, "Invalid characters in path");
+		return [];
+	}
+
+	const validDepth = Math.min(Math.max(1, depth), 5); // Clamp to 1-5
+
+	const result = await executeSSH(`du -d ${validDepth} -b "${path}" 2>/dev/null | sort -rn | head -50`);
+	if (!result.success) {
+		logger.error({ error: result.errorMessage, path }, "Failed to get directory sizes");
+		return [];
+	}
+
+	const sizes: DirectorySizeType[] = [];
+	for (const line of result.output.trim().split("\n")) {
+		if (!line.trim()) continue;
+		const match = line.match(/^(\d+)\s+(.+)$/);
+		if (!match) continue;
+
+		const sizeBytes = parseInt(match[1], 10);
+		sizes.push({
+			path: match[2],
+			sizeBytes,
+			sizeFormatted: formatBytesZfs(sizeBytes),
+		});
+	}
+	return sizes;
+}
+
+// === ZFS AI Tools ===
+
+export const getZfsPoolsTool = withTool(
+	{
+		name: "get_zfs_pools",
+		description:
+			"Get ZFS pool overview including health status, capacity, and fragmentation. Use when user asks about storage health, pool status, or disk space.",
+		input: z.object({}),
+	},
+	async () => {
+		const pools = await getZfsPools();
+		return pools.map((p) => ({
+			name: p.name,
+			health: p.health,
+			capacity: `${p.capacity}% used`,
+			size: p.sizeFormatted,
+			used: p.allocatedFormatted,
+			free: p.freeFormatted,
+			fragmentation: `${p.fragmentation}%`,
+		}));
+	}
+);
+
+export const getZfsPoolStatusTool = withTool(
+	{
+		name: "get_zfs_pool_status",
+		description:
+			"Get detailed ZFS pool status including drive health, scrub status, and errors. Use when investigating storage issues, checking drive health, or monitoring scrub progress.",
+		input: z.object({
+			pool: z.string().describe("Name of the ZFS pool (e.g., 'tank')"),
+		}),
+	},
+	async ({ pool }) => {
+		const status = await getZfsPoolStatus(pool);
+		if (!status) {
+			return { error: `Pool '${pool}' not found or inaccessible` };
+		}
+
+		return {
+			name: status.name,
+			state: status.state,
+			status: status.status,
+			action: status.action,
+			scrub: {
+				state: status.scan.state,
+				progress: status.scan.progress ? `${status.scan.progress}%` : undefined,
+				lastCompleted: status.scan.lastCompleted,
+				errors: status.scan.errors,
+				duration: status.scan.duration,
+			},
+			vdevs: status.vdevs.map((v) => ({
+				type: v.type,
+				state: v.state,
+				drives: v.drives.map((d) => ({
+					name: d.name.split("/").pop(), // Shorten disk-by-id paths
+					state: d.state,
+					errors: d.read + d.write + d.cksum > 0 ? `R:${d.read} W:${d.write} C:${d.cksum}` : "none",
+				})),
+			})),
+			errors: status.errors,
+		};
+	}
+);
+
+export const getZfsDatasetsTool = withTool(
+	{
+		name: "get_zfs_datasets",
+		description:
+			"Get ZFS dataset usage including compression ratios. Use when checking storage usage per dataset, seeing what's using space, or monitoring compression effectiveness.",
+		input: z.object({}),
+	},
+	async () => {
+		const datasets = await getZfsDatasets();
+		return datasets.map((d) => ({
+			name: d.name,
+			used: d.usedFormatted,
+			available: d.availableFormatted,
+			compression: `${d.compressRatio}x`,
+			mountpoint: d.mountpoint,
+		}));
+	}
+);
+
+export const getZfsIostatTool = withTool(
+	{
+		name: "get_zfs_iostat",
+		description:
+			"Get current ZFS pool I/O statistics including read/write operations and bandwidth. Use when monitoring storage performance or investigating slow I/O.",
+		input: z.object({
+			pool: z.string().describe("Name of the ZFS pool (e.g., 'tank')"),
+		}),
+	},
+	async ({ pool }) => {
+		const iostat = await getZfsIostat(pool);
+		if (!iostat) {
+			return { error: `Pool '${pool}' not found or inaccessible` };
+		}
+
+		return {
+			pool: iostat.pool,
+			operations: {
+				read: `${iostat.readOps}/s`,
+				write: `${iostat.writeOps}/s`,
+			},
+			bandwidth: {
+				read: iostat.readBandwidthFormatted,
+				write: iostat.writeBandwidthFormatted,
+			},
+		};
+	}
+);
+
+export const getDirectorySizesTool = withTool(
+	{
+		name: "get_directory_sizes",
+		description:
+			"Get sizes of directories within a path (like 'du -sh'). Use when checking what's using space in /tank or /srv, finding large directories, or investigating disk usage.",
+		input: z.object({
+			path: z.string().describe("Path to analyze (must start with /tank or /srv)"),
+			depth: z.number().optional().describe("Directory depth to scan (1-5, default: 2)"),
+		}),
+	},
+	async ({ path, depth = 2 }) => {
+		const sizes = await getDirectorySizes(path, depth);
+		if (sizes.length === 0) {
+			return { error: `No data for path '${path}' or path not allowed` };
+		}
+
+		return sizes.map((s) => ({
+			path: s.path,
+			size: s.sizeFormatted,
+		}));
+	}
+);
+
+export const zfsTools = [
+	getZfsPoolsTool.tool,
+	getZfsPoolStatusTool.tool,
+	getZfsDatasetsTool.tool,
+	getZfsIostatTool.tool,
+	getDirectorySizesTool.tool,
+];
+
+export const systemInfoTools = [getSystemStatsTool.tool, getDrivesTool.tool, ...zfsTools];
