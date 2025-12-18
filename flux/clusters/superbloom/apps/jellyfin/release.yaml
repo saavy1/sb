@@ -30,7 +30,7 @@ spec:
               DOTNET_GC_SERVER: "1"
               DOTNET_RUNNING_IN_CONTAINER: "true"
             securityContext:
-              privileged: false
+              privileged: true
             resources:
               requests:
                 cpu: 500m
@@ -64,6 +64,7 @@ spec:
                   httpGet:
                     path: /health
                     port: 8096
+                  initialDelaySeconds: 15
                   failureThreshold: 30
                   periodSeconds: 5
     service:
