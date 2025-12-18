@@ -92,13 +92,13 @@ export function validateCommand(command: string): string {
 // === Core SSH execution ===
 
 /**
- * Execute a command via SSH over Tailscale to the configured host.
+ * Execute a command via Tailscale SSH to the configured host.
  * This is the foundation for all remote operations (kubectl, flux, zfs, etc.)
  */
 export async function executeSSH(command: string): Promise<CommandResult> {
 	const startTime = Date.now();
 	try {
-		const result = await $`ssh -o ConnectTimeout=30 ${sshUser}@${sshHost} ${command}`.quiet();
+		const result = await $`tailscale ssh ${sshUser}@${sshHost} ${command}`.quiet();
 		const durationMs = Date.now() - startTime;
 		return {
 			success: true,

@@ -1,5 +1,9 @@
 import type { GameServerType } from "@nexus/core/domains/game-servers";
-import type { ZfsPoolStatusType, ZfsPoolType } from "@nexus/core/domains/system-info";
+import type {
+	DirectorySizeType,
+	ZfsPoolStatusType,
+	ZfsPoolType,
+} from "@nexus/core/domains/system-info";
 import type { MinecraftStatusPayloadType } from "@nexus/core/infra/events";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
@@ -8,6 +12,7 @@ import {
 	ChevronDown,
 	ChevronUp,
 	Database,
+	Folder,
 	HardDrive,
 	Loader2,
 	Play,
@@ -43,6 +48,7 @@ function HomePage() {
 	const [mcStatus, setMcStatus] = useState<MinecraftStatusPayloadType | null>(null);
 	const [zfsPools, setZfsPools] = useState<ZfsPoolType[]>([]);
 	const [zfsPoolStatus, setZfsPoolStatus] = useState<ZfsPoolStatusType | null>(null);
+	const [directorySizes, setDirectorySizes] = useState<DirectorySizeType[]>([]);
 
 	// Subscribe to Minecraft status events via WebSocket
 	useEvents("minecraft:status", (payload) => {
@@ -100,12 +106,26 @@ function HomePage() {
 		}
 	}, []);
 
+	const fetchDirectorySizes = useCallback(async () => {
+		try {
+			const { data } = await client.api.systemInfo.zfs.directories.get({
+				query: { path: "/tank", depth: "2" },
+			});
+			if (Array.isArray(data)) {
+				setDirectorySizes(data);
+			}
+		} catch (error) {
+			console.error("Failed to fetch directory sizes:", error);
+		}
+	}, []);
+
 	useEffect(() => {
 		fetchServers();
 		fetchSuggestions();
 		fetchMinecraftStatus(); // Initial fetch, then WebSocket takes over
 		fetchZfsPools();
-	}, [fetchServers, fetchSuggestions, fetchMinecraftStatus, fetchZfsPools]);
+		fetchDirectorySizes();
+	}, [fetchServers, fetchSuggestions, fetchMinecraftStatus, fetchZfsPools, fetchDirectorySizes]);
 
 	const handleStart = async (name: string) => {
 		toast.promise(client.api.gameServers({ name }).start.post(), {
@@ -550,6 +570,55 @@ function HomePage() {
 					) : (
 						<div className="text-center py-4 text-text-tertiary text-sm">
 							No database info available
+						</div>
+					)}
+				</Panel>
+
+				{/* Directory Sizes Panel */}
+				<Panel
+					title="Directory Sizes"
+					actions={
+						<button
+							type="button"
+							onClick={fetchDirectorySizes}
+							className="p-1 rounded hover:bg-surface-elevated text-text-tertiary"
+							title="Refresh"
+						>
+							<RefreshCw size={12} />
+						</button>
+					}
+				>
+					{directorySizes.length > 0 ? (
+						<div className="space-y-1 text-sm max-h-64 overflow-y-auto">
+							{directorySizes.map((dir) => {
+								const depth = dir.path.split("/").length - 2; // /tank = 0, /tank/foo = 1
+								const name = dir.path.split("/").pop() || dir.path;
+								const isRoot = dir.path === "/tank";
+								return (
+									<div
+										key={dir.path}
+										className="flex items-center justify-between py-0.5 hover:bg-surface-elevated/50 rounded px-1"
+										style={{ paddingLeft: `${depth * 12 + 4}px` }}
+									>
+										<div className="flex items-center gap-1.5 min-w-0">
+											<Folder
+												size={12}
+												className={isRoot ? "text-accent" : "text-text-tertiary"}
+											/>
+											<span className={`truncate ${isRoot ? "font-medium" : ""}`}>
+												{name}
+											</span>
+										</div>
+										<span className="text-xs text-text-tertiary tabular-nums ml-2">
+											{dir.sizeFormatted}
+										</span>
+									</div>
+								);
+							})}
+						</div>
+					) : (
+						<div className="text-center py-4 text-text-tertiary text-sm">
+							No directory data available
 						</div>
 					)}
 				</Panel>

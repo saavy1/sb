@@ -915,8 +915,7 @@ export async function getDirectorySizes(
 
 	const validDepth = Math.min(Math.max(1, depth), 5); // Clamp to 1-5
 
-	// Use executeSSH directly (no validation) since du needs shell constructs
-	// and we've already validated the path above
+	// Run du to get directory sizes
 	const result = await executeSSH(`du -d ${validDepth} -b "${path}" 2>/dev/null`);
 	if (!result.success) {
 		logger.error({ error: result.errorMessage, path }, "Failed to get directory sizes");
