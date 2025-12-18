@@ -1,15 +1,19 @@
 import type { GameServerType } from "@nexus/core/domains/game-servers";
+import type { ZfsPoolStatusType, ZfsPoolType } from "@nexus/core/domains/system-info";
 import type { MinecraftStatusPayloadType } from "@nexus/core/infra/events";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
 	AlertTriangle,
+	CheckCircle2,
 	ChevronDown,
 	ChevronUp,
 	Database,
 	HardDrive,
+	Loader2,
 	Play,
 	Plus,
 	RefreshCw,
+	Server,
 	Square,
 	Trash2,
 	Users,
@@ -37,6 +41,8 @@ function HomePage() {
 	const [showNetDetails, setShowNetDetails] = useState(false);
 	const [currentTime, setCurrentTime] = useState(new Date());
 	const [mcStatus, setMcStatus] = useState<MinecraftStatusPayloadType | null>(null);
+	const [zfsPools, setZfsPools] = useState<ZfsPoolType[]>([]);
+	const [zfsPoolStatus, setZfsPoolStatus] = useState<ZfsPoolStatusType | null>(null);
 
 	// Subscribe to Minecraft status events via WebSocket
 	useEvents("minecraft:status", (payload) => {
@@ -76,11 +82,30 @@ function HomePage() {
 		}
 	}, []);
 
+	const fetchZfsPools = useCallback(async () => {
+		try {
+			const { data } = await client.api.systemInfo.zfs.pools.get();
+			if (Array.isArray(data)) {
+				setZfsPools(data);
+				// Fetch detailed status for the first pool (usually "tank")
+				if (data.length > 0) {
+					const { data: status } = await client.api.systemInfo.zfs
+						.pools({ name: data[0].name })
+						.status.get();
+					setZfsPoolStatus(status);
+				}
+			}
+		} catch (error) {
+			console.error("Failed to fetch ZFS pools:", error);
+		}
+	}, []);
+
 	useEffect(() => {
 		fetchServers();
 		fetchSuggestions();
 		fetchMinecraftStatus(); // Initial fetch, then WebSocket takes over
-	}, [fetchServers, fetchSuggestions, fetchMinecraftStatus]);
+		fetchZfsPools();
+	}, [fetchServers, fetchSuggestions, fetchMinecraftStatus, fetchZfsPools]);
 
 	const handleStart = async (name: string) => {
 		toast.promise(client.api.gameServers({ name }).start.post(), {
@@ -408,11 +433,101 @@ function HomePage() {
 					)}
 				</Panel>
 
-				{/* Databases Panel */}
+				{/* ZFS Storage Panel */}
 				<Panel
-					title={`Databases${totalDbSize > 0 ? ` (${formatBytes(totalDbSize)})` : ""}`}
-					className="lg:col-span-2"
+					title="ZFS Storage"
+					actions={
+						<button
+							type="button"
+							onClick={fetchZfsPools}
+							className="p-1 rounded hover:bg-surface-elevated text-text-tertiary"
+							title="Refresh"
+						>
+							<RefreshCw size={12} />
+						</button>
+					}
 				>
+					{zfsPools.length > 0 ? (
+						<div className="space-y-3">
+							{zfsPools.map((pool) => {
+								const isHealthy = pool.health === "ONLINE";
+								const isDegraded = pool.health === "DEGRADED";
+								return (
+									<div key={pool.name} className="space-y-2">
+										<div className="flex items-center justify-between">
+											<div className="flex items-center gap-2">
+												<Server size={14} className="text-text-tertiary" />
+												<span className="text-sm font-medium">{pool.name}</span>
+												<span
+													className={`text-xs px-1.5 py-0.5 rounded ${
+														isHealthy
+															? "bg-success-bg text-success"
+															: isDegraded
+																? "bg-warning-bg text-warning"
+																: "bg-error-bg text-error"
+													}`}
+												>
+													{pool.health}
+												</span>
+											</div>
+											<span className="text-xs text-text-tertiary tabular-nums">
+												{pool.allocatedFormatted} / {pool.sizeFormatted}
+											</span>
+										</div>
+										{/* Capacity bar */}
+										<div className="h-1.5 bg-border rounded-full overflow-hidden">
+											<div
+												className="h-full transition-all"
+												style={{
+													width: `${pool.capacity}%`,
+													backgroundColor:
+														pool.capacity > 90
+															? "var(--error)"
+															: pool.capacity > 70
+																? "var(--warning)"
+																: "var(--accent)",
+												}}
+											/>
+										</div>
+										<div className="flex items-center justify-between text-xs text-text-tertiary">
+											<span>{pool.capacity}% used</span>
+											<span>{pool.fragmentation}% frag</span>
+										</div>
+									</div>
+								);
+							})}
+							{/* Scrub status */}
+							{zfsPoolStatus?.scan && (
+								<div className="pt-2 border-t border-border">
+									<div className="flex items-center gap-2 text-xs">
+										{zfsPoolStatus.scan.state === "scrubbing" ? (
+											<>
+												<Loader2 size={12} className="animate-spin text-accent" />
+												<span className="text-text-secondary">
+													Scrub in progress: {zfsPoolStatus.scan.progress}%
+												</span>
+											</>
+										) : zfsPoolStatus.scan.state === "completed" ? (
+											<>
+												<CheckCircle2 size={12} className="text-success" />
+												<span className="text-text-tertiary">
+													Last scrub: {zfsPoolStatus.scan.lastCompleted}
+												</span>
+											</>
+										) : (
+											<span className="text-text-tertiary">No scrub data</span>
+										)}
+									</div>
+								</div>
+							)}
+						</div>
+					) : (
+						<div className="text-center py-6 text-text-tertiary text-sm">No ZFS pools detected</div>
+					)}
+				</Panel>
+
+				{/* Databases Panel */}
+				<Panel title={`Databases${totalDbSize > 0 ? ` (${formatBytes(totalDbSize)})` : ""}`}>
 					{databases.length > 0 ? (
 						<div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
 							{databases.map((db) => (

@@ -5,8 +5,8 @@ import { eq } from "drizzle-orm";
 import type { Static } from "elysia";
 import logger from "@nexus/logger";
 import { z } from "zod";
-import { config } from "../../infra/config";
 import { systemInfoDb, withDb } from "../../infra/db";
+import { executeZpool, executeZfs, executeSSH } from "../../infra/ssh";
 import { withTool } from "../../infra/tools";
 import type { DriveRecord } from "./schema";
 import { drives } from "./schema";
@@ -672,34 +672,7 @@ export const getDrivesTool = withTool(
 	}
 );
 
-// === SSH execution for ZFS commands ===
-
-const sshHost = config.OPS_SSH_HOST;
-const sshUser = config.OPS_SSH_USER;
-
-interface CommandResult {
-	success: boolean;
-	output: string;
-	errorMessage?: string;
-}
-
-async function executeSSH(command: string): Promise<CommandResult> {
-	try {
-		const result = await $`ssh -o ConnectTimeout=30 ${sshUser}@${sshHost} ${command}`.quiet();
-		return {
-			success: true,
-			output: result.stdout.toString() + result.stderr.toString(),
-		};
-	} catch (error) {
-		const err = error as { stdout?: Buffer; stderr?: Buffer; message?: string };
-		const output = (err.stdout?.toString() || "") + (err.stderr?.toString() || "");
-		return {
-			success: false,
-			output,
-			errorMessage: err.message || "SSH command failed",
-		};
-	}
-}
+// === ZFS helpers ===
 
 function formatBytesZfs(bytes: number): string {
 	if (bytes === 0) return "0 B";
@@ -712,7 +685,7 @@ function formatBytesZfs(bytes: number): string {
 // === ZFS Pool Functions ===
 
 export async function getZfsPools(): Promise<ZfsPoolType[]> {
-	const result = await executeSSH("zpool list -Hp -o name,health,size,alloc,free,frag,cap");
+	const result = await executeZpool("list -Hp -o name,health,size,alloc,free,frag,cap");
 	if (!result.success) {
 		logger.error({ error: result.errorMessage }, "Failed to get ZFS pools");
 		return [];
@@ -747,7 +720,7 @@ export async function getZfsPoolStatus(poolName: string): Promise<ZfsPoolStatusT
 		return null;
 	}
 
-	const result = await executeSSH(`zpool status ${poolName}`);
+	const result = await executeZpool(`status ${poolName}`);
 	if (!result.success) {
 		logger.error({ error: result.errorMessage, poolName }, "Failed to get ZFS pool status");
 		return null;
@@ -855,7 +828,7 @@ export async function getZfsPoolStatus(poolName: string): Promise<ZfsPoolStatusT
 // === ZFS Dataset Functions ===
 
 export async function getZfsDatasets(): Promise<ZfsDatasetType[]> {
-	const result = await executeSSH("zfs list -Hp -o name,used,avail,refer,compressratio,mountpoint");
+	const result = await executeZfs("list -Hp -o name,used,avail,refer,compressratio,mountpoint");
 	if (!result.success) {
 		logger.error({ error: result.errorMessage }, "Failed to get ZFS datasets");
 		return [];
@@ -893,14 +866,16 @@ export async function getZfsIostat(poolName: string): Promise<ZfsIostatType | nu
 		return null;
 	}
 
-	// Get a single iostat sample (skip header with -y, get 1 sample after 1 second)
-	const result = await executeSSH(`zpool iostat -Hp ${poolName} 1 2 | tail -1`);
+	// Get a single iostat sample (get 2 samples, 1 second apart, use the second one for actual throughput)
+	const result = await executeZpool(`iostat -Hp ${poolName} 1 2`);
 	if (!result.success) {
 		logger.error({ error: result.errorMessage, poolName }, "Failed to get ZFS iostat");
 		return null;
 	}
 
-	const line = result.output.trim();
+	// Take the last line (the second sample which reflects actual throughput)
+	const lines = result.output.trim().split("\n");
+	const line = lines[lines.length - 1];
 	if (!line) return null;
 
 	// Format: name alloc free read_ops write_ops read_bw write_bw
@@ -940,7 +915,9 @@ export async function getDirectorySizes(
 
 	const validDepth = Math.min(Math.max(1, depth), 5); // Clamp to 1-5
 
-	const result = await executeSSH(`du -d ${validDepth} -b "${path}" 2>/dev/null | sort -rn | head -50`);
+	// Use executeSSH directly (no validation) since du needs shell constructs
+	// and we've already validated the path above
+	const result = await executeSSH(`du -d ${validDepth} -b "${path}" 2>/dev/null`);
 	if (!result.success) {
 		logger.error({ error: result.errorMessage, path }, "Failed to get directory sizes");
 		return [];
@@ -959,7 +936,9 @@ export async function getDirectorySizes(
 			sizeFormatted: formatBytesZfs(sizeBytes),
 		});
 	}
-	return sizes;
+
+	// Sort by size descending and limit to 50 results (done in JS instead of shell)
+	return sizes.sort((a, b) => b.sizeBytes - a.sizeBytes).slice(0, 50);
 }
 
 // === ZFS AI Tools ===
