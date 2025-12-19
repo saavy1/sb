@@ -3,4 +3,7 @@ kind: Kustomization
 resources:
   - flux-system/
   - infra.yaml
-  - apps.yaml
+  - data.yaml
+  - media.yaml
+  - nexus.yaml
+  - games.yaml

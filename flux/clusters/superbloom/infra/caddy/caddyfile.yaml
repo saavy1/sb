@@ -39,6 +39,47 @@ data:
         reverse_proxy jellyfin.jellyfin.svc.cluster.local:8096
     }
 
+    # Sonarr - protected with forward_auth
+    shows.saavylab.dev {
+        forward_auth authelia.authelia.svc.cluster.local:80 {
+            uri /api/authz/forward-auth
+            copy_headers Remote-User Remote-Groups Remote-Email Remote-Name
+        }
+        reverse_proxy sonarr.sonarr.svc.cluster.local:8989
+    }
+
+    # Radarr - protected with forward_auth
+    movies.saavylab.dev {
+        forward_auth authelia.authelia.svc.cluster.local:80 {
+            uri /api/authz/forward-auth
+            copy_headers Remote-User Remote-Groups Remote-Email Remote-Name
+        }
+        reverse_proxy radarr.radarr.svc.cluster.local:7878
+    }
+
+    # SABnzbd - protected with forward_auth
+    downloads.saavylab.dev {
+        forward_auth authelia.authelia.svc.cluster.local:80 {
+            uri /api/authz/forward-auth
+            copy_headers Remote-User Remote-Groups Remote-Email Remote-Name
+        }
+        reverse_proxy sabnzbd.sabnzbd.svc.cluster.local:8080
+    }
+
+    # Jellyseerr - no forward_auth (handles own auth, needs public access for requests)
+    fbi.saavylab.dev {
+        reverse_proxy jellyseerr.jellyseerr.svc.cluster.local:5055
+    }
+
+    # Prowlarr - protected with forward_auth
+    indexers.saavylab.dev {
+        forward_auth authelia.authelia.svc.cluster.local:80 {
+            uri /api/authz/forward-auth
+            copy_headers Remote-User Remote-Groups Remote-Email Remote-Name
+        }
+        reverse_proxy prowlarr.prowlarr.svc.cluster.local:9696
+    }
+
     # Health endpoint (optional - for k8s probes on the caddy service itself)
     :80 {
         respond /health 200

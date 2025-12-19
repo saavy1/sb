@@ -1,0 +1,20 @@
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: data
+  namespace: flux-system
+spec:
+  interval: 10m0s
+  path: ./flux/clusters/superbloom/data
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  decryption:
+    provider: sops
+    secretRef:
+      name: sops-age
+  dependsOn:
+    - name: infra
+  wait: true
+  timeout: 10m
