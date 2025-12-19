@@ -13,6 +13,7 @@ import { runWithToolContext, withTool } from "../../infra/tools";
 import { appTools } from "../apps/functions";
 import { getAiModel } from "../core/functions";
 import { gameServerTools } from "../game-servers/functions";
+import { mediaTools } from "../media/functions";
 import { opsTools } from "../ops/functions";
 import { systemInfoTools } from "../system-info/functions";
 import { agentRepository } from "./repository";
@@ -49,6 +50,11 @@ You have access to tools to:
 - List apps/services and get their URLs
 - Trigger infrastructure operations (NixOS rebuild, Flux reconcile)
 - Check operation status and history
+- Search the media library (movies and TV shows)
+- Check if specific movies or TV shows are available/downloaded
+- Get download queue status (what's downloading, progress, ETA)
+- Get download history (what completed recently)
+- Pause/resume downloads (for bandwidth management)
 
 ## Agent Lifecycle Tools
 You also have special tools to control your own lifecycle:
@@ -83,6 +89,42 @@ Example: "In 5 minutes, add Grafana at https://grafana.local"
 → store_context("scheduledTask", { action: "add_app", params: { name: "Grafana", url: "https://grafana.local", category: "monitoring" } })
 → schedule_wake("5m", "Execute scheduled task: add Grafana app")
 → [wake] → get_context("scheduledTask") → add_app(...) → store_context("scheduledTask", null)
+
+## Using Media Tools
+Use **search_media(query)** for ANY media question - it returns everything you need in one call:
+
+- "Do we have Batman?" → search_media("Batman")
+- "Is Breaking Bad available?" → search_media("Breaking Bad")
+- "Has Barry finished downloading?" → search_media("Barry")
+
+Each result includes a **status** field:
+- "available" = fully downloaded, ready to watch
+- "partially available" = some content downloaded
+- "processing" = currently downloading
+- "pending" = requested, waiting to download
+- "unknown" = not in library
+
+Example: User asks "Do we have Jujutsu Kaisen?"
+→ search_media("Jujutsu Kaisen")
+→ Results show: { title: "JUJUTSU KAISEN", type: "tv", status: "available" }
+→ Answer: "Yes, Jujutsu Kaisen is available and ready to watch!"
+
+You do NOT need multiple tool calls - search_media status is authoritative.
+
+## Using Download Tools
+Use **get_download_queue()** for download progress questions:
+- "What's downloading?" → get_download_queue()
+- "How long until Barry is done?" → get_download_queue() then find Barry in items
+- "What's the download speed?" → get_download_queue()
+
+Use **get_download_history()** for recent completions:
+- "What finished today?" → get_download_history()
+- "Any failed downloads?" → get_download_history()
+
+Use **pause_downloads()** / **resume_downloads()** for bandwidth management:
+- "Pause downloads, I'm gaming" → pause_downloads()
+- "Resume downloads" → resume_downloads()
+- You can autonomously pause if the user starts a game server, then schedule_wake to resume later
 
 ## Autonomous Actions
 You may act autonomously for SAFE, REVERSIBLE operations:
@@ -543,7 +585,7 @@ export async function runAgentLoop(
 
 	// Prepare tools (domain tools + meta-tools)
 	const metaTools = createMetaTools(thread);
-	const allTools = [...gameServerTools, ...systemInfoTools, ...appTools, ...opsTools, ...metaTools];
+	const allTools = [...gameServerTools, ...systemInfoTools, ...appTools, ...opsTools, ...mediaTools, ...metaTools];
 
 	// Build messages for LLM
 	const adapter = createOpenAI(config.OPENROUTER_API_KEY, {
@@ -584,9 +626,11 @@ export async function runAgentLoop(
 	const startTime = Date.now();
 	const aiModel = await getAiModel();
 
-	// Wrap in tool context so tool calls can emit events with threadId
-	await runWithToolContext(thread.id, async () => {
-		while (continueLoop && iterations < maxIterations) {
+	// Wrap in tool context so tool calls can emit events with threadId and model
+	await runWithToolContext(
+		thread.id,
+		async () => {
+			while (continueLoop && iterations < maxIterations) {
 			iterations++;
 
 			// Check timeout
@@ -716,7 +760,9 @@ export async function runAgentLoop(
 			// (e.g., tool execution that requires follow-up - handled internally by TanStack AI)
 			continueLoop = false;
 		}
-	}); // end runWithToolContext
+		},
+		{ model: aiModel }
+	); // end runWithToolContext
 
 	// Final status update with retry logic
 	const finalStatus =
