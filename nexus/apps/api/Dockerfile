@@ -27,6 +27,11 @@ RUN bun install --frozen-lockfile --production --ignore-scripts
 FROM oven/bun:1
 WORKDIR /app
 
+# Install tailscale CLI for SSH to host (auth handled by sidecar)
+RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates \
+    && curl -fsSL https://tailscale.com/install.sh | sh \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY --from=installer /app/node_modules ./node_modules
 COPY --from=installer /app/packages ./packages
 COPY --from=pruner /app/out/full/apps/api ./apps/api
@@ -35,7 +40,7 @@ COPY --from=pruner /app/out/full/packages ./packages
 # Copy built dashboard
 COPY --from=ui-builder /app/out/full/apps/ui/dist ./apps/api/public/
 
-RUN mkdir -p /app/db && chown -R bun:bun /app/db /app/apps/api
+RUN mkdir -p /app/db && chmod -R 777 /app/db
 
 ENV PORT=3000
 ENV DB_PATH=/app/db
@@ -43,5 +48,5 @@ ENV NODE_ENV=production
 
 EXPOSE 3000
 WORKDIR /app/apps/api
-USER bun
+# User set via K8s securityContext (runAsUser: 1000)
 CMD ["bun", "src/index.ts"]
