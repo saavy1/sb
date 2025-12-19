@@ -13,3 +13,12 @@ Mega connectivity page that shows
 - valkey
 - all other services
 (are we even _connecting_?)
+
+/slash commands
+ex:
+/daily-recap
+/flux-reconcile
+/nixos-rebuild
+/pause-downloads
+
+proper mobile responsiveness on the chat page

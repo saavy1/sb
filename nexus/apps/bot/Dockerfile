@@ -14,6 +14,12 @@ RUN bun install --frozen-lockfile --production --ignore-scripts
 # Runtime stage
 FROM oven/bun:1
 WORKDIR /app
+
+# Install tailscale CLI + ssh client for Tailscale SSH to host
+RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates openssh-client \
+    && curl -fsSL https://tailscale.com/install.sh | sh \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY --from=installer /app/node_modules ./node_modules
 COPY --from=installer /app/packages ./packages
 COPY --from=pruner /app/out/full/apps/bot ./apps/bot
