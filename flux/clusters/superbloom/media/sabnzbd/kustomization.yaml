@@ -3,4 +3,5 @@ kind: Kustomization
 namespace: sabnzbd
 resources:
   - ns.yaml
+  - configmap.yaml
   - release.yaml

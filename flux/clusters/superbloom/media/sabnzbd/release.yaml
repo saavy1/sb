@@ -85,3 +85,10 @@ spec:
         hostPath: /srv/downloads
         globalMounts:
           - path: /downloads
+      init-scripts:
+        enabled: true
+        type: configMap
+        name: sabnzbd-init
+        defaultMode: 0755
+        globalMounts:
+          - path: /custom-cont-init.d
