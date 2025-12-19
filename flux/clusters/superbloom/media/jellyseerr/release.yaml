@@ -73,7 +73,7 @@ spec:
         enabled: true
         type: persistentVolumeClaim
         accessMode: ReadWriteOnce
-        size: 1Gi
+        size: 10Gi
         storageClass: local-path
         globalMounts:
           - path: /app/config
