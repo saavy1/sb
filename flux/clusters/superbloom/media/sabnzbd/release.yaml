@@ -27,6 +27,7 @@ spec:
               TZ: America/Denver
               PUID: "1000"
               PGID: "100"
+              HOST_WHITELIST: "sabnzbd.sabnzbd.svc.cluster.local,downloads.saavylab.dev"
             resources:
               requests:
                 cpu: 100m
