@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sabnzbd-init
+  namespace: sabnzbd
+data:
+  10-host-whitelist.sh: |
+    #!/bin/bash
+    CONFIG_FILE="/config/sabnzbd.ini"
+    WHITELIST="sabnzbd.sabnzbd.svc.cluster.local, downloads.saavylab.dev"
+
+    if [ -f "$CONFIG_FILE" ]; then
+      echo "Updating host_whitelist in SABnzbd config..."
+      sed -i "s/^host_whitelist = .*/host_whitelist = ${WHITELIST}/" "$CONFIG_FILE"
+    fi
