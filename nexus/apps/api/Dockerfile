@@ -27,8 +27,8 @@ RUN bun install --frozen-lockfile --production --ignore-scripts
 FROM oven/bun:1
 WORKDIR /app
 
-# Install tailscale CLI for SSH to host (auth handled by sidecar)
-RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates \
+# Install tailscale CLI + ssh client for Tailscale SSH to host
+RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates openssh-client \
     && curl -fsSL https://tailscale.com/install.sh | sh \
     && rm -rf /var/lib/apt/lists/*
 

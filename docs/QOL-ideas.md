@@ -5,3 +5,11 @@ User: [message]
 Assistant: [message]
 
 proper multi-line and code formatting for the input on the message box in chat
+
+Mega connectivity page that shows
+- tailscale
+- qdrant
+- postgres
+- valkey
+- all other services
+(are we even _connecting_?)
