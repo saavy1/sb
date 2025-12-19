@@ -40,11 +40,15 @@ spec:
               pullPolicy: Always
             securityContext:
               privileged: true
+              runAsUser: 1000
+              runAsGroup: 1000
             env:
               NODE_ENV: production
               MODE: api
               PORT: "3000"
               DB_PATH: /app/db
+              # Tailscale sidecar socket for SSH
+              TS_SOCKET: /var/run/tailscale/tailscaled.sock
               # Tailscale SSH - uses hostname, no keys needed
               OPS_SSH_HOST: superbloom
               OPS_SSH_USER: saavy
@@ -78,7 +82,7 @@ spec:
                     port: 3000
                   initialDelaySeconds: 5
                   periodSeconds: 5
-          # Tailscale sidecar for network access
+          # Tailscale sidecar for network access (userspace mode)
           tailscale:
             image:
               repository: ghcr.io/tailscale/tailscale
@@ -95,8 +99,8 @@ spec:
                     name: nexus-env
                     key: TS_AUTHKEY
             securityContext:
-              runAsUser: 0
-              runAsGroup: 0
+              runAsUser: 1000
+              runAsGroup: 1000
     service:
       main:
         controller: main

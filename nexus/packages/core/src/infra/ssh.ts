@@ -7,6 +7,9 @@ import { config } from "./config";
 export const sshHost = config.OPS_SSH_HOST;
 export const sshUser = config.OPS_SSH_USER;
 
+// Tailscale socket path - set via TS_SOCKET env var when using sidecar
+const tsSocket = process.env.TS_SOCKET;
+
 // === Types ===
 
 export interface CommandResult {
@@ -98,7 +101,11 @@ export function validateCommand(command: string): string {
 export async function executeSSH(command: string): Promise<CommandResult> {
 	const startTime = Date.now();
 	try {
-		const result = await $`tailscale ssh ${sshUser}@${sshHost} ${command}`.quiet();
+		// Use --socket flag if TS_SOCKET is set (for sidecar mode)
+		const socketArg = tsSocket ? `--socket=${tsSocket}` : "";
+		const result = tsSocket
+			? await $`tailscale ${socketArg} ssh ${sshUser}@${sshHost} ${command}`.quiet()
+			: await $`tailscale ssh ${sshUser}@${sshHost} ${command}`.quiet();
 		const durationMs = Date.now() - startTime;
 		return {
 			success: true,
