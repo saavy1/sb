@@ -7,9 +7,7 @@ const navItems = [
 	{ to: "/", label: "Dashboard", key: "1" },
 	{ to: "/chat", label: "Chat", key: "2" },
 	{ to: "/apps", label: "Apps", key: "3" },
-	{ to: "/servers", label: "Servers", key: "4" },
-	{ to: "/settings", label: "Settings", key: "5" },
-	{ to: "/debug", label: "Debug", key: "6" },
+	{ to: "/settings", label: "Settings", key: "4" },
 ] as const;
 
 export function TopNav() {
@@ -20,9 +18,7 @@ export function TopNav() {
 		"g+h": () => navigate({ to: "/" }),
 		"g+c": () => navigate({ to: "/chat" }),
 		"g+a": () => navigate({ to: "/apps" }),
-		"g+s": () => navigate({ to: "/servers" }),
 		"g+,": () => navigate({ to: "/settings" }),
-		"g+d": () => navigate({ to: "/debug" }),
 	});
 
 	return (

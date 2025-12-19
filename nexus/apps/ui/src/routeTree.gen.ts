@@ -10,26 +10,13 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SettingsRouteImport } from './routes/settings'
-import { Route as ServersRouteImport } from './routes/servers'
-import { Route as DebugRouteImport } from './routes/debug'
 import { Route as ChatRouteImport } from './routes/chat'
 import { Route as AppsRouteImport } from './routes/apps'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as ServersNewRouteImport } from './routes/servers_.new'
 
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ServersRoute = ServersRouteImport.update({
-  id: '/servers',
-  path: '/servers',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DebugRoute = DebugRouteImport.update({
-  id: '/debug',
-  path: '/debug',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ChatRoute = ChatRouteImport.update({
@@ -47,78 +34,39 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ServersNewRoute = ServersNewRouteImport.update({
-  id: '/servers_/new',
-  path: '/servers/new',
-  getParentRoute: () => rootRouteImport,
-} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/apps': typeof AppsRoute
   '/chat': typeof ChatRoute
-  '/debug': typeof DebugRoute
-  '/servers': typeof ServersRoute
   '/settings': typeof SettingsRoute
-  '/servers/new': typeof ServersNewRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/apps': typeof AppsRoute
   '/chat': typeof ChatRoute
-  '/debug': typeof DebugRoute
-  '/servers': typeof ServersRoute
   '/settings': typeof SettingsRoute
-  '/servers/new': typeof ServersNewRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/apps': typeof AppsRoute
   '/chat': typeof ChatRoute
-  '/debug': typeof DebugRoute
-  '/servers': typeof ServersRoute
   '/settings': typeof SettingsRoute
-  '/servers_/new': typeof ServersNewRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths:
-    | '/'
-    | '/apps'
-    | '/chat'
-    | '/debug'
-    | '/servers'
-    | '/settings'
-    | '/servers/new'
+  fullPaths: '/' | '/apps' | '/chat' | '/settings'
   fileRoutesByTo: FileRoutesByTo
-  to:
-    | '/'
-    | '/apps'
-    | '/chat'
-    | '/debug'
-    | '/servers'
-    | '/settings'
-    | '/servers/new'
-  id:
-    | '__root__'
-    | '/'
-    | '/apps'
-    | '/chat'
-    | '/debug'
-    | '/servers'
-    | '/settings'
-    | '/servers_/new'
+  to: '/' | '/apps' | '/chat' | '/settings'
+  id: '__root__' | '/' | '/apps' | '/chat' | '/settings'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AppsRoute: typeof AppsRoute
   ChatRoute: typeof ChatRoute
-  DebugRoute: typeof DebugRoute
-  ServersRoute: typeof ServersRoute
   SettingsRoute: typeof SettingsRoute
-  ServersNewRoute: typeof ServersNewRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -128,20 +76,6 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof SettingsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/servers': {
-      id: '/servers'
-      path: '/servers'
-      fullPath: '/servers'
-      preLoaderRoute: typeof ServersRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/debug': {
-      id: '/debug'
-      path: '/debug'
-      fullPath: '/debug'
-      preLoaderRoute: typeof DebugRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/chat': {
@@ -165,13 +99,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/servers_/new': {
-      id: '/servers_/new'
-      path: '/servers/new'
-      fullPath: '/servers/new'
-      preLoaderRoute: typeof ServersNewRouteImport
-      parentRoute: typeof rootRouteImport
-    }
   }
 }
 
@@ -179,10 +106,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppsRoute: AppsRoute,
   ChatRoute: ChatRoute,
-  DebugRoute: DebugRoute,
-  ServersRoute: ServersRoute,
   SettingsRoute: SettingsRoute,
-  ServersNewRoute: ServersNewRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

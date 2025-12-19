@@ -1,6 +1,6 @@
 import { useNavigate } from "@tanstack/react-router";
 import { Command } from "cmdk";
-import { Grid, Home, Play, Plus, Server, Settings, Square } from "lucide-react";
+import { Grid, Home, MessageSquare, Play, Settings, Square } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { client } from "../../lib/api";
@@ -91,7 +91,7 @@ export function CommandPalette() {
 				className="fixed inset-0 bg-black/60 cursor-default"
 				onClick={() => setOpen(false)}
 			/>
-			<div className="fixed left-1/2 top-[20%] -translate-x-1/2 w-full max-w-lg">
+			<div className="fixed left-1/2 top-[20%] -translate-x-1/2 w-full max-w-lg px-4">
 				<div className="bg-surface border border-border-strong rounded-lg shadow-2xl overflow-hidden font-mono">
 					<Command.Input
 						placeholder="Type a command or search..."
@@ -117,6 +117,16 @@ export function CommandPalette() {
 								</kbd>
 							</Command.Item>
 							<Command.Item
+								onSelect={() => runCommand(() => navigate({ to: "/chat" }))}
+								className="flex items-center gap-3 px-3 py-2 rounded cursor-pointer text-text-secondary data-[selected=true]:bg-surface-elevated data-[selected=true]:text-text-primary"
+							>
+								<MessageSquare size={16} />
+								<span>Chat</span>
+								<kbd className="ml-auto text-xs text-text-tertiary bg-background px-1.5 py-0.5 rounded">
+									g c
+								</kbd>
+							</Command.Item>
+							<Command.Item
 								onSelect={() => runCommand(() => navigate({ to: "/apps" }))}
 								className="flex items-center gap-3 px-3 py-2 rounded cursor-pointer text-text-secondary data-[selected=true]:bg-surface-elevated data-[selected=true]:text-text-primary"
 							>
@@ -127,16 +137,6 @@ export function CommandPalette() {
 								</kbd>
 							</Command.Item>
 							<Command.Item
-								onSelect={() => runCommand(() => navigate({ to: "/servers" }))}
-								className="flex items-center gap-3 px-3 py-2 rounded cursor-pointer text-text-secondary data-[selected=true]:bg-surface-elevated data-[selected=true]:text-text-primary"
-							>
-								<Server size={16} />
-								<span>Servers</span>
-								<kbd className="ml-auto text-xs text-text-tertiary bg-background px-1.5 py-0.5 rounded">
-									g s
-								</kbd>
-							</Command.Item>
-							<Command.Item
 								onSelect={() => runCommand(() => navigate({ to: "/settings" }))}
 								className="flex items-center gap-3 px-3 py-2 rounded cursor-pointer text-text-secondary data-[selected=true]:bg-surface-elevated data-[selected=true]:text-text-primary"
 							>
@@ -144,24 +144,6 @@ export function CommandPalette() {
 								<span>Settings</span>
 								<kbd className="ml-auto text-xs text-text-tertiary bg-background px-1.5 py-0.5 rounded">
 									g ,
-								</kbd>
-							</Command.Item>
-						</Command.Group>
-
-						<Command.Separator className="h-px bg-border my-2" />
-
-						<Command.Group
-							heading="Actions"
-							className="px-2 py-1.5 text-xs text-text-tertiary uppercase tracking-wider"
-						>
-							<Command.Item
-								onSelect={() => runCommand(() => navigate({ to: "/servers/new" }))}
-								className="flex items-center gap-3 px-3 py-2 rounded cursor-pointer text-text-secondary data-[selected=true]:bg-surface-elevated data-[selected=true]:text-text-primary"
-							>
-								<Plus size={16} />
-								<span>Create Server</span>
-								<kbd className="ml-auto text-xs text-text-tertiary bg-background px-1.5 py-0.5 rounded">
-									c
 								</kbd>
 							</Command.Item>
 						</Command.Group>

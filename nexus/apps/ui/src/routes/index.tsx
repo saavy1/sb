@@ -1,18 +1,21 @@
 import type { GameServerType } from "@nexus/core/domains/game-servers";
 import type {
-	DirectorySizeType,
 	QdrantInfoType,
+	StorageEntryType,
+	StorageRootTypeT,
 	ZfsPoolStatusType,
-	ZfsPoolType,
 } from "@nexus/core/domains/system-info";
 import type { MinecraftStatusPayloadType } from "@nexus/core/infra/events";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import {
+	AlertCircle,
 	AlertTriangle,
 	Boxes,
-	CheckCircle2,
+	CheckCircle,
 	ChevronDown,
+	ChevronRight,
 	ChevronUp,
+	Clock,
 	Database,
 	Folder,
 	HardDrive,
@@ -21,13 +24,15 @@ import {
 	Plus,
 	RefreshCw,
 	Server,
+	Shield,
 	Square,
 	Trash2,
 	Users,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Button, Panel, SkeletonStats, Sparkline, StatusDot } from "../components/ui";
+import { CreateServerDialog } from "../components/CreateServerDialog";
+import { Panel, SkeletonStats, Sparkline, StatusDot } from "../components/ui";
 import { client } from "../lib/api";
 import { useConnection } from "../lib/ConnectionContext";
 import { useEvents } from "../lib/useEvents";
@@ -36,49 +41,73 @@ export const Route = createFileRoute("/")({
 	component: HomePage,
 });
 
-// Drive suggestions don't have a shared type yet, so extract from API
-type SuggestedDrive = Awaited<
-	ReturnType<typeof client.api.systemInfo.drives.suggestions.get>
->["data"];
+type QueueStats = {
+	name: string;
+	queue?: string;
+	waiting: number;
+	active: number;
+	completed: number;
+	failed: number;
+	delayed: number;
+};
 
 function HomePage() {
 	const { connected, systemInfo, cpuHistory, memHistory } = useConnection();
-	const [servers, setServers] = useState<GameServerType[]>([]);
-	const [suggestions, setSuggestions] = useState<NonNullable<SuggestedDrive>>([]);
-	const [showNetDetails, setShowNetDetails] = useState(false);
 	const [currentTime, setCurrentTime] = useState(new Date());
-	const [mcStatus, setMcStatus] = useState<MinecraftStatusPayloadType | null>(null);
-	const [zfsPools, setZfsPools] = useState<ZfsPoolType[]>([]);
-	const [zfsPoolStatus, setZfsPoolStatus] = useState<ZfsPoolStatusType | null>(null);
-	const [directorySizes, setDirectorySizes] = useState<DirectorySizeType[]>([]);
-	const [qdrantInfo, setQdrantInfo] = useState<QdrantInfoType | null>(null);
 
-	// Subscribe to Minecraft status events via WebSocket
-	useEvents("minecraft:status", (payload) => {
-		setMcStatus(payload);
+	// Game Servers
+	const [servers, setServers] = useState<GameServerType[]>([]);
+	const [mcStatus, setMcStatus] = useState<MinecraftStatusPayloadType | null>(null);
+	const [showCreateDialog, setShowCreateDialog] = useState(false);
+
+	// Storage - new unified API
+	const [storageRoots, setStorageRoots] = useState<StorageRootTypeT[]>([]);
+	const [storageLoading, setStorageLoading] = useState(true);
+	const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set());
+	const [loadingPaths, setLoadingPaths] = useState<Set<string>>(new Set());
+	const [showNetDetails, setShowNetDetails] = useState(false);
+
+	// Data Stores
+	const [qdrantInfo, setQdrantInfo] = useState<QdrantInfoType | null>(null);
+	const [expandedDataStores, setExpandedDataStores] = useState(false);
+
+	// ZFS Health
+	const [zfsPoolStatus, setZfsPoolStatus] = useState<ZfsPoolStatusType | null>(null);
+	const [zfsLoading, setZfsLoading] = useState(true);
+
+	// Queues
+	const [queues, setQueues] = useState<QueueStats[]>([]);
+	const [expandedQueue, setExpandedQueue] = useState<string | null>(null);
+
+	// Refs for WebSocket callbacks
+	const fetchQueuesRef = useRef<() => void>(undefined);
+
+	// WebSocket subscriptions
+	useEvents("minecraft:status", (payload) => setMcStatus(payload));
+	useEvents("queue:stats:updated", (stats) => {
+		const queueName = stats.queue;
+		setQueues((prev) => {
+			const exists = prev.some((q) => q.name === queueName);
+			if (exists) {
+				return prev.map((q) => (q.name === queueName ? { ...stats, name: queueName } : q));
+			}
+			return [...prev, { ...stats, name: queueName }];
+		});
 	});
 
-	// Update clock every second
+	// Clock update
 	useEffect(() => {
 		const interval = setInterval(() => setCurrentTime(new Date()), 1000);
 		return () => clearInterval(interval);
 	}, []);
 
+	// Fetch functions
 	const fetchServers = useCallback(async () => {
 		try {
 			const { data } = await client.api.gameServers.get();
 			if (Array.isArray(data)) setServers(data);
 		} catch (error) {
 			console.error("Failed to fetch servers:", error);
-		}
-	}, []);
-
-	const fetchSuggestions = useCallback(async () => {
-		try {
-			const res = await client.api.systemInfo.drives.suggestions.get();
-			if (Array.isArray(res.data)) setSuggestions(res.data);
-		} catch (error) {
-			console.error("Failed to fetch drive suggestions:", error);
 		}
 	}, []);
 
@@ -91,64 +120,122 @@ function HomePage() {
 		}
 	}, []);
 
-	const fetchZfsPools = useCallback(async () => {
+	const fetchStorage = useCallback(async () => {
+		setStorageLoading(true);
 		try {
-			const { data } = await client.api.systemInfo.zfs.pools.get();
-			if (Array.isArray(data)) {
-				setZfsPools(data);
-				// Fetch detailed status for the first pool (usually "tank")
-				if (data.length > 0) {
-					const { data: status } = await client.api.systemInfo.zfs
-						.pools({ name: data[0].name })
-						.status.get();
-					setZfsPoolStatus(status);
-				}
-			}
+			const { data } = await client.api.systemInfo.storage.get({ query: { depth: "3" } });
+			if (data?.roots) setStorageRoots(data.roots as StorageRootTypeT[]);
 		} catch (error) {
-			console.error("Failed to fetch ZFS pools:", error);
-		}
-	}, []);
-
-	const fetchDirectorySizes = useCallback(async () => {
-		try {
-			const { data } = await client.api.systemInfo.zfs.directories.get({
-				query: { path: "/tank", depth: "2" },
-			});
-			if (Array.isArray(data)) {
-				setDirectorySizes(data);
-			}
-		} catch (error) {
-			console.error("Failed to fetch directory sizes:", error);
+			console.error("Failed to fetch storage:", error);
+		} finally {
+			setStorageLoading(false);
 		}
 	}, []);
 
 	const fetchQdrantInfo = useCallback(async () => {
 		try {
 			const { data } = await client.api.systemInfo.qdrant.get();
-			if (data) {
-				setQdrantInfo(data);
-			}
+			if (data) setQdrantInfo(data);
 		} catch (error) {
 			console.error("Failed to fetch Qdrant info:", error);
 		}
 	}, []);
 
+	const fetchZfsHealth = useCallback(async () => {
+		setZfsLoading(true);
+		try {
+			// Get pool status for "tank" - could make this dynamic later
+			const { data } = await client.api.systemInfo.zfs.pools({ name: "tank" }).status.get();
+			if (data && "name" in data) setZfsPoolStatus(data as ZfsPoolStatusType);
+		} catch (error) {
+			console.error("Failed to fetch ZFS health:", error);
+		} finally {
+			setZfsLoading(false);
+		}
+	}, []);
+
+	const fetchQueues = useCallback(async () => {
+		try {
+			const { data, error } = await client.api.debug.queues.get();
+			if (error) throw error;
+			if (data?.queues) setQueues(data.queues);
+		} catch {
+			console.error("Failed to fetch queues");
+		}
+	}, []);
+
+	useEffect(() => {
+		fetchQueuesRef.current = fetchQueues;
+	}, [fetchQueues]);
+
+	// Initial fetch
 	useEffect(() => {
 		fetchServers();
-		fetchSuggestions();
-		fetchMinecraftStatus(); // Initial fetch, then WebSocket takes over
-		fetchZfsPools();
-		fetchDirectorySizes();
+		fetchMinecraftStatus();
+		fetchStorage();
 		fetchQdrantInfo();
+		fetchZfsHealth();
+		fetchQueues();
 	}, [
 		fetchServers,
-		fetchSuggestions,
 		fetchMinecraftStatus,
-		fetchZfsPools,
-		fetchDirectorySizes,
+		fetchStorage,
 		fetchQdrantInfo,
+		fetchZfsHealth,
+		fetchQueues,
 	]);
 
+	// Lazy-load deeper storage paths
+	const loadStoragePath = useCallback(
+		async (path: string) => {
+			if (loadingPaths.has(path)) return;
+
+			setLoadingPaths((prev) => new Set(prev).add(path));
+			try {
+				const { data } = await client.api.systemInfo.storage.explore.get({
+					query: { path, depth: "2" },
+				});
+
+				if (data?.children) {
+					// Update the tree with new children
+					setStorageRoots((roots) =>
+						roots.map((root) => updateTreeChildren(root, path, data.children as StorageEntryType[]))
+					);
+				}
+			} catch (error) {
+				console.error("Failed to load path:", path, error);
+			} finally {
+				setLoadingPaths((prev) => {
+					const next = new Set(prev);
+					next.delete(path);
+					return next;
+				});
+			}
+		},
+		[loadingPaths]
+	);
+
+	// Toggle path expansion
+	const togglePath = useCallback(
+		(path: string, hasPreloadedChildren: boolean) => {
+			setExpandedPaths((prev) => {
+				const next = new Set(prev);
+				if (next.has(path)) {
+					next.delete(path);
+				} else {
+					next.add(path);
+					// Fetch deeper children if not preloaded
+					if (!hasPreloadedChildren) {
+						loadStoragePath(path);
+					}
+				}
+				return next;
+			});
+		},
+		[loadStoragePath]
+	);
+
+	// Server actions
 	const handleStart = async (name: string) => {
 		toast.promise(client.api.gameServers({ name }).start.post(), {
 			loading: `Starting ${name}...`,
@@ -167,31 +254,26 @@ function HomePage() {
 		setTimeout(fetchServers, 500);
 	};
 
-	const handleRegisterDrive = async (path: string, label: string) => {
-		await client.api.systemInfo.drives.post({ path, label });
-		toast.success(`Drive "${label}" registered`);
-		fetchSuggestions();
-	};
-
-	const handleDeleteDrive = async (id: string) => {
-		if (!confirm("Remove drive?")) return;
-		await client.api.systemInfo.drives({ id }).delete();
-		toast.success("Drive removed");
-		fetchSuggestions();
+	const handleDeleteServer = async (name: string) => {
+		if (!confirm(`Delete server "${name}"?`)) return;
+		toast.promise(client.api.gameServers({ name }).delete(), {
+			loading: `Deleting ${name}...`,
+			success: `${name} deleted`,
+			error: `Failed to delete ${name}`,
+		});
+		setTimeout(fetchServers, 500);
 	};
 
 	const stats = systemInfo?.stats;
-	const drives = systemInfo?.drives ?? [];
 	const databases = systemInfo?.databases ?? [];
 
 	// Alert conditions
 	const cpuAlert = stats && stats.cpu.usage > 90;
 	const memAlert = stats && stats.memory.usagePercent > 90;
-	const driveAlert = drives.some((d) => d.mounted && (d.usagePercent ?? 0) > 85);
-	const hasAlerts = cpuAlert || memAlert || driveAlert;
+	const storageAlert = storageRoots.some((r) => r.usagePercent > 85);
+	const hasAlerts = cpuAlert || memAlert || storageAlert;
 
-	// Total database size
-	const totalDbSize = databases.reduce((sum, db) => sum + db.sizeBytes, 0);
+	// Helpers
 	const formatBytes = (bytes: number) => {
 		if (bytes === 0) return "0 B";
 		const k = 1024;
@@ -199,6 +281,11 @@ function HomePage() {
 		const i = Math.floor(Math.log(bytes) / Math.log(k));
 		return `${parseFloat((bytes / k ** i).toFixed(1))} ${sizes[i]}`;
 	};
+
+	const totalDbSize = databases.reduce((sum, db) => sum + db.sizeBytes, 0);
+	const runningServers = servers.filter((s) => s.status === "running").length;
+	const totalQueueJobs = queues.reduce((sum, q) => sum + q.waiting + q.active + q.delayed, 0);
+	const failedJobs = queues.reduce((sum, q) => sum + q.failed, 0);
 
 	return (
 		<div className="space-y-4">
@@ -266,7 +353,6 @@ function HomePage() {
 						</div>
 					</div>
 				</div>
-				{/* Network interface details */}
 				{showNetDetails && stats?.network.interfaces && stats.network.interfaces.length > 0 && (
 					<div className="border-t border-border px-3 py-2 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
 						{stats.network.interfaces.map((iface) => (
@@ -286,430 +372,636 @@ function HomePage() {
 
 			{/* Main Grid */}
 			<div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+				{/* Storage Panel - New Unified Tree */}
+				<Panel
+					title="Storage"
+					actions={
+						<button
+							type="button"
+							onClick={fetchStorage}
+							className="p-1 rounded hover:bg-surface-elevated text-text-tertiary"
+							title="Refresh"
+						>
+							<RefreshCw size={12} className={storageLoading ? "animate-spin" : ""} />
+						</button>
+					}
+				>
+					{storageLoading && storageRoots.length === 0 ? (
+						<div className="text-center py-4 text-text-tertiary text-sm">Loading storage...</div>
+					) : storageRoots.length === 0 ? (
+						<div className="text-center py-4 text-text-tertiary text-sm">No storage detected</div>
+					) : (
+						<div className="space-y-2">
+							{storageRoots.map((root) => (
+								<StorageRootItem
+									key={root.path}
+									root={root}
+									expandedPaths={expandedPaths}
+									loadingPaths={loadingPaths}
+									onToggle={togglePath}
+								/>
+							))}
+						</div>
+					)}
+				</Panel>
+
+				{/* ZFS Health Panel */}
+				<Panel
+					title="ZFS Health"
+					actions={
+						<button
+							type="button"
+							onClick={fetchZfsHealth}
+							className="p-1 rounded hover:bg-surface-elevated text-text-tertiary"
+							title="Refresh"
+						>
+							<RefreshCw size={12} className={zfsLoading ? "animate-spin" : ""} />
+						</button>
+					}
+				>
+					{zfsLoading && !zfsPoolStatus ? (
+						<div className="text-center py-4 text-text-tertiary text-sm">Loading...</div>
+					) : !zfsPoolStatus ? (
+						<div className="text-center py-4 text-text-tertiary text-sm">No ZFS pools found</div>
+					) : (
+						<div className="space-y-3">
+							{/* Pool Status Header */}
+							<div className="flex items-center justify-between">
+								<div className="flex items-center gap-2">
+									<Shield size={14} className="text-text-tertiary" />
+									<span className="text-sm font-medium">{zfsPoolStatus.name}</span>
+									<span
+										className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
+											zfsPoolStatus.state === "ONLINE"
+												? "bg-success-bg text-success"
+												: zfsPoolStatus.state === "DEGRADED"
+													? "bg-warning-bg text-warning"
+													: "bg-error-bg text-error"
+										}`}
+									>
+										{zfsPoolStatus.state}
+									</span>
+								</div>
+							</div>
+
+							{/* Scrub Status */}
+							<div className="text-xs space-y-1">
+								<div className="flex items-center justify-between text-text-secondary">
+									<span>Last Scrub</span>
+									<span className="text-text-tertiary">
+										{zfsPoolStatus.scan.state === "scrubbing" ? (
+											<span className="text-accent">
+												In progress {zfsPoolStatus.scan.progress?.toFixed(1)}%
+											</span>
+										) : zfsPoolStatus.scan.lastCompleted ? (
+											zfsPoolStatus.scan.lastCompleted
+										) : (
+											"Never"
+										)}
+									</span>
+								</div>
+								{zfsPoolStatus.scan.errors > 0 && (
+									<div className="flex items-center justify-between text-error">
+										<span>Scrub Errors</span>
+										<span>{zfsPoolStatus.scan.errors}</span>
+									</div>
+								)}
+							</div>
+
+							{/* Drive Status */}
+							{zfsPoolStatus.vdevs.length > 0 && (
+								<div className="pt-2 border-t border-border">
+									<div className="text-xs text-text-tertiary mb-2">Drives</div>
+									<div className="space-y-1">
+										{zfsPoolStatus.vdevs.map((vdev, i) => (
+											<div key={i} className="text-xs">
+												{vdev.type !== "pool" && (
+													<div className="text-text-secondary mb-1">
+														{vdev.type} - {vdev.state}
+													</div>
+												)}
+												<div className="ml-2 space-y-0.5">
+													{vdev.drives.map((drive) => {
+														const hasErrors = drive.read + drive.write + drive.cksum > 0;
+														return (
+															<div
+																key={drive.name}
+																className={`flex items-center justify-between ${hasErrors ? "text-warning" : "text-text-secondary"}`}
+															>
+																<span className="truncate max-w-[200px]" title={drive.name}>
+																	{drive.name.split("/").pop()}
+																</span>
+																<span className="text-text-tertiary">
+																	{hasErrors
+																		? `R:${drive.read} W:${drive.write} C:${drive.cksum}`
+																		: drive.state}
+																</span>
+															</div>
+														);
+													})}
+												</div>
+											</div>
+										))}
+									</div>
+								</div>
+							)}
+
+							{/* Errors */}
+							{zfsPoolStatus.errors !== "No known data errors" && (
+								<div className="pt-2 border-t border-border text-xs text-error">
+									{zfsPoolStatus.errors}
+								</div>
+							)}
+						</div>
+					)}
+				</Panel>
+
 				{/* Game Servers Panel */}
 				<Panel
-					title="Game Servers"
+					title={`Game Servers${servers.length > 0 ? ` (${runningServers}/${servers.length})` : ""}`}
 					actions={
 						<>
 							<button
 								type="button"
 								onClick={fetchServers}
 								className="p-1 rounded hover:bg-surface-elevated text-text-tertiary"
-								title="Refresh (r)"
+								title="Refresh"
 							>
 								<RefreshCw size={12} />
 							</button>
-							<Link to="/servers/new">
-								<button
-									type="button"
-									className="p-1 rounded hover:bg-surface-elevated text-text-tertiary"
-									title="Create (c)"
-								>
-									<Plus size={12} />
-								</button>
-							</Link>
+							<button
+								type="button"
+								onClick={() => setShowCreateDialog(true)}
+								className="p-1 rounded hover:bg-surface-elevated text-text-tertiary"
+								title="New Server"
+							>
+								<Plus size={12} />
+							</button>
 						</>
 					}
 				>
 					{servers.length > 0 ? (
 						<div className="space-y-1">
-							{servers.map((server) => (
-								<div
-									key={server.id}
-									className="flex items-center justify-between py-1.5 px-2 -mx-2 rounded hover:bg-surface-elevated/50 group"
-								>
-									<div className="flex items-center gap-2 min-w-0">
-										<StatusDot status={server.status} size="sm" />
-										<span className="text-sm truncate">{server.name}</span>
-										<span className="text-xs text-text-tertiary hidden sm:inline">
-											{server.modpack || server.gameType}
-										</span>
-									</div>
-									<div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-										{server.status === "stopped" ? (
-											<button
-												type="button"
-												onClick={() => handleStart(server.name)}
-												className="p-1 rounded text-success hover:bg-success-bg"
-												title="Start"
-											>
-												<Play size={12} />
-											</button>
-										) : (
-											<button
-												type="button"
-												onClick={() => handleStop(server.name)}
-												className="p-1 rounded text-warning hover:bg-warning-bg"
-												title="Stop"
-											>
-												<Square size={12} />
-											</button>
-										)}
-									</div>
-								</div>
-							))}
-						</div>
-					) : (
-						<div className="text-center py-6 text-text-tertiary text-sm">
-							No servers configured
-							<div className="mt-1">
-								<Link to="/servers/new" className="text-accent hover:underline text-xs">
-									Create one
-								</Link>
-							</div>
-						</div>
-					)}
+							{servers.map((server) => {
+								// Check if this server has MC status
+								const isMinecraft = server.gameType === "minecraft" || server.modpack;
+								const serverMcStatus = isMinecraft && server.status === "running" ? mcStatus : null;
 
-					{/* Minecraft Live Status */}
-					{mcStatus && (
-						<div className="mt-3 pt-3 border-t border-border">
-							<div className="flex items-center justify-between text-sm">
-								<div className="flex items-center gap-2">
-									<span
-										className={`w-2 h-2 rounded-full ${mcStatus.online ? "bg-success animate-pulse" : "bg-text-tertiary"}`}
-									/>
-									<span className="text-text-secondary">Minecraft</span>
-									{mcStatus.version && (
-										<span className="text-xs text-text-tertiary">{mcStatus.version}</span>
-									)}
-								</div>
-								{mcStatus.online && mcStatus.players && (
-									<div className="flex items-center gap-1.5 text-text-tertiary">
-										<Users size={12} />
-										<span className="tabular-nums">
-											{mcStatus.players.online}/{mcStatus.players.max}
-										</span>
-									</div>
-								)}
-							</div>
-							{mcStatus.online && mcStatus.players && mcStatus.players.list.length > 0 && (
-								<div className="mt-2 flex flex-wrap gap-1">
-									{mcStatus.players.list.map((player) => (
-										<span
-											key={player}
-											className="px-1.5 py-0.5 text-xs bg-success-bg text-success rounded"
-										>
-											{player}
-										</span>
-									))}
-								</div>
-							)}
-							{mcStatus.latency !== undefined && (
-								<div className="mt-1 text-xs text-text-tertiary">{mcStatus.latency}ms latency</div>
-							)}
-						</div>
-					)}
-				</Panel>
-
-				{/* Storage & Databases */}
-				<Panel title="Storage">
-					{drives.length > 0 || suggestions.length > 0 ? (
-						<div className="space-y-2">
-							{drives.map((drive) => (
-								<div key={drive.id} className="group">
-									<div className="flex items-center justify-between text-sm">
-										<div className="flex items-center gap-2">
-											<HardDrive size={12} className="text-text-tertiary" />
-											<span>{drive.label}</span>
-										</div>
-										<div className="flex items-center gap-2">
-											{drive.mounted ? (
-												<span className="text-xs text-text-tertiary tabular-nums">
-													{drive.used}/{drive.total}G
+								return (
+									<div
+										key={server.id}
+										className="flex items-center justify-between py-1.5 px-2 -mx-2 rounded hover:bg-surface-elevated/50 group"
+									>
+										<div className="flex items-center gap-2 min-w-0 flex-1">
+											<StatusDot status={server.status} size="sm" />
+											<span className="text-sm truncate">{server.name}</span>
+											<span className="text-xs text-text-tertiary hidden sm:inline">
+												{server.modpack || server.gameType}
+											</span>
+											{/* Inline MC status */}
+											{serverMcStatus?.online && serverMcStatus.players && (
+												<span className="text-xs text-success flex items-center gap-1 ml-auto mr-2">
+													<Users size={10} />
+													{serverMcStatus.players.online}/{serverMcStatus.players.max}
 												</span>
+											)}
+										</div>
+										<div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+											{server.status === "stopped" ? (
+												<button
+													type="button"
+													onClick={() => handleStart(server.name)}
+													className="p-1 rounded text-success hover:bg-success-bg"
+													title="Start"
+												>
+													<Play size={12} />
+												</button>
 											) : (
-												<span className="text-xs text-error">unmounted</span>
+												<button
+													type="button"
+													onClick={() => handleStop(server.name)}
+													className="p-1 rounded text-warning hover:bg-warning-bg"
+													title="Stop"
+												>
+													<Square size={12} />
+												</button>
 											)}
 											<button
 												type="button"
-												onClick={() => handleDeleteDrive(drive.id)}
-												className="p-0.5 rounded text-text-tertiary hover:text-error hover:bg-error-bg opacity-0 group-hover:opacity-100 transition-opacity"
-												title="Remove"
+												onClick={() => handleDeleteServer(server.name)}
+												className="p-1 rounded text-text-tertiary hover:text-error hover:bg-error-bg"
+												title="Delete"
 											>
-												<Trash2 size={10} />
+												<Trash2 size={12} />
 											</button>
 										</div>
 									</div>
-									{drive.mounted && (
-										<div className="mt-1 h-1 bg-border rounded-full overflow-hidden">
+								);
+							})}
+						</div>
+					) : (
+						<div className="text-center py-4 text-text-tertiary text-sm">
+							No servers configured
+							<div className="mt-1">
+								<button
+									type="button"
+									onClick={() => setShowCreateDialog(true)}
+									className="text-accent hover:underline text-xs"
+								>
+									Create one
+								</button>
+							</div>
+						</div>
+					)}
+				</Panel>
+
+				{/* Data Stores Panel */}
+				<Panel
+					title="Data Stores"
+					actions={
+						<button
+							type="button"
+							onClick={() => setExpandedDataStores(!expandedDataStores)}
+							className="p-1 rounded hover:bg-surface-elevated text-text-tertiary"
+						>
+							{expandedDataStores ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+						</button>
+					}
+				>
+					<div className="space-y-2">
+						{/* Postgres Summary */}
+						<div>
+							<button
+								type="button"
+								onClick={() => setExpandedDataStores(!expandedDataStores)}
+								className="w-full flex items-center justify-between py-1 hover:text-accent transition-colors"
+							>
+								<div className="flex items-center gap-2">
+									<Database size={14} className="text-text-tertiary" />
+									<span className="text-sm">PostgreSQL</span>
+									<span className="text-xs text-text-tertiary">{databases.length} dbs</span>
+								</div>
+								<span className="text-xs text-text-tertiary tabular-nums">
+									{formatBytes(totalDbSize)}
+								</span>
+							</button>
+							{expandedDataStores && databases.length > 0 && (
+								<div className="mt-2 ml-6 space-y-1">
+									{databases.map((db) => (
+										<div
+											key={db.name}
+											className="flex items-center justify-between text-xs text-text-secondary"
+										>
+											<span>{db.domain}</span>
+											<span className="text-text-tertiary tabular-nums">
+												{db.sizeFormatted} · {db.rowCount?.toLocaleString() ?? 0} rows
+											</span>
+										</div>
+									))}
+								</div>
+							)}
+						</div>
+
+						{/* Qdrant Summary */}
+						{qdrantInfo && (
+							<div className="pt-2 border-t border-border">
+								<div className="flex items-center justify-between py-1">
+									<div className="flex items-center gap-2">
+										<Boxes size={14} className="text-text-tertiary" />
+										<span className="text-sm">Qdrant</span>
+										<span
+											className={`w-1.5 h-1.5 rounded-full ${qdrantInfo.healthy ? "bg-success" : "bg-error"}`}
+										/>
+									</div>
+									<span className="text-xs text-text-tertiary tabular-nums">
+										{qdrantInfo.totalPoints?.toLocaleString() ?? 0} vectors
+									</span>
+								</div>
+								{expandedDataStores && qdrantInfo.collections.length > 0 && (
+									<div className="mt-2 ml-6 space-y-1">
+										{qdrantInfo.collections.map((col) => (
 											<div
-												className="h-full transition-all"
-												style={{
-													width: `${drive.usagePercent}%`,
-													backgroundColor:
-														(drive.usagePercent ?? 0) > 90
-															? "var(--error)"
-															: (drive.usagePercent ?? 0) > 70
-																? "var(--warning)"
-																: "var(--accent)",
-												}}
-											/>
+												key={col.name}
+												className="flex items-center justify-between text-xs text-text-secondary"
+											>
+												<span>{col.name}</span>
+												<span className="text-text-tertiary tabular-nums">
+													{col.pointsCount.toLocaleString()} pts
+												</span>
+											</div>
+										))}
+									</div>
+								)}
+							</div>
+						)}
+					</div>
+				</Panel>
+
+				{/* Queues Panel */}
+				<Panel
+					title={`Queues${queues.length > 0 ? ` (${totalQueueJobs} jobs${failedJobs > 0 ? `, ${failedJobs} failed` : ""})` : ""}`}
+					actions={
+						<button
+							type="button"
+							onClick={fetchQueues}
+							className="p-1 rounded hover:bg-surface-elevated text-text-tertiary"
+							title="Refresh"
+						>
+							<RefreshCw size={12} />
+						</button>
+					}
+				>
+					{queues.length > 0 ? (
+						<div className="space-y-1">
+							{queues.map((queue) => (
+								<div key={queue.name}>
+									<button
+										type="button"
+										onClick={() =>
+											setExpandedQueue(expandedQueue === queue.name ? null : queue.name)
+										}
+										className="w-full flex items-center justify-between py-1.5 px-2 -mx-2 rounded hover:bg-surface-elevated/50 transition-colors"
+									>
+										<div className="flex items-center gap-2">
+											{expandedQueue === queue.name ? (
+												<ChevronDown size={12} />
+											) : (
+												<ChevronRight size={12} />
+											)}
+											<span className="text-sm font-mono">{queue.name}</span>
+										</div>
+										<div className="flex items-center gap-3 text-xs">
+											{queue.delayed > 0 && (
+												<span className="flex items-center gap-1 text-warning">
+													<Clock size={10} />
+													{queue.delayed}
+												</span>
+											)}
+											{queue.waiting > 0 && (
+												<span className="flex items-center gap-1 text-info">
+													<Loader2 size={10} />
+													{queue.waiting}
+												</span>
+											)}
+											{queue.active > 0 && (
+												<span className="flex items-center gap-1 text-accent">
+													<Play size={10} />
+													{queue.active}
+												</span>
+											)}
+											{queue.failed > 0 && (
+												<span className="flex items-center gap-1 text-error">
+													<AlertCircle size={10} />
+													{queue.failed}
+												</span>
+											)}
+											{queue.completed > 0 && (
+												<span className="flex items-center gap-1 text-success">
+													<CheckCircle size={10} />
+													{queue.completed}
+												</span>
+											)}
+										</div>
+									</button>
+									{expandedQueue === queue.name && (
+										<div className="ml-6 py-2 grid grid-cols-5 gap-2 text-xs">
+											<div className="text-center">
+												<div className="text-warning font-bold">{queue.delayed}</div>
+												<div className="text-text-tertiary">delayed</div>
+											</div>
+											<div className="text-center">
+												<div className="text-info font-bold">{queue.waiting}</div>
+												<div className="text-text-tertiary">waiting</div>
+											</div>
+											<div className="text-center">
+												<div className="text-accent font-bold">{queue.active}</div>
+												<div className="text-text-tertiary">active</div>
+											</div>
+											<div className="text-center">
+												<div className="text-success font-bold">{queue.completed}</div>
+												<div className="text-text-tertiary">done</div>
+											</div>
+											<div className="text-center">
+												<div className="text-error font-bold">{queue.failed}</div>
+												<div className="text-text-tertiary">failed</div>
+											</div>
 										</div>
 									)}
 								</div>
 							))}
-							{suggestions.map((s) => (
-								<div
-									key={s.path}
-									className="flex items-center justify-between py-1 px-2 -mx-2 bg-surface-elevated/30 rounded text-sm"
-								>
-									<div className="flex items-center gap-2 min-w-0">
-										<HardDrive size={12} className="text-text-tertiary" />
-										<span className="truncate">{s.suggestedLabel}</span>
-										<span className="text-xs text-text-tertiary">{s.total}G</span>
-									</div>
-									<Button
-										size="sm"
-										variant="ghost"
-										onClick={() => handleRegisterDrive(s.path, s.suggestedLabel)}
-										className="h-5 px-1.5 text-xs"
-									>
-										<Plus size={10} />
-										Add
-									</Button>
-								</div>
-							))}
 						</div>
 					) : (
-						<div className="text-center py-6 text-text-tertiary text-sm">No drives registered</div>
-					)}
-				</Panel>
-
-				{/* ZFS Storage Panel */}
-				<Panel
-					title="ZFS Storage"
-					actions={
-						<button
-							type="button"
-							onClick={fetchZfsPools}
-							className="p-1 rounded hover:bg-surface-elevated text-text-tertiary"
-							title="Refresh"
-						>
-							<RefreshCw size={12} />
-						</button>
-					}
-				>
-					{zfsPools.length > 0 ? (
-						<div className="space-y-3">
-							{zfsPools.map((pool) => {
-								const isHealthy = pool.health === "ONLINE";
-								const isDegraded = pool.health === "DEGRADED";
-								return (
-									<div key={pool.name} className="space-y-2">
-										<div className="flex items-center justify-between">
-											<div className="flex items-center gap-2">
-												<Server size={14} className="text-text-tertiary" />
-												<span className="text-sm font-medium">{pool.name}</span>
-												<span
-													className={`text-xs px-1.5 py-0.5 rounded ${
-														isHealthy
-															? "bg-success-bg text-success"
-															: isDegraded
-																? "bg-warning-bg text-warning"
-																: "bg-error-bg text-error"
-													}`}
-												>
-													{pool.health}
-												</span>
-											</div>
-											<span className="text-xs text-text-tertiary tabular-nums">
-												{pool.allocatedFormatted} / {pool.sizeFormatted}
-											</span>
-										</div>
-										{/* Capacity bar */}
-										<div className="h-1.5 bg-border rounded-full overflow-hidden">
-											<div
-												className="h-full transition-all"
-												style={{
-													width: `${pool.capacity}%`,
-													backgroundColor:
-														pool.capacity > 90
-															? "var(--error)"
-															: pool.capacity > 70
-																? "var(--warning)"
-																: "var(--accent)",
-												}}
-											/>
-										</div>
-										<div className="flex items-center justify-between text-xs text-text-tertiary">
-											<span>{pool.capacity}% used</span>
-											<span>{pool.fragmentation}% frag</span>
-										</div>
-									</div>
-								);
-							})}
-							{/* Scrub status */}
-							{zfsPoolStatus?.scan && (
-								<div className="pt-2 border-t border-border">
-									<div className="flex items-center gap-2 text-xs">
-										{zfsPoolStatus.scan.state === "scrubbing" ? (
-											<>
-												<Loader2 size={12} className="animate-spin text-accent" />
-												<span className="text-text-secondary">
-													Scrub in progress: {zfsPoolStatus.scan.progress}%
-												</span>
-											</>
-										) : zfsPoolStatus.scan.state === "completed" ? (
-											<>
-												<CheckCircle2 size={12} className="text-success" />
-												<span className="text-text-tertiary">
-													Last scrub: {zfsPoolStatus.scan.lastCompleted}
-												</span>
-											</>
-										) : (
-											<span className="text-text-tertiary">No scrub data</span>
-										)}
-									</div>
-								</div>
-							)}
-						</div>
-					) : (
-						<div className="text-center py-6 text-text-tertiary text-sm">No ZFS pools detected</div>
-					)}
-				</Panel>
-
-				{/* Databases Panel */}
-				<Panel title={`Databases${totalDbSize > 0 ? ` (${formatBytes(totalDbSize)})` : ""}`}>
-					{databases.length > 0 ? (
-						<div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-							{databases.map((db) => (
-								<div
-									key={db.name}
-									className="flex items-center gap-2 py-2 px-3 bg-surface-elevated/30 rounded"
-								>
-									<Database size={14} className="text-text-tertiary" />
-									<div className="min-w-0 flex-1">
-										<div className="text-sm truncate">{db.domain}</div>
-										<div className="text-xs text-text-tertiary tabular-nums flex gap-2">
-											<span>{db.sizeFormatted}</span>
-											<span>•</span>
-											<span>{db.rowCount?.toLocaleString() ?? 0} rows</span>
-										</div>
-									</div>
-								</div>
-							))}
-						</div>
-					) : (
-						<div className="text-center py-4 text-text-tertiary text-sm">
-							No database info available
-						</div>
-					)}
-				</Panel>
-
-				{/* Directory Sizes Panel */}
-				<Panel
-					title="Directory Sizes"
-					actions={
-						<button
-							type="button"
-							onClick={fetchDirectorySizes}
-							className="p-1 rounded hover:bg-surface-elevated text-text-tertiary"
-							title="Refresh"
-						>
-							<RefreshCw size={12} />
-						</button>
-					}
-				>
-					{directorySizes.length > 0 ? (
-						<div className="space-y-1 text-sm max-h-64 overflow-y-auto">
-							{directorySizes.map((dir) => {
-								const depth = dir.path.split("/").length - 2; // /tank = 0, /tank/foo = 1
-								const name = dir.path.split("/").pop() || dir.path;
-								const isRoot = dir.path === "/tank";
-								return (
-									<div
-										key={dir.path}
-										className="flex items-center justify-between py-0.5 hover:bg-surface-elevated/50 rounded px-1"
-										style={{ paddingLeft: `${depth * 12 + 4}px` }}
-									>
-										<div className="flex items-center gap-1.5 min-w-0">
-											<Folder size={12} className={isRoot ? "text-accent" : "text-text-tertiary"} />
-											<span className={`truncate ${isRoot ? "font-medium" : ""}`}>{name}</span>
-										</div>
-										<span className="text-xs text-text-tertiary tabular-nums ml-2">
-											{dir.sizeFormatted}
-										</span>
-									</div>
-								);
-							})}
-						</div>
-					) : (
-						<div className="text-center py-4 text-text-tertiary text-sm">
-							No directory data available
-						</div>
-					)}
-				</Panel>
-
-				{/* Qdrant (Vector DB) Panel */}
-				<Panel
-					title={`Qdrant${qdrantInfo?.totalPoints ? ` (${qdrantInfo.totalPoints.toLocaleString()} vectors)` : ""}`}
-					actions={
-						<button
-							type="button"
-							onClick={fetchQdrantInfo}
-							className="p-1 rounded hover:bg-surface-elevated text-text-tertiary"
-							title="Refresh"
-						>
-							<RefreshCw size={12} />
-						</button>
-					}
-				>
-					{qdrantInfo ? (
-						<div className="space-y-2">
-							<div className="flex items-center gap-2 text-sm">
-								<span
-									className={`w-2 h-2 rounded-full ${qdrantInfo.healthy ? "bg-success" : "bg-error"}`}
-								/>
-								<span className="text-text-secondary">
-									{qdrantInfo.healthy ? "Connected" : "Disconnected"}
-								</span>
-								{qdrantInfo.totalDiskSizeFormatted && (
-									<span className="text-xs text-text-tertiary ml-auto">
-										~{qdrantInfo.totalDiskSizeFormatted}
-									</span>
-								)}
-							</div>
-							{qdrantInfo.collections.length > 0 ? (
-								<div className="space-y-1">
-									{qdrantInfo.collections.map((col) => (
-										<div
-											key={col.name}
-											className="flex items-center justify-between py-1.5 px-2 -mx-2 bg-surface-elevated/30 rounded"
-										>
-											<div className="flex items-center gap-2">
-												<Boxes size={12} className="text-text-tertiary" />
-												<span className="text-sm">{col.name}</span>
-												<span
-													className={`text-xs px-1 py-0.5 rounded ${
-														col.status === "green"
-															? "bg-success-bg text-success"
-															: "bg-warning-bg text-warning"
-													}`}
-												>
-													{col.status}
-												</span>
-											</div>
-											<div className="text-xs text-text-tertiary tabular-nums">
-												{col.pointsCount.toLocaleString()} pts
-											</div>
-										</div>
-									))}
-								</div>
-							) : (
-								<div className="text-xs text-text-tertiary">No collections</div>
-							)}
-						</div>
-					) : (
-						<div className="text-center py-4 text-text-tertiary text-sm">
-							Loading Qdrant info...
-						</div>
+						<div className="text-center py-4 text-text-tertiary text-sm">No queues</div>
 					)}
 				</Panel>
 			</div>
+
+			{/* Create Server Dialog */}
+			<CreateServerDialog
+				open={showCreateDialog}
+				onClose={() => setShowCreateDialog(false)}
+				onCreated={fetchServers}
+			/>
 		</div>
 	);
 }
 
+// Storage tree components
+function StorageRootItem({
+	root,
+	expandedPaths,
+	loadingPaths,
+	onToggle,
+}: {
+	root: StorageRootTypeT;
+	expandedPaths: Set<string>;
+	loadingPaths: Set<string>;
+	onToggle: (path: string, hasChildren: boolean) => void;
+}) {
+	const isExpanded = expandedPaths.has(root.path);
+	const hasChildren = root.children && root.children.length > 0;
+	const isLoading = loadingPaths.has(root.path);
+
+	return (
+		<div className="space-y-1">
+			{/* Root header */}
+			<div className="flex items-center justify-between">
+				<button
+					type="button"
+					onClick={() => onToggle(root.path, !!hasChildren)}
+					className="flex items-center gap-2 hover:text-accent transition-colors"
+				>
+					{isLoading ? (
+						<Loader2 size={12} className="animate-spin" />
+					) : isExpanded ? (
+						<ChevronDown size={12} />
+					) : (
+						<ChevronRight size={12} />
+					)}
+					{root.type === "zfs" ? (
+						<Server size={14} className="text-text-tertiary" />
+					) : (
+						<HardDrive size={14} className="text-text-tertiary" />
+					)}
+					<span className="text-sm font-medium">{root.name}</span>
+					{root.health && (
+						<span
+							className={`text-[10px] px-1 py-0.5 rounded ${
+								root.health === "ONLINE"
+									? "bg-success-bg text-success"
+									: "bg-warning-bg text-warning"
+							}`}
+						>
+							{root.health}
+						</span>
+					)}
+				</button>
+				<span className="text-xs text-text-tertiary tabular-nums">
+					{root.usedFormatted} / {root.sizeFormatted}
+				</span>
+			</div>
+
+			{/* Progress bar */}
+			<div className="h-1 bg-border rounded-full overflow-hidden">
+				<div
+					className="h-full transition-all"
+					style={{
+						width: `${root.usagePercent}%`,
+						backgroundColor:
+							root.usagePercent > 90
+								? "var(--error)"
+								: root.usagePercent > 70
+									? "var(--warning)"
+									: "var(--accent)",
+					}}
+				/>
+			</div>
+
+			{/* Children */}
+			{isExpanded && hasChildren && (
+				<div className="ml-4 mt-1 space-y-0.5">
+					{root.children!.map((child) => (
+						<StorageEntryItem
+							key={child.path}
+							entry={child}
+							depth={1}
+							expandedPaths={expandedPaths}
+							loadingPaths={loadingPaths}
+							onToggle={onToggle}
+						/>
+					))}
+				</div>
+			)}
+		</div>
+	);
+}
+
+function StorageEntryItem({
+	entry,
+	depth,
+	expandedPaths,
+	loadingPaths,
+	onToggle,
+}: {
+	entry: StorageEntryType;
+	depth: number;
+	expandedPaths: Set<string>;
+	loadingPaths: Set<string>;
+	onToggle: (path: string, hasChildren: boolean) => void;
+}) {
+	const isExpanded = expandedPaths.has(entry.path);
+	const hasChildren = entry.children && entry.children.length > 0;
+	const isLoading = loadingPaths.has(entry.path);
+	const canExpand = depth < 5; // Limit depth
+
+	return (
+		<div>
+			<div
+				className="flex items-center justify-between py-0.5 text-sm text-text-secondary hover:text-text-primary transition-colors"
+				style={{ paddingLeft: `${depth * 8}px` }}
+			>
+				{canExpand ? (
+					<button
+						type="button"
+						onClick={() => onToggle(entry.path, !!hasChildren)}
+						className="flex items-center gap-1.5 min-w-0"
+					>
+						{isLoading ? (
+							<Loader2 size={10} className="animate-spin shrink-0" />
+						) : isExpanded ? (
+							<ChevronDown size={10} className="shrink-0" />
+						) : (
+							<ChevronRight size={10} className="shrink-0" />
+						)}
+						<Folder size={10} className="text-text-tertiary shrink-0" />
+						<span className="truncate">{entry.name}</span>
+					</button>
+				) : (
+					<div className="flex items-center gap-1.5 min-w-0">
+						<span className="w-[10px]" />
+						<Folder size={10} className="text-text-tertiary shrink-0" />
+						<span className="truncate">{entry.name}</span>
+					</div>
+				)}
+				<span className="text-xs text-text-tertiary tabular-nums ml-2 shrink-0">
+					{entry.sizeFormatted}
+				</span>
+			</div>
+
+			{isExpanded && hasChildren && (
+				<div className="space-y-0.5">
+					{entry.children!.map((child) => (
+						<StorageEntryItem
+							key={child.path}
+							entry={child}
+							depth={depth + 1}
+							expandedPaths={expandedPaths}
+							loadingPaths={loadingPaths}
+							onToggle={onToggle}
+						/>
+					))}
+				</div>
+			)}
+		</div>
+	);
+}
+
+// Helper to update tree children at a specific path
+function updateTreeChildren(
+	root: StorageRootTypeT,
+	targetPath: string,
+	newChildren: StorageEntryType[]
+): StorageRootTypeT {
+	if (root.path === targetPath) {
+		return { ...root, children: newChildren };
+	}
+
+	if (!root.children) return root;
+
+	return {
+		...root,
+		children: root.children.map((child) => updateEntryChildren(child, targetPath, newChildren)),
+	};
+}
+
+function updateEntryChildren(
+	entry: StorageEntryType,
+	targetPath: string,
+	newChildren: StorageEntryType[]
+): StorageEntryType {
+	if (entry.path === targetPath) {
+		return { ...entry, children: newChildren };
+	}
+
+	if (!entry.children) return entry;
+
+	return {
+		...entry,
+		children: entry.children.map((child) => updateEntryChildren(child, targetPath, newChildren)),
+	};
+}
+
+// Helper components
 function Stat({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
 	return (
 		<div className="flex items-center gap-1.5">

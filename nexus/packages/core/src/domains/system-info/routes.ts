@@ -16,6 +16,8 @@ import {
 	getZfsPoolStatus,
 	listDrivesWithStats,
 	updateDrive,
+	getStorageRoots,
+	exploreStoragePath,
 } from "./functions";
 import {
 	ApiError,
@@ -32,6 +34,9 @@ import {
 	ZfsIostat,
 	ZfsPool,
 	ZfsPoolStatus,
+	StorageOverview,
+	StorageExploreQuery,
+	StorageExploreResponse,
 } from "./types";
 
 const STATS_INTERVAL_MS = 2000;
@@ -357,5 +362,47 @@ export const systemInfoRoutes = new Elysia({ prefix: "/systemInfo" })
 				summary: "Get Qdrant vector database info and collection stats",
 			},
 			response: { 200: QdrantInfo },
+		}
+	)
+
+	// === Unified Storage Routes ===
+
+	// Get auto-detected storage roots with preloaded children
+	.get(
+		"/storage",
+		async ({ query }) => {
+			const depth = query.depth ? parseInt(query.depth, 10) : 3;
+			return await getStorageRoots(depth);
+		},
+		{
+			detail: {
+				tags: ["System Info", "Storage"],
+				summary: "Get auto-detected storage roots (ZFS pools + large drives) with directory tree",
+			},
+			query: t.Object({
+				depth: t.Optional(t.String()),
+			}),
+			response: { 200: StorageOverview },
+		}
+	)
+
+	// Explore a specific storage path (lazy loading)
+	.get(
+		"/storage/explore",
+		async ({ query, set }) => {
+			if (!query.path) {
+				set.status = 400;
+				return { error: "Path is required" };
+			}
+			const depth = query.depth ? parseInt(query.depth, 10) : 2;
+			return await exploreStoragePath(query.path, depth);
+		},
+		{
+			detail: {
+				tags: ["System Info", "Storage"],
+				summary: "Explore a specific storage path for lazy loading deeper levels",
+			},
+			query: StorageExploreQuery,
+			response: { 200: StorageExploreResponse, 400: ApiError },
 		}
 	);
