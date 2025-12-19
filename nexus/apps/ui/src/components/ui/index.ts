@@ -1,6 +1,5 @@
 export { Badge } from "./Badge";
 export { Button } from "./button";
-export { CommandBar } from "./CommandBar";
 export { CommandPalette } from "./CommandPalette";
 export {
 	Card,

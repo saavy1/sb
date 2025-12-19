@@ -1,27 +1,10 @@
 import type { SettingsResponseType } from "@nexus/core/domains/core";
 import { createFileRoute } from "@tanstack/react-router";
-import {
-	CheckCircle,
-	ChevronDown,
-	ChevronRight,
-	Loader2,
-	Save,
-	Wrench,
-	XCircle,
-	Zap,
-} from "lucide-react";
+import { CheckCircle, Loader2, Save, XCircle, Zap } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button, Input, Label, Panel, PanelRow } from "../components/ui";
 import { client } from "../lib/api";
-
-// Tool info type (matches server)
-type ToolInfo = {
-	name: string;
-	description: string;
-	category: string;
-	parameters?: Record<string, { type: string; description?: string; required?: boolean }>;
-};
 
 type ConnectionTestResult = {
 	ssh: { success: boolean; message: string };
@@ -49,10 +32,6 @@ function SettingsPage() {
 	const [mcDefaultStorage, setMcDefaultStorage] = useState("");
 	const [hasChanges, setHasChanges] = useState(false);
 
-	// Tools state
-	const [toolsGrouped, setToolsGrouped] = useState<Record<string, ToolInfo[]>>({});
-	const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
-
 	const fetchSettings = useCallback(async () => {
 		try {
 			const { data } = await client.api.settings.get();
@@ -71,33 +50,9 @@ function SettingsPage() {
 		}
 	}, []);
 
-	const fetchTools = useCallback(async () => {
-		try {
-			const { data } = await client.api.agent.tools.grouped.get();
-			if (data) {
-				setToolsGrouped(data as Record<string, ToolInfo[]>);
-			}
-		} catch (error) {
-			console.error("Failed to fetch tools:", error);
-		}
-	}, []);
-
-	const toggleCategory = (category: string) => {
-		setExpandedCategories((prev) => {
-			const next = new Set(prev);
-			if (next.has(category)) {
-				next.delete(category);
-			} else {
-				next.add(category);
-			}
-			return next;
-		});
-	};
-
 	useEffect(() => {
 		fetchSettings();
-		fetchTools();
-	}, [fetchSettings, fetchTools]);
+	}, [fetchSettings]);
 
 	// Track changes
 	useEffect(() => {
@@ -179,7 +134,7 @@ function SettingsPage() {
 	);
 
 	return (
-		<div className="space-y-4">
+		<div className="space-y-4 max-w-2xl">
 			{/* Header Strip */}
 			<div className="flex items-center justify-between px-3 py-2 bg-surface border border-border rounded text-xs">
 				<span className="text-text-secondary uppercase tracking-wider">Settings</span>
@@ -195,10 +150,10 @@ function SettingsPage() {
 			{loading ? (
 				<div className="text-center py-12 text-text-tertiary">Loading...</div>
 			) : (
-				<div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-					{/* Agent Configuration - full width */}
-					<Panel title="Agent Configuration" className="lg:col-span-2">
-						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+				<div className="space-y-4">
+					{/* Agent Configuration */}
+					<Panel title="Agent Configuration">
+						<div className="space-y-4">
 							<div>
 								<Label className="block text-xs text-text-tertiary mb-2">AI Model</Label>
 								<select
@@ -263,21 +218,6 @@ function SettingsPage() {
 						</div>
 					</Panel>
 
-					{/* System Information */}
-					<Panel title="System Information">
-						<div className="space-y-1">
-							<PanelRow label="Version" value={settings?.system.version ?? "-"} />
-							<PanelRow label="Environment" value={settings?.system.environment ?? "-"} />
-							<PanelRow label="Uptime" value={settings?.system.uptimeFormatted ?? "-"} />
-							<PanelRow label="API URL" value={settings?.system.apiUrl ?? "-"} mono />
-							<PanelRow label="K8s Namespace" value={settings?.system.k8sNamespace ?? "-"} mono />
-							<PanelRow
-								label="K8s In-Cluster"
-								value={settings?.system.k8sInCluster ? "Yes" : "No"}
-							/>
-						</div>
-					</Panel>
-
 					{/* Cluster Connection */}
 					<Panel title="Cluster Connection">
 						<div className="space-y-3">
@@ -318,80 +258,20 @@ function SettingsPage() {
 						</div>
 					</Panel>
 
-					{/* Keyboard Shortcuts */}
-					<Panel title="Keyboard Shortcuts">
-						<div className="space-y-1 text-sm">
-							<ShortcutRow keys="⌘K" description="Command palette" />
-							<ShortcutRow keys="g h" description="Go to Dashboard" />
-							<ShortcutRow keys="g s" description="Go to Servers" />
-							<ShortcutRow keys="g ," description="Go to Settings" />
-							<ShortcutRow keys="?" description="Show help" />
-							<ShortcutRow keys="j / k" description="Navigate list" />
-							<ShortcutRow keys="r" description="Refresh" />
-							<ShortcutRow keys="c" description="Create new" />
-						</div>
-					</Panel>
-
-					{/* Agent Tools */}
-					<Panel title={`Agent Tools (${Object.values(toolsGrouped).flat().length})`}>
-						{Object.keys(toolsGrouped).length > 0 ? (
-							<div className="space-y-1.5 max-h-64 overflow-y-auto">
-								{Object.entries(toolsGrouped).map(([category, tools]) => (
-									<div key={category} className="border border-border rounded overflow-hidden">
-										<button
-											type="button"
-											onClick={() => toggleCategory(category)}
-											className="w-full flex items-center justify-between px-2 py-1.5 bg-surface-elevated/50 hover:bg-surface-elevated transition-colors text-left"
-										>
-											<div className="flex items-center gap-1.5">
-												<Wrench size={10} className="text-text-tertiary" />
-												<span className="text-xs font-medium">{category}</span>
-												<span className="text-xs text-text-tertiary">({tools.length})</span>
-											</div>
-											{expandedCategories.has(category) ? (
-												<ChevronDown size={12} className="text-text-tertiary" />
-											) : (
-												<ChevronRight size={12} className="text-text-tertiary" />
-											)}
-										</button>
-										{expandedCategories.has(category) && (
-											<div className="divide-y divide-border">
-												{tools.map((tool) => (
-													<div key={tool.name} className="px-2 py-1.5">
-														<code className="text-xs text-accent font-mono">{tool.name}</code>
-														<p className="text-xs text-text-tertiary mt-0.5 leading-tight">
-															{tool.description}
-														</p>
-													</div>
-												))}
-											</div>
-										)}
-									</div>
-								))}
-							</div>
-						) : (
-							<div className="text-center py-4 text-text-tertiary text-xs">Loading tools...</div>
-						)}
-					</Panel>
-
-					{/* About */}
-					<Panel title="About">
-						<div className="space-y-1">
-							<PanelRow label="Dashboard" value="Superbloom" />
-							<PanelRow label="Stack" value="React + Vite + Tailwind" />
+					{/* System Info - Compact */}
+					<Panel title="System">
+						<div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+							<PanelRow label="Version" value={settings?.system.version ?? "-"} />
+							<PanelRow label="Environment" value={settings?.system.environment ?? "-"} />
+							<PanelRow label="Uptime" value={settings?.system.uptimeFormatted ?? "-"} />
+							<PanelRow
+								label="K8s"
+								value={settings?.system.k8sInCluster ? "In-cluster" : "External"}
+							/>
 						</div>
 					</Panel>
 				</div>
 			)}
-		</div>
-	);
-}
-
-function ShortcutRow({ keys, description }: { keys: string; description: string }) {
-	return (
-		<div className="flex items-center justify-between py-1">
-			<span className="text-text-tertiary">{description}</span>
-			<kbd className="bg-background px-2 py-0.5 rounded text-xs text-accent font-mono">{keys}</kbd>
 		</div>
 	);
 }

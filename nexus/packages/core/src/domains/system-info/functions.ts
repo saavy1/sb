@@ -903,12 +903,7 @@ export async function getDirectorySizes(
 	path: string,
 	depth = 2
 ): Promise<DirectorySizeType[]> {
-	// Validate path - only allow /tank paths for safety
-	if (!path.startsWith("/tank") && !path.startsWith("/srv")) {
-		logger.warn({ path }, "Directory sizes only allowed for /tank or /srv");
-		return [];
-	}
-	// Basic path validation
+	// Basic path validation (shell injection prevention)
 	if (/[;&|`$]/.test(path)) {
 		logger.warn({ path }, "Invalid characters in path");
 		return [];
@@ -1115,3 +1110,237 @@ export const systemInfoTools = [
 	...zfsTools,
 	getQdrantInfoTool.tool,
 ];
+
+// === Unified Storage API ===
+
+const MIN_DRIVE_SIZE_GB = 50; // Only show drives larger than this
+
+/**
+ * Build a tree structure from flat du output
+ */
+function buildStorageTree(
+	flatEntries: DirectorySizeType[],
+	basePath: string,
+	maxDepth: number
+): import("./types").StorageEntryType[] {
+	// Group entries by their parent path
+	const byParent = new Map<string, DirectorySizeType[]>();
+
+	for (const entry of flatEntries) {
+		if (entry.path === basePath) continue; // Skip the root itself
+
+		// Find parent path
+		const relativePath = entry.path.slice(basePath.length);
+		const parts = relativePath.split("/").filter(Boolean);
+
+		if (parts.length === 0) continue;
+
+		// Determine parent
+		const parentPath = parts.length === 1 ? basePath : basePath + "/" + parts.slice(0, -1).join("/");
+
+		if (!byParent.has(parentPath)) {
+			byParent.set(parentPath, []);
+		}
+		byParent.get(parentPath)!.push(entry);
+	}
+
+	// Recursively build tree
+	function buildLevel(parentPath: string, depth: number): import("./types").StorageEntryType[] {
+		const children = byParent.get(parentPath) || [];
+		return children
+			.sort((a, b) => b.sizeBytes - a.sizeBytes)
+			.map((entry) => {
+				const name = entry.path.split("/").pop() || entry.path;
+				const result: import("./types").StorageEntryType = {
+					path: entry.path,
+					name,
+					sizeBytes: entry.sizeBytes,
+					sizeFormatted: entry.sizeFormatted,
+				};
+
+				if (depth < maxDepth) {
+					const nested = buildLevel(entry.path, depth + 1);
+					if (nested.length > 0) {
+						result.children = nested;
+					}
+				}
+
+				return result;
+			});
+	}
+
+	return buildLevel(basePath, 1);
+}
+
+/**
+ * Get directory sizes for a path and build a tree structure
+ * Returns both the tree and the total size of the root path
+ */
+async function getStorageTree(
+	path: string,
+	depth: number
+): Promise<{ children: import("./types").StorageEntryType[]; totalBytes: number }> {
+	const sizes = await getDirectorySizes(path, depth);
+
+	// Find the root path's total size from du output
+	const rootEntry = sizes.find((s) => s.path === path);
+	const totalBytes = rootEntry?.sizeBytes ?? 0;
+
+	return {
+		children: buildStorageTree(sizes, path, depth),
+		totalBytes,
+	};
+}
+
+/**
+ * Auto-detect storage roots from mounted filesystems (ZFS pools show up naturally via df)
+ */
+export async function getStorageRoots(
+	preloadDepth = 3
+): Promise<import("./types").StorageOverviewType> {
+	// Get all mounted drives via SSH
+	const result = await executeSSH("df -B1 -T 2>/dev/null");
+	if (!result.success) {
+		logger.warn({ error: result.errorMessage }, "Failed to get mounted drives via SSH");
+		return { roots: [] };
+	}
+
+	const lines = result.output.trim().split("\n").slice(1); // Skip header
+
+	// First pass: collect all valid mount points
+	const mounts: Array<{
+		path: string;
+		fsType: string;
+		totalBytes: number;
+		usedBytes: number;
+	}> = [];
+
+	for (const line of lines) {
+		const parts = line.split(/\s+/);
+		if (parts.length < 7) continue;
+
+		const [_device, fsType, totalStr, usedStr, _availStr, _percentStr, ...mountParts] = parts;
+		const mountPoint = mountParts.join(" ");
+
+		// Skip virtual/system filesystems
+		if (
+			fsType === "tmpfs" ||
+			fsType === "overlay" ||
+			fsType === "squashfs" ||
+			fsType === "devtmpfs" ||
+			mountPoint.startsWith("/boot") ||
+			mountPoint.startsWith("/snap") ||
+			mountPoint.startsWith("/var/lib/docker") ||
+			mountPoint.startsWith("/run") ||
+			mountPoint.startsWith("/sys") ||
+			mountPoint.startsWith("/dev")
+		) continue;
+
+		const totalBytes = parseInt(totalStr, 10);
+		const totalGb = totalBytes / 1024 / 1024 / 1024;
+
+		// Only include drives larger than threshold
+		if (totalGb < MIN_DRIVE_SIZE_GB) continue;
+
+		mounts.push({
+			path: mountPoint,
+			fsType,
+			totalBytes,
+			usedBytes: parseInt(usedStr, 10),
+		});
+	}
+
+	// Second pass: filter out mounts that are children of other mounts
+	// (e.g., ZFS datasets that are children of the pool)
+	const rootMounts = mounts.filter((mount) => {
+		// Keep this mount if no other mount is its parent
+		return !mounts.some(
+			(other) =>
+				other.path !== mount.path &&
+				mount.path.startsWith(other.path + "/")
+		);
+	});
+
+	// Third pass: build root entries with children
+	const roots: import("./types").StorageRootTypeT[] = [];
+
+	for (const mount of rootMounts) {
+		const name = mount.path === "/" ? "root" : mount.path.split("/").pop() || mount.path;
+		const isZfs = mount.fsType === "zfs";
+
+		// Get children with preloaded depth (skip root - du / is slow)
+		let children: import("./types").StorageEntryType[] | undefined;
+		let duTotalBytes = 0;
+		if (mount.path !== "/") {
+			try {
+				const tree = await getStorageTree(mount.path, preloadDepth);
+				children = tree.children;
+				duTotalBytes = tree.totalBytes;
+			} catch (e) {
+				logger.warn({ mount: mount.path, error: e }, "Failed to preload mount children");
+			}
+		}
+
+		// Use du total for used bytes if available (more accurate for ZFS with datasets)
+		const usedBytes = duTotalBytes > 0 ? duTotalBytes : mount.usedBytes;
+
+		roots.push({
+			type: isZfs ? "zfs" : "mount",
+			name,
+			path: mount.path,
+			sizeBytes: mount.totalBytes,
+			usedBytes,
+			usagePercent: Math.round((usedBytes / mount.totalBytes) * 100),
+			sizeFormatted: formatBytesZfs(mount.totalBytes),
+			usedFormatted: formatBytesZfs(usedBytes),
+			children,
+		});
+	}
+
+	// Sort: ZFS pools first, then by size
+	roots.sort((a, b) => {
+		if (a.type === "zfs" && b.type !== "zfs") return -1;
+		if (a.type !== "zfs" && b.type === "zfs") return 1;
+		return b.sizeBytes - a.sizeBytes;
+	});
+
+	return { roots };
+}
+
+/**
+ * Explore a specific storage path (for lazy loading deeper levels)
+ */
+export async function exploreStoragePath(
+	path: string,
+	depth = 2
+): Promise<{ path: string; children: import("./types").StorageEntryType[] }> {
+	const tree = await getStorageTree(path, depth);
+	return { path, children: tree.children };
+}
+
+// === Storage AI Tool ===
+
+export const getStorageOverviewTool = withTool(
+	{
+		name: "get_storage_overview",
+		description:
+			"Get an overview of all storage: ZFS pools and mounted drives with their usage and directory breakdown. Use when checking disk space, storage health, or what's using space.",
+		input: z.object({}),
+	},
+	async () => {
+		const storage = await getStorageRoots(2); // Lighter depth for AI
+		return storage.roots.map((r) => ({
+			type: r.type,
+			name: r.name,
+			path: r.path,
+			used: r.usedFormatted,
+			total: r.sizeFormatted,
+			usagePercent: r.usagePercent,
+			health: r.health,
+			topDirectories: r.children?.slice(0, 5).map((c) => ({
+				name: c.name,
+				size: c.sizeFormatted,
+			})),
+		}));
+	}
+);

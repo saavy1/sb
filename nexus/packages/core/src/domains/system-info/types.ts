@@ -258,6 +258,57 @@ export const DirectorySize = t.Object({
 });
 export type DirectorySizeType = typeof DirectorySize.static;
 
+// === Unified Storage Types ===
+
+// Note: Recursive types don't work well with Elysia's t.*, so we define a simple schema
+// and use the TypeScript type separately for internal use
+export const StorageEntry = t.Object({
+	path: t.String(),
+	name: t.String(),
+	sizeBytes: t.Number(),
+	sizeFormatted: t.String(),
+	children: t.Optional(t.Array(t.Any())), // Children are dynamically typed
+});
+export type StorageEntryType = {
+	path: string;
+	name: string;
+	sizeBytes: number;
+	sizeFormatted: string;
+	children?: StorageEntryType[];
+};
+
+export const StorageRootType = t.Union([t.Literal("zfs"), t.Literal("mount")]);
+
+export const StorageRoot = t.Object({
+	type: StorageRootType,
+	name: t.String(),
+	path: t.String(),
+	sizeBytes: t.Number(),
+	usedBytes: t.Number(),
+	usagePercent: t.Number(),
+	sizeFormatted: t.String(),
+	usedFormatted: t.String(),
+	health: t.Optional(t.String()), // ZFS health status
+	children: t.Optional(t.Array(StorageEntry)),
+	loading: t.Optional(t.Boolean()), // For UI state
+});
+export type StorageRootTypeT = typeof StorageRoot.static;
+
+export const StorageOverview = t.Object({
+	roots: t.Array(StorageRoot),
+});
+export type StorageOverviewType = typeof StorageOverview.static;
+
+export const StorageExploreQuery = t.Object({
+	path: t.String(),
+	depth: t.Optional(t.String()),
+});
+
+export const StorageExploreResponse = t.Object({
+	path: t.String(),
+	children: t.Array(StorageEntry),
+});
+
 export const DriveSmartStatus = t.Object({
 	device: t.String(),
 	model: t.String(),
