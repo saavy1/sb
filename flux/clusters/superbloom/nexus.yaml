@@ -1,11 +1,11 @@
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
-  name: apps
+  name: nexus
   namespace: flux-system
 spec:
   interval: 10m0s
-  path: ./flux/clusters/superbloom/apps
+  path: ./flux/clusters/superbloom/nexus
   prune: true
   sourceRef:
     kind: GitRepository
@@ -15,6 +15,6 @@ spec:
     secretRef:
       name: sops-age
   dependsOn:
-    - name: infra
+    - name: data
   wait: true
   timeout: 10m
