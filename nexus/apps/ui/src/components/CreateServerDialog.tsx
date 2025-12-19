@@ -1,28 +1,22 @@
 import { useForm } from "@tanstack/react-form";
 import { Loader2, X } from "lucide-react";
 import { useEffect, useState } from "react";
-import { z } from "zod";
 import { client } from "../lib/api";
 import { Button, Input, Label } from "./ui";
 
-const createServerSchema = z.object({
-	name: z
-		.string()
-		.min(1, "Name is required")
-		.max(32, "Name must be 32 characters or less")
-		.regex(/^[a-z0-9-]+$/, "Lowercase letters, numbers, and hyphens only"),
-	modpack: z.string().min(1, "Modpack is required"),
-	memory: z.string().min(1),
-	createdBy: z.string().min(1, "Creator is required"),
-});
+// Simple inline validators - API does the real validation
+const validateName = ({ value }: { value: string }) => {
+	if (!value) return "Name is required";
+	if (!/^[a-z0-9-]+$/.test(value)) return "Lowercase letters, numbers, and hyphens only";
+	return undefined;
+};
 
-function getErrorMessage(error: unknown): string {
-	if (typeof error === "string") return error;
-	if (error && typeof error === "object" && "message" in error) {
-		return String(error.message);
-	}
-	return "Invalid value";
-}
+const validateRequired =
+	(field: string) =>
+	({ value }: { value: string }) => {
+		if (!value) return `${field} is required`;
+		return undefined;
+	};
 
 type CreateServerDialogProps = {
 	open: boolean;
@@ -40,9 +34,6 @@ export function CreateServerDialog({ open, onClose, onCreated }: CreateServerDia
 			modpack: "",
 			memory: "4G",
 			createdBy: "",
-		},
-		validators: {
-			onChange: createServerSchema,
 		},
 		onSubmit: async ({ value }) => {
 			setIsSubmitting(true);
@@ -128,6 +119,7 @@ export function CreateServerDialog({ open, onClose, onCreated }: CreateServerDia
 					>
 						<form.Field
 							name="name"
+							validators={{ onBlur: validateName }}
 							children={(field) => (
 								<div>
 									<Label className="text-xs text-text-tertiary mb-1.5 block">Name</Label>
@@ -140,9 +132,7 @@ export function CreateServerDialog({ open, onClose, onCreated }: CreateServerDia
 										className="font-mono"
 									/>
 									{field.state.meta.errors.length > 0 && (
-										<p className="text-error text-xs mt-1">
-											{getErrorMessage(field.state.meta.errors[0])}
-										</p>
+										<p className="text-error text-xs mt-1">{field.state.meta.errors[0]}</p>
 									)}
 									<p className="text-[10px] text-text-tertiary mt-1">
 										lowercase, numbers, hyphens only
@@ -153,6 +143,7 @@ export function CreateServerDialog({ open, onClose, onCreated }: CreateServerDia
 
 						<form.Field
 							name="modpack"
+							validators={{ onBlur: validateRequired("Modpack") }}
 							children={(field) => (
 								<div>
 									<Label className="text-xs text-text-tertiary mb-1.5 block">Modpack</Label>
@@ -165,9 +156,7 @@ export function CreateServerDialog({ open, onClose, onCreated }: CreateServerDia
 										className="font-mono"
 									/>
 									{field.state.meta.errors.length > 0 && (
-										<p className="text-error text-xs mt-1">
-											{getErrorMessage(field.state.meta.errors[0])}
-										</p>
+										<p className="text-error text-xs mt-1">{field.state.meta.errors[0]}</p>
 									)}
 								</div>
 							)}
@@ -176,6 +165,7 @@ export function CreateServerDialog({ open, onClose, onCreated }: CreateServerDia
 						<div className="grid grid-cols-2 gap-4">
 							<form.Field
 								name="memory"
+								validators={{ onBlur: validateRequired("Memory") }}
 								children={(field) => (
 									<div>
 										<Label className="text-xs text-text-tertiary mb-1.5 block">Memory</Label>
@@ -188,9 +178,7 @@ export function CreateServerDialog({ open, onClose, onCreated }: CreateServerDia
 											className="font-mono"
 										/>
 										{field.state.meta.errors.length > 0 && (
-											<p className="text-error text-xs mt-1">
-												{getErrorMessage(field.state.meta.errors[0])}
-											</p>
+											<p className="text-error text-xs mt-1">{field.state.meta.errors[0]}</p>
 										)}
 									</div>
 								)}
@@ -198,6 +186,7 @@ export function CreateServerDialog({ open, onClose, onCreated }: CreateServerDia
 
 							<form.Field
 								name="createdBy"
+								validators={{ onBlur: validateRequired("Creator") }}
 								children={(field) => (
 									<div>
 										<Label className="text-xs text-text-tertiary mb-1.5 block">Created By</Label>
@@ -209,9 +198,7 @@ export function CreateServerDialog({ open, onClose, onCreated }: CreateServerDia
 											onChange={(e) => field.handleChange(e.target.value)}
 										/>
 										{field.state.meta.errors.length > 0 && (
-											<p className="text-error text-xs mt-1">
-												{getErrorMessage(field.state.meta.errors[0])}
-											</p>
+											<p className="text-error text-xs mt-1">{field.state.meta.errors[0]}</p>
 										)}
 									</div>
 								)}
