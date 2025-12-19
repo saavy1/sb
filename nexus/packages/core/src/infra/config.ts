@@ -47,6 +47,14 @@ export const config = {
 
 	// Qdrant (vector database) for embeddings
 	QDRANT_URL: Bun.env.QDRANT_URL || "http://localhost:6333",
+
+	// Media services (Jellyseerr)
+	JELLYSEERR_URL: Bun.env.JELLYSEERR_URL || "http://jellyseerr.jellyseerr.svc.cluster.local:5055",
+	JELLYSEERR_API_KEY: Bun.env.JELLYSEERR_API_KEY,
+
+	// Media services (SABnzbd)
+	SABNZBD_URL: Bun.env.SABNZBD_URL || "http://sabnzbd.sabnzbd.svc.cluster.local:8080",
+	SABNZBD_API_KEY: Bun.env.SABNZBD_API_KEY,
 } as const;
 
 export const isDev = config.NODE_ENV === "development";

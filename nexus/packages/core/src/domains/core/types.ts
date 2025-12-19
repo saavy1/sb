@@ -18,8 +18,10 @@ export const DEFAULT_MODELS = [
 	{ id: "deepseek/deepseek-chat", name: "DeepSeek V3", provider: "DeepSeek" },
 	{ id: "deepseek/deepseek-v3.2", name: "DeepSeek V3.2", provider: "DeepSeek" },
 	{ id: "anthropic/claude-sonnet-4.5", name: "Claude Sonnet 4.5", provider: "Anthropic" },
-	{ id: "anthropic/claude-haiku-4", name: "Claude Haiku 4", provider: "Anthropic" },
+	{ id: "anthropic/claude-haiku-4.5", name: "Claude Haiku 4.5", provider: "Anthropic" },
 	{ id: "google/gemini-2.5-flash-lite", name: "Gemini 2.5 Flash Lite", provider: "Google" },
+	{ id: "x-ai/grok-4.1-fast", name: "Grok 4.1 Fast", provider: "X.AI" },
+	{ id: "nvidia/nemotron-3-nano-30b-a3b:free", name: "Nemotron 3 Nano 30B A3B Free", provider: "NVIDIA" },
 ] as const;
 
 // === API schemas ===

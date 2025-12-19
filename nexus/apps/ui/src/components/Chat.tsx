@@ -375,21 +375,218 @@ export function Chat({ threadId: propThreadId, onThreadChange }: Props) {
 }
 
 function MessageContent({ content }: { content: string }) {
-	// Clean DeepSeek tool call markers from text
-	const cleanText = (text: string): string => {
-		return text
-			.replace(/<｜tool▁calls▁begin｜>[\s\S]*?<｜tool▁calls▁end｜>/g, "")
-			.replace(/<｜tool▁call▁begin｜>[\s\S]*?<｜tool▁call▁end｜>/g, "")
-			.replace(/```json\s*\{\s*\}\s*```/g, "")
-			.trim();
-	};
+	// Parse content into segments: text and tool results
+	const segments = parseMessageContent(content);
 
-	const cleaned = cleanText(content);
-	if (!cleaned) return <span className="text-zinc-500">...</span>;
+	if (segments.length === 0) {
+		return <span className="text-zinc-500">...</span>;
+	}
 
 	return (
-		<div className="prose prose-invert prose-sm max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-pre:bg-zinc-900 prose-pre:border prose-pre:border-zinc-700 prose-code:text-emerald-400 prose-code:before:content-none prose-code:after:content-none">
-			<Markdown>{cleaned}</Markdown>
+		<div className="space-y-2">
+			{segments.map((segment) => {
+				if (segment.type === "text") {
+					if (!segment.content.trim()) return null;
+					return (
+						<div
+							key={segment.key}
+							className="prose prose-invert prose-sm max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-pre:bg-zinc-900 prose-pre:border prose-pre:border-zinc-700 prose-code:text-emerald-400 prose-code:before:content-none prose-code:after:content-none"
+						>
+							<Markdown>{segment.content}</Markdown>
+						</div>
+					);
+				}
+
+				if (segment.type === "tool-error") {
+					return (
+						<ToolErrorBlock key={segment.key} error={segment.error} toolName={segment.toolName} />
+					);
+				}
+
+				if (segment.type === "tool-result") {
+					return <ToolResultBlock key={segment.key} result={segment.result} />;
+				}
+
+				return null;
+			})}
 		</div>
 	);
+}
+
+type ContentSegment =
+	| { type: "text"; content: string; key: string }
+	| { type: "tool-result"; result: Record<string, unknown>; key: string }
+	| { type: "tool-error"; error: string; toolName?: string; key: string };
+
+function parseMessageContent(content: string): ContentSegment[] {
+	// Clean DeepSeek tool call markers
+	const cleaned = content
+		.replace(/<｜tool▁calls▁begin｜>[\s\S]*?<｜tool▁calls▁end｜>/g, "")
+		.replace(/<｜tool▁call▁begin｜>[\s\S]*?<｜tool▁call▁end｜>/g, "")
+		.replace(/```json\s*\{\s*\}\s*```/g, "");
+
+	const segments: ContentSegment[] = [];
+	let segmentIndex = 0;
+
+	// Pattern to match JSON objects at the start of lines or after newlines
+	// This catches tool results that appear as standalone JSON
+	const jsonPattern = /(?:^|\n)\s*(\{[\s\S]*?\})\s*(?=\n|$)/g;
+
+	let lastIndex = 0;
+	let match = jsonPattern.exec(cleaned);
+
+	while (match !== null) {
+		const jsonStr = match[1];
+
+		// Try to parse as JSON
+		try {
+			const parsed = JSON.parse(jsonStr);
+
+			// Add text before this JSON block
+			const textBefore = cleaned.slice(lastIndex, match.index);
+			if (textBefore.trim()) {
+				segments.push({ type: "text", content: textBefore.trim(), key: `text-${segmentIndex++}` });
+			}
+
+			// Determine if it's an error or result
+			if (parsed.error && typeof parsed.error === "string") {
+				// Check if it's a tool validation error
+				const toolMatch = parsed.error.match(/tool (\w+):/);
+				segments.push({
+					type: "tool-error",
+					error: parsed.error,
+					toolName: toolMatch?.[1],
+					key: `error-${segmentIndex++}`,
+				});
+			} else {
+				segments.push({ type: "tool-result", result: parsed, key: `result-${segmentIndex++}` });
+			}
+
+			lastIndex = match.index + match[0].length;
+		} catch {
+			// Not valid JSON, skip
+		}
+
+		match = jsonPattern.exec(cleaned);
+	}
+
+	// Add remaining text
+	const remaining = cleaned.slice(lastIndex).trim();
+	if (remaining) {
+		segments.push({ type: "text", content: remaining, key: `text-${segmentIndex++}` });
+	}
+
+	// If no segments were created, return the whole content as text
+	if (segments.length === 0 && cleaned.trim()) {
+		segments.push({ type: "text", content: cleaned.trim(), key: "text-0" });
+	}
+
+	return segments;
+}
+
+function ToolErrorBlock({ error, toolName }: { error: string; toolName?: string }) {
+	const [expanded, setExpanded] = useState(false);
+
+	// Extract the main error message
+	const mainError = error.includes("Input validation failed")
+		? "Input validation failed"
+		: error.slice(0, 100);
+
+	return (
+		<div className="rounded-md border border-red-800/50 bg-red-900/20 text-sm">
+			<button
+				type="button"
+				onClick={() => setExpanded(!expanded)}
+				className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-red-900/30"
+			>
+				<span className="text-red-400">✕</span>
+				<span className="font-mono text-red-300">{toolName || "tool"}</span>
+				<span className="text-red-400/80">{mainError}</span>
+				<span className="ml-auto text-red-400/60">{expanded ? "▼" : "▶"}</span>
+			</button>
+			{expanded && (
+				<pre className="border-t border-red-800/50 px-3 py-2 text-xs text-red-300/70 overflow-x-auto">
+					{error}
+				</pre>
+			)}
+		</div>
+	);
+}
+
+function ToolResultBlock({ result }: { result: Record<string, unknown> }) {
+	const [expanded, setExpanded] = useState(false);
+
+	// Generate a summary based on common patterns
+	const summary = generateResultSummary(result);
+
+	return (
+		<div className="rounded-md border border-zinc-700/50 bg-zinc-800/50 text-sm">
+			<button
+				type="button"
+				onClick={() => setExpanded(!expanded)}
+				className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-zinc-700/30"
+			>
+				<Wrench className="h-3.5 w-3.5 text-emerald-400" />
+				<span className="text-zinc-300">{summary}</span>
+				<span className="ml-auto text-zinc-500">{expanded ? "▼" : "▶"}</span>
+			</button>
+			{expanded && (
+				<pre className="border-t border-zinc-700/50 px-3 py-2 text-xs text-zinc-400 overflow-x-auto max-h-64 overflow-y-auto">
+					{JSON.stringify(result, null, 2)}
+				</pre>
+			)}
+		</div>
+	);
+}
+
+function generateResultSummary(result: Record<string, unknown>): string {
+	// Handle common result patterns
+
+	// Search results
+	if ("results" in result && Array.isArray(result.results)) {
+		const count = result.results.length;
+		const firstTitle = result.results[0]?.title || result.results[0]?.name;
+		if (firstTitle) {
+			return `Found ${count} result${count !== 1 ? "s" : ""}: "${firstTitle}"${count > 1 ? "..." : ""}`;
+		}
+		return `Found ${count} result${count !== 1 ? "s" : ""}`;
+	}
+
+	// Media status
+	if ("status" in result && "media" in result && typeof result.media === "object") {
+		const media = result.media as Record<string, unknown>;
+		const title = media.title || media.name || "media";
+		const status = result.status;
+		const seasons = Array.isArray(media.seasons) ? media.seasons.length : 0;
+		if (seasons > 0) {
+			return `${title}: ${status} (${seasons} seasons)`;
+		}
+		return `${title}: ${status}`;
+	}
+
+	// TV/Movie with seasons
+	if ("seasons" in result && Array.isArray(result.seasons)) {
+		const title = result.name || result.title || "Show";
+		const seasonCount = result.seasons.length;
+		return `${title}: ${seasonCount} season${seasonCount !== 1 ? "s" : ""}`;
+	}
+
+	// Success/error pattern
+	if ("success" in result) {
+		if (result.success === false && result.error) {
+			return `Failed: ${String(result.error).slice(0, 50)}`;
+		}
+		if (result.message) {
+			return String(result.message).slice(0, 60);
+		}
+	}
+
+	// Server list
+	if (Array.isArray(result)) {
+		return `${result.length} item${result.length !== 1 ? "s" : ""}`;
+	}
+
+	// Generic object - show first few keys
+	const keys = Object.keys(result).slice(0, 3);
+	return `Result: {${keys.join(", ")}${Object.keys(result).length > 3 ? "..." : ""}}`;
 }
