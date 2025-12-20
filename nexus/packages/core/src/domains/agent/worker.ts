@@ -3,6 +3,7 @@ import OpenAI from "openai";
 import { config } from "../../infra/config";
 import { EMBEDDINGS_COLLECTION, qdrant } from "../../infra/qdrant";
 import { createWorker, QUEUES } from "../../infra/queue";
+import { tracedFetch } from "../../infra/telemetry";
 import { createThreadFromAlert, sendMessage, wakeThread } from "./functions";
 import { agentRepository } from "./repository";
 import type {
@@ -339,7 +340,7 @@ export function startDiscordAsksWorker() {
 				const webhookUrl = `https://discord.com/api/v10/webhooks/${applicationId}/${interactionToken}/messages/@original`;
 
 				const durationMs = Date.now() - startTime;
-				const discordResponse = await fetch(webhookUrl, {
+				const discordResponse = await tracedFetch(webhookUrl, {
 					method: "PATCH",
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({
@@ -386,7 +387,7 @@ export function startDiscordAsksWorker() {
 				// Try to notify the user of the error with a pretty error embed
 				try {
 					const webhookUrl = `https://discord.com/api/v10/webhooks/${applicationId}/${interactionToken}/messages/@original`;
-					await fetch(webhookUrl, {
+					await tracedFetch(webhookUrl, {
 						method: "PATCH",
 						headers: { "Content-Type": "application/json" },
 						body: JSON.stringify({

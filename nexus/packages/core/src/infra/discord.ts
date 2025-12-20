@@ -1,5 +1,6 @@
 import logger from "@nexus/logger";
 import { getDiscordWebhookUrl } from "../domains/core/functions";
+import { tracedFetch } from "./telemetry";
 
 const log = logger.child({ module: "discord" });
 
@@ -40,7 +41,7 @@ export async function sendDiscordNotification(message: DiscordMessage): Promise<
 	}
 
 	try {
-		const response = await fetch(webhookUrl, {
+		const response = await tracedFetch(webhookUrl, {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({

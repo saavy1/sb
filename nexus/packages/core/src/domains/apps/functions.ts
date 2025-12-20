@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import logger from "@nexus/logger";
 import { z } from "zod";
+import { tracedFetch } from "../../infra/telemetry";
 import { withTool } from "../../infra/tools";
 import { appRepository } from "./repository";
 import type { App } from "./schema";
@@ -18,7 +19,7 @@ async function checkHealth(url: string): Promise<AppStatusType> {
 		const controller = new AbortController();
 		const timeout = setTimeout(() => controller.abort(), 5000);
 
-		const response = await fetch(url, {
+		const response = await tracedFetch(url, {
 			method: "HEAD",
 			signal: controller.signal,
 		});

@@ -104,3 +104,50 @@ export function addSpanAttributes(attributes: Record<string, string | number | b
 		span.setAttributes(attributes);
 	}
 }
+
+const httpTracer = trace.getTracer("http");
+
+/**
+ * Traced fetch wrapper for external API calls.
+ * Automatically creates spans with HTTP semantic conventions.
+ */
+export async function tracedFetch(
+	url: string | URL | Request,
+	init?: RequestInit,
+): Promise<Response> {
+	const urlStr = url instanceof Request ? url.url : url.toString();
+	const parsedUrl = new URL(urlStr);
+	const method = init?.method ?? (url instanceof Request ? url.method : "GET");
+
+	return httpTracer.startActiveSpan(`${method} ${parsedUrl.host}`, async (span) => {
+		try {
+			span.setAttribute("http.request.method", method);
+			span.setAttribute("url.full", urlStr);
+			span.setAttribute("server.address", parsedUrl.host);
+			span.setAttribute("url.path", parsedUrl.pathname);
+
+			const response = await fetch(url, init);
+
+			span.setAttribute("http.response.status_code", response.status);
+			if (response.status >= 400) {
+				span.setStatus({
+					code: SpanStatusCode.ERROR,
+					message: `HTTP ${response.status}`,
+				});
+			} else {
+				span.setStatus({ code: SpanStatusCode.OK });
+			}
+
+			return response;
+		} catch (error) {
+			span.setStatus({
+				code: SpanStatusCode.ERROR,
+				message: error instanceof Error ? error.message : "Fetch failed",
+			});
+			span.recordException(error as Error);
+			throw error;
+		} finally {
+			span.end();
+		}
+	});
+}

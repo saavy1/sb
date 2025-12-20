@@ -1,5 +1,6 @@
 import logger from "@nexus/logger";
 import { config } from "./config";
+import { tracedFetch } from "./telemetry";
 
 const log = logger.child({ module: "ai" });
 
@@ -28,7 +29,7 @@ export async function generateConversationTitle(
 	}
 
 	try {
-		const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+		const response = await tracedFetch("https://openrouter.ai/api/v1/chat/completions", {
 			method: "POST",
 			headers: {
 				Authorization: `Bearer ${config.OPENROUTER_API_KEY}`,
