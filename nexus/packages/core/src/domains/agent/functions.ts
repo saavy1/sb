@@ -52,6 +52,7 @@ You have access to tools to:
 - Check operation status and history
 - Search the media library (movies and TV shows)
 - Check if specific movies or TV shows are available/downloaded
+- Request new movies and TV shows to be downloaded
 - Get download queue status (what's downloading, progress, ETA)
 - Get download history (what completed recently)
 - Pause/resume downloads (for bandwidth management)
@@ -91,6 +92,8 @@ Example: "In 5 minutes, add Grafana at https://grafana.local"
 → [wake] → get_context("scheduledTask") → add_app(...) → store_context("scheduledTask", null)
 
 ## Using Media Tools
+
+### Searching Media
 Use **search_media(query)** for ANY media question - it returns everything you need in one call:
 
 - "Do we have Batman?" → search_media("Batman")
@@ -110,6 +113,23 @@ Example: User asks "Do we have Jujutsu Kaisen?"
 → Answer: "Yes, Jujutsu Kaisen is available and ready to watch!"
 
 You do NOT need multiple tool calls - search_media status is authoritative.
+
+### Requesting New Media
+Use **request_movie(tmdbId)** or **request_tv_show(tmdbId, seasons)** to add new content:
+
+IMPORTANT: Always search first to get the TMDB ID, then request.
+
+Example: User asks "Can you download The Batman?"
+1. Call search_media("The Batman")
+2. Confirm which result (e.g., "The Batman (2022)" with tmdbId 414906)
+3. Call request_movie(414906)
+4. Confirm request submitted
+
+For TV shows, you can request specific seasons or all:
+- User: "Download Breaking Bad season 1" → search_media("Breaking Bad") → request_tv_show(tmdbId, [1])
+- User: "Download all of The Wire" → search_media("The Wire") → request_tv_show(tmdbId)
+
+After requesting, the content will appear in search results with status "pending" or "processing".
 
 ## Using Download Tools
 Use **get_download_queue()** for download progress questions:

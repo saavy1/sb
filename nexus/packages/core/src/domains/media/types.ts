@@ -166,3 +166,34 @@ export const SabnzbdHistoryResponse = t.Object({
 	slots: t.Array(SabnzbdHistorySlot),
 });
 export type SabnzbdHistoryResponseType = typeof SabnzbdHistoryResponse.static;
+
+// === Jellyseerr Request Schemas ===
+
+// Request body for creating a new media request
+export const MediaRequestBody = t.Object({
+	mediaId: t.Number(), // TMDB ID
+	mediaType: t.Union([t.Literal("movie"), t.Literal("tv")]),
+	seasons: t.Optional(t.Array(t.Number())), // For TV shows - which seasons to request
+	is4k: t.Optional(t.Boolean()), // Request 4K version
+});
+export type MediaRequestBodyType = typeof MediaRequestBody.static;
+
+// Response from creating a request
+export const MediaRequestResponse = t.Object({
+	id: t.Number(),
+	status: t.Number(),
+	createdAt: t.String(),
+	updatedAt: t.String(),
+	type: t.String(), // "movie" or "tv"
+	is4k: t.Boolean(),
+	serverId: t.Optional(t.Number()),
+	profileId: t.Optional(t.Number()),
+	rootFolder: t.Optional(t.String()),
+	media: t.Object({
+		id: t.Number(),
+		mediaType: t.String(),
+		tmdbId: t.Number(),
+		status: t.Number(),
+	}),
+});
+export type MediaRequestResponseType = typeof MediaRequestResponse.static;
