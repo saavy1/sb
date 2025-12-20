@@ -28,6 +28,8 @@ spec:
               pullPolicy: Always
             env:
               NODE_ENV: production
+              # OpenTelemetry
+              OTEL_EXPORTER_OTLP_ENDPOINT: http://grafana-k8s-monitoring-alloy-receiver.alloy:4318
               # Tailscale SSH - uses hostname, no keys needed
               OPS_SSH_HOST: superbloom
               OPS_SSH_USER: saavy

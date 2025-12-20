@@ -16,5 +16,6 @@ export {
 } from "./pubsub";
 export * from "./qdrant";
 export * from "./queue";
+export * from "./telemetry";
 export * from "./tool-registry";
 export * from "./tools";

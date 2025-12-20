@@ -5,6 +5,10 @@
  * status updates to Valkey pub/sub for other services to consume.
  */
 
+// Initialize telemetry first, before other imports
+import { initTelemetry } from "@nexus/core/infra/telemetry";
+initTelemetry("nexus-mc-monitor");
+
 import { startMinecraftMonitor, stopMinecraftMonitor } from "@nexus/core/domains/game-servers";
 import { closePubSub, config, initPubSub } from "@nexus/core/infra";
 import IORedis from "ioredis";
