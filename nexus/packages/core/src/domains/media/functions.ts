@@ -1,6 +1,7 @@
 import logger from "@nexus/logger";
 import { z } from "zod";
 import { config } from "../../infra/config";
+import { tracedFetch } from "../../infra/telemetry";
 import { withTool } from "../../infra/tools";
 import {
 	MediaStatusLabels,
@@ -23,7 +24,7 @@ async function jellyseerrFetch<T>(path: string, options: JellyseerrRequestOption
 		throw new Error("JELLYSEERR_API_KEY not configured");
 	}
 
-	const response = await fetch(url, {
+	const response = await tracedFetch(url, {
 		method: options.method || "GET",
 		headers: {
 			"X-Api-Key": config.JELLYSEERR_API_KEY,
@@ -56,7 +57,7 @@ async function sabnzbdFetch<T>(mode: string, params: Record<string, string> = {}
 	});
 
 	const url = `${config.SABNZBD_URL}/api?${searchParams.toString()}`;
-	const response = await fetch(url);
+	const response = await tracedFetch(url);
 
 	if (!response.ok) {
 		const errorText = await response.text();
