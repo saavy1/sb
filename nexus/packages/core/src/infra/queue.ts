@@ -1,8 +1,11 @@
 import { Queue, Worker } from "bullmq";
 import IORedis from "ioredis";
+import { trace, SpanStatusCode } from "@opentelemetry/api";
 import logger from "@nexus/logger";
 import { config } from "./config";
 import { appEvents } from "./events";
+
+const tracer = trace.getTracer("bullmq");
 
 const log = logger.child({ module: "queue" });
 
@@ -100,7 +103,31 @@ export function createWorker<T>(
 	processor: (job: { id?: string; name: string; data: T }) => Promise<void>,
 	options?: { concurrency?: number }
 ) {
-	const worker = new Worker<T>(queueName, processor, {
+	// Wrap processor with tracing
+	const tracedProcessor = async (job: { id?: string; name: string; data: T }) => {
+		return tracer.startActiveSpan(`job.${queueName}`, async (span) => {
+			try {
+				span.setAttribute("job.queue", queueName);
+				span.setAttribute("job.id", job.id ?? "unknown");
+				span.setAttribute("job.name", job.name);
+
+				await processor(job);
+
+				span.setStatus({ code: SpanStatusCode.OK });
+			} catch (error) {
+				span.setStatus({
+					code: SpanStatusCode.ERROR,
+					message: error instanceof Error ? error.message : "Unknown error",
+				});
+				span.recordException(error as Error);
+				throw error;
+			} finally {
+				span.end();
+			}
+		});
+	};
+
+	const worker = new Worker<T>(queueName, tracedProcessor, {
 		connection: redis,
 		concurrency: options?.concurrency ?? 1,
 	});

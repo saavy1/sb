@@ -7,6 +7,10 @@
  * - System events: Grafana and Alertmanager alerts that trigger agent responses
  */
 
+// Initialize telemetry first, before other imports
+import { initTelemetry } from "@nexus/core/infra/telemetry";
+initTelemetry("nexus-agent-worker");
+
 import {
 	startAgentWorker,
 	startDiscordAsksWorker,

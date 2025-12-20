@@ -25,6 +25,8 @@ spec:
               pullPolicy: Always
             env:
               NODE_ENV: production
+              # OpenTelemetry
+              OTEL_EXPORTER_OTLP_ENDPOINT: http://grafana-k8s-monitoring-alloy-receiver.alloy:4318
               ELYSIA_API_URL: http://nexus.nexus.svc.cluster.local:3000
               VALKEY_URL: redis://valkey.valkey.svc.cluster.local:6379
             envFrom:

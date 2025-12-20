@@ -5,6 +5,9 @@ import { openapi } from "@elysiajs/openapi";
 import { opentelemetry } from "@elysiajs/opentelemetry";
 import { config } from "@nexus/core/infra/config";
 import logger from "@nexus/logger";
+import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
+import { IORedisInstrumentation } from "@opentelemetry/instrumentation-ioredis";
+import { BatchSpanProcessor } from "@opentelemetry/sdk-trace-node";
 import { Elysia } from "elysia";
 import { internalRoutes } from "./routes/internal";
 import { privateRoutes } from "./routes/private";
@@ -13,8 +16,17 @@ import { webhookRoutes } from "./routes/webhooks";
 
 const PUBLIC_DIR = "public";
 
+// Configure OTLP exporter - uses OTEL_EXPORTER_OTLP_ENDPOINT env var
+const traceExporter = new OTLPTraceExporter();
+
 export const app = new Elysia()
-	.use(opentelemetry({ serviceName: "nexus" }))
+	.use(
+		opentelemetry({
+			serviceName: "nexus-api",
+			spanProcessors: [new BatchSpanProcessor(traceExporter)],
+			instrumentations: [new IORedisInstrumentation()],
+		})
+	)
 	.use(
 		cors({
 			origin: config.NODE_ENV === "development",

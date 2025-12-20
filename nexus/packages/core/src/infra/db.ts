@@ -1,5 +1,7 @@
 import { drizzle } from "drizzle-orm/bun-sql";
+import type { Logger } from "drizzle-orm/logger";
 import { SQL } from "bun";
+import { trace, SpanStatusCode } from "@opentelemetry/api";
 import logger from "@nexus/logger";
 import * as agentSchema from "../domains/agent/schema";
 import * as appsSchema from "../domains/apps/schema";
@@ -10,6 +12,29 @@ import * as systemInfoSchema from "../domains/system-info/schema";
 import { config } from "./config";
 
 const log = logger.child({ module: "db" });
+const tracer = trace.getTracer("drizzle");
+
+/**
+ * Drizzle logger that creates OpenTelemetry spans for queries.
+ * Logs query execution with timing and creates trace spans.
+ */
+class TracedLogger implements Logger {
+	logQuery(query: string, params: unknown[]): void {
+		const span = trace.getActiveSpan();
+		if (span) {
+			// Add query info as span attributes
+			span.setAttribute("db.system", "postgresql");
+			span.setAttribute("db.statement", query.slice(0, 1000)); // Truncate long queries
+			span.setAttribute("db.operation", this.extractOperation(query));
+		}
+		log.debug({ query: query.slice(0, 200), paramCount: params.length }, "SQL query");
+	}
+
+	private extractOperation(query: string): string {
+		const first = query.trim().split(/\s+/)[0]?.toUpperCase();
+		return first || "UNKNOWN";
+	}
+}
 
 // === Postgres databases (shared connection, separate schemas) ===
 
@@ -42,13 +67,16 @@ try {
 // Create Bun SQL client
 export const pgClient = new SQL(databaseUrl);
 
-// All Drizzle instances share the same SQL client
-export const agentDb = drizzle(pgClient, { schema: agentSchema });
-export const appsDb = drizzle(pgClient, { schema: appsSchema });
-export const coreDb = drizzle(pgClient, { schema: coreSchema });
-export const gameServersDb = drizzle(pgClient, { schema: gameServerSchema });
-export const opsDb = drizzle(pgClient, { schema: opsSchema });
-export const systemInfoDb = drizzle(pgClient, { schema: systemInfoSchema });
+// Shared traced logger instance
+const tracedLogger = new TracedLogger();
+
+// All Drizzle instances share the same SQL client and logger
+export const agentDb = drizzle(pgClient, { schema: agentSchema, logger: tracedLogger });
+export const appsDb = drizzle(pgClient, { schema: appsSchema, logger: tracedLogger });
+export const coreDb = drizzle(pgClient, { schema: coreSchema, logger: tracedLogger });
+export const gameServersDb = drizzle(pgClient, { schema: gameServerSchema, logger: tracedLogger });
+export const opsDb = drizzle(pgClient, { schema: opsSchema, logger: tracedLogger });
+export const systemInfoDb = drizzle(pgClient, { schema: systemInfoSchema, logger: tracedLogger });
 
 // Helper to check if an error is a connection error
 function isConnectionError(err: unknown): boolean {
@@ -96,6 +124,30 @@ export async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
 
 // Export schemas for easy access
 export { agentSchema, appsSchema, coreSchema, gameServerSchema, opsSchema, systemInfoSchema };
+
+/**
+ * Execute a database operation within an OTEL span.
+ * Use this for important queries where you want dedicated span visibility.
+ */
+export async function traceQuery<T>(name: string, fn: () => Promise<T>): Promise<T> {
+	return tracer.startActiveSpan(`db.${name}`, async (span) => {
+		try {
+			span.setAttribute("db.system", "postgresql");
+			const result = await fn();
+			span.setStatus({ code: SpanStatusCode.OK });
+			return result;
+		} catch (error) {
+			span.setStatus({
+				code: SpanStatusCode.ERROR,
+				message: error instanceof Error ? error.message : "Unknown error",
+			});
+			span.recordException(error as Error);
+			throw error;
+		} finally {
+			span.end();
+		}
+	});
+}
 
 // Health check - test if database is reachable
 export async function checkDatabaseHealth(): Promise<{ ok: boolean; latencyMs?: number; error?: string }> {

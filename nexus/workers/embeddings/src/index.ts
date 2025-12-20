@@ -5,6 +5,10 @@
  * This enables semantic search across conversation history.
  */
 
+// Initialize telemetry first, before other imports
+import { initTelemetry } from "@nexus/core/infra/telemetry";
+initTelemetry("nexus-embeddings-worker");
+
 import { startEmbeddingsWorker } from "@nexus/core/domains/agent";
 import { config } from "@nexus/core/infra/config";
 import { initializeQdrant } from "@nexus/core/infra/qdrant";
