@@ -1,7 +1,7 @@
+import logger from "@nexus/logger";
+import { SpanStatusCode, trace } from "@opentelemetry/api";
 import { Queue, Worker } from "bullmq";
 import IORedis from "ioredis";
-import { trace, SpanStatusCode } from "@opentelemetry/api";
-import logger from "@nexus/logger";
 import { config } from "./config";
 import { appEvents } from "./events";
 
@@ -31,12 +31,13 @@ async function getQueueStats(queue: Queue) {
 
 // Emit stats for all queues (exported for use in routes)
 export async function emitAllQueueStats() {
-	const [agentStats, systemStats, embeddingsStats, discordStats] = await Promise.all([
-		getQueueStats(agentWakeQueue),
-		getQueueStats(systemEventQueue),
-		getQueueStats(embeddingsQueue),
-		getQueueStats(discordAsksQueue),
-	]);
+	const [agentStats, systemStats, embeddingsStats, discordStats] =
+		await Promise.all([
+			getQueueStats(agentWakeQueue),
+			getQueueStats(systemEventQueue),
+			getQueueStats(embeddingsQueue),
+			getQueueStats(discordAsksQueue),
+		]);
 	appEvents.emit("queue:stats:updated", agentStats);
 	appEvents.emit("queue:stats:updated", systemStats);
 	appEvents.emit("queue:stats:updated", embeddingsStats);
@@ -97,19 +98,38 @@ export const discordAsksQueue = new Queue(QUEUES.DISCORD_ASKS, {
 	},
 });
 
+// Job type with BullMQ properties we care about
+type JobWithMeta<T> = {
+	id?: string;
+	name: string;
+	data: T;
+	attemptsMade?: number;
+	delay?: number;
+	timestamp?: number;
+};
+
 // Helper to create workers (used by agent domain)
 export function createWorker<T>(
 	queueName: string,
-	processor: (job: { id?: string; name: string; data: T }) => Promise<void>,
-	options?: { concurrency?: number }
+	processor: (job: JobWithMeta<T>) => Promise<void>,
+	options?: { concurrency?: number },
 ) {
 	// Wrap processor with tracing
-	const tracedProcessor = async (job: { id?: string; name: string; data: T }) => {
+	const tracedProcessor = async (job: JobWithMeta<T>) => {
 		return tracer.startActiveSpan(`job.${queueName}`, async (span) => {
 			try {
 				span.setAttribute("job.queue", queueName);
 				span.setAttribute("job.id", job.id ?? "unknown");
 				span.setAttribute("job.name", job.name);
+				if (job.attemptsMade !== undefined) {
+					span.setAttribute("job.attempt", job.attemptsMade + 1);
+				}
+				if (job.delay !== undefined && job.delay > 0) {
+					span.setAttribute("job.delay_ms", job.delay);
+				}
+				if (job.timestamp !== undefined) {
+					span.setAttribute("job.created_at", job.timestamp);
+				}
 
 				await processor(job);
 

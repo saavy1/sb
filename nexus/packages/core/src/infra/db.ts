@@ -26,6 +26,10 @@ class TracedLogger implements Logger {
 			span.setAttribute("db.system", "postgresql");
 			span.setAttribute("db.statement", query.slice(0, 1000)); // Truncate long queries
 			span.setAttribute("db.operation", this.extractOperation(query));
+			const table = this.extractTable(query);
+			if (table) {
+				span.setAttribute("db.sql.table", table);
+			}
 		}
 		log.debug({ query: query.slice(0, 200), paramCount: params.length }, "SQL query");
 	}
@@ -33,6 +37,21 @@ class TracedLogger implements Logger {
 	private extractOperation(query: string): string {
 		const first = query.trim().split(/\s+/)[0]?.toUpperCase();
 		return first || "UNKNOWN";
+	}
+
+	private extractTable(query: string): string | null {
+		// Match common patterns: FROM table, INTO table, UPDATE table, JOIN table
+		const patterns = [
+			/\bFROM\s+"?(\w+)"?/i,
+			/\bINTO\s+"?(\w+)"?/i,
+			/\bUPDATE\s+"?(\w+)"?/i,
+			/\bJOIN\s+"?(\w+)"?/i,
+		];
+		for (const pattern of patterns) {
+			const match = query.match(pattern);
+			if (match) return match[1];
+		}
+		return null;
 	}
 }
 
