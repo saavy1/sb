@@ -4,7 +4,6 @@
  */
 import { NodeSDK } from "@opentelemetry/sdk-node";
 import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
-import { BatchSpanProcessor } from "@opentelemetry/sdk-trace-node";
 import { IORedisInstrumentation } from "@opentelemetry/instrumentation-ioredis";
 import { trace, SpanStatusCode, type Span } from "@opentelemetry/api";
 import logger from "@nexus/logger";
@@ -15,6 +14,7 @@ let sdk: NodeSDK | null = null;
 
 /**
  * Initialize OpenTelemetry SDK for a service.
+ * Only initializes when OTEL_EXPORTER_OTLP_ENDPOINT is configured.
  * Call this at the very start of your entry point, before importing other modules.
  */
 export function initTelemetry(serviceName: string): void {
@@ -23,16 +23,22 @@ export function initTelemetry(serviceName: string): void {
 		return;
 	}
 
-	const exporter = new OTLPTraceExporter();
+	const endpoint = process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
+	if (!endpoint) {
+		log.debug("OpenTelemetry disabled - no OTEL_EXPORTER_OTLP_ENDPOINT configured");
+		return;
+	}
+
+	const traceExporter = new OTLPTraceExporter();
 
 	sdk = new NodeSDK({
 		serviceName,
-		spanProcessors: [new BatchSpanProcessor(exporter)],
+		traceExporter,
 		instrumentations: [new IORedisInstrumentation()],
 	});
 
 	sdk.start();
-	log.info({ serviceName }, "OpenTelemetry initialized");
+	log.info({ serviceName, endpoint }, "OpenTelemetry initialized");
 
 	// Graceful shutdown
 	const shutdown = async () => {

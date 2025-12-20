@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { MessageSquarePlus } from "lucide-react";
+import { Menu, MessageSquarePlus, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Chat } from "../components/Chat";
 import { client } from "../lib/api";
@@ -17,6 +17,7 @@ type AgentThread = NonNullable<
 function ChatPage() {
 	const [threads, setThreads] = useState<AgentThread[]>([]);
 	const [activeId, setActiveId] = useState<string | null>(null);
+	const [sidebarOpen, setSidebarOpen] = useState(false);
 
 	const fetchThreads = useCallback(async () => {
 		const { data } = await client.api.agent.threads.get({ query: { source: "chat" } });
@@ -38,11 +39,18 @@ function ChatPage() {
 
 	const handleNewChat = () => {
 		setActiveId(null);
+		setSidebarOpen(false);
 	};
 
 	const handleThreadChange = (id: string | null) => {
 		setActiveId(id);
+		setSidebarOpen(false);
 		fetchThreads();
+	};
+
+	const handleThreadSelect = (id: string) => {
+		setActiveId(id);
+		setSidebarOpen(false);
 	};
 
 	// Generate a display name from thread
@@ -62,36 +70,60 @@ function ChatPage() {
 
 	return (
 		<div className="flex h-[calc(100vh-4rem)]">
-			{/* Sidebar */}
-			<div className="w-64 flex-shrink-0 border-r border-zinc-800 flex flex-col">
-				<div className="p-3 border-b border-zinc-800">
+			{/* Mobile sidebar overlay */}
+			{sidebarOpen && (
+				<div
+					role="button"
+					tabIndex={0}
+					aria-label="Close sidebar"
+					className="fixed inset-0 z-40 bg-black/50 md:hidden"
+					onClick={() => setSidebarOpen(false)}
+					onKeyDown={(e) => e.key === "Escape" && setSidebarOpen(false)}
+				/>
+			)}
+
+			{/* Sidebar - hidden on mobile unless open */}
+			<div
+				className={`fixed inset-y-0 left-0 z-50 w-64 transform bg-zinc-900 transition-transform duration-200 ease-in-out md:relative md:translate-x-0 md:border-r md:border-zinc-800 ${
+					sidebarOpen ? "translate-x-0" : "-translate-x-full"
+				} flex flex-col`}
+				style={{ top: "4rem" }}
+			>
+				<div className="flex items-center justify-between border-b border-zinc-800 p-3">
 					<button
 						type="button"
 						onClick={handleNewChat}
-						className="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm transition-colors"
+						className="flex flex-1 items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm text-white transition-colors hover:bg-emerald-500"
 					>
 						<MessageSquarePlus size={16} />
 						New Chat
 					</button>
+					<button
+						type="button"
+						onClick={() => setSidebarOpen(false)}
+						className="ml-2 rounded-lg p-2 text-zinc-400 hover:bg-zinc-800 hover:text-white md:hidden"
+					>
+						<X size={20} />
+					</button>
 				</div>
-				<div className="flex-1 overflow-y-auto p-2 space-y-1">
+				<div className="flex-1 space-y-1 overflow-y-auto p-2">
 					{threads.length === 0 ? (
-						<p className="text-xs text-zinc-500 text-center py-4">No threads yet</p>
+						<p className="py-4 text-center text-xs text-zinc-500">No threads yet</p>
 					) : (
 						threads.map((thread) => (
 							<button
 								type="button"
 								key={thread.id}
-								onClick={() => setActiveId(thread.id)}
-								className={`w-full text-left px-3 py-2 rounded-lg text-sm group flex items-center justify-between cursor-pointer ${
+								onClick={() => handleThreadSelect(thread.id)}
+								className={`group flex w-full cursor-pointer items-center justify-between rounded-lg px-3 py-2 text-left text-sm ${
 									activeId === thread.id
 										? "bg-zinc-700 text-white"
 										: "text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
 								}`}
 							>
-								<span className="truncate flex-1">{getThreadTitle(thread)}</span>
+								<span className="flex-1 truncate">{getThreadTitle(thread)}</span>
 								{thread.status === "sleeping" && (
-									<span className="ml-2 px-1.5 py-0.5 text-xs bg-amber-500/20 text-amber-400 rounded">
+									<span className="ml-2 rounded bg-amber-500/20 px-1.5 py-0.5 text-xs text-amber-400">
 										zzz
 									</span>
 								)}
@@ -105,10 +137,20 @@ function ChatPage() {
 			</div>
 
 			{/* Main chat area */}
-			<div className="flex-1 flex flex-col overflow-hidden">
-				<div className="border-b border-zinc-800 px-6 py-4">
-					<h1 className="text-2xl font-bold text-white">The Machine</h1>
-					<p className="text-sm text-zinc-400">AI assistant for your homelab</p>
+			<div className="flex flex-1 flex-col overflow-hidden">
+				<div className="flex items-center gap-3 border-b border-zinc-800 px-4 py-3 md:px-6 md:py-4">
+					{/* Mobile menu button */}
+					<button
+						type="button"
+						onClick={() => setSidebarOpen(true)}
+						className="rounded-lg p-2 text-zinc-400 hover:bg-zinc-800 hover:text-white md:hidden"
+					>
+						<Menu size={20} />
+					</button>
+					<div>
+						<h1 className="text-xl font-bold text-white md:text-2xl">The Machine</h1>
+						<p className="hidden text-sm text-zinc-400 sm:block">AI assistant for your homelab</p>
+					</div>
 				</div>
 				<div className="flex-1 overflow-hidden">
 					<Chat threadId={activeId ?? undefined} onThreadChange={handleThreadChange} />

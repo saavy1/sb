@@ -1,4 +1,4 @@
-import { Bell, Bot, Loader2, Send, User, Wrench } from "lucide-react";
+import { Bell, Bot, Check, Copy, Loader2, Send, User, Wrench } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Markdown from "react-markdown";
 import { client } from "../lib/api";
@@ -30,7 +30,8 @@ export function Chat({ threadId: propThreadId, onThreadChange }: Props) {
 	const [isLoading, setIsLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [activeToolCalls, setActiveToolCalls] = useState<Map<string, ToolCall>>(new Map());
-	const inputRef = useRef<HTMLInputElement>(null);
+	const [copied, setCopied] = useState(false);
+	const inputRef = useRef<HTMLTextAreaElement>(null);
 	const messagesEndRef = useRef<HTMLDivElement>(null);
 
 	// Use ref for threadId to avoid stale closure in event handler
@@ -206,6 +207,23 @@ export function Chat({ threadId: propThreadId, onThreadChange }: Props) {
 		setActiveToolCalls(new Map());
 	}, [activeThreadId]);
 
+	// Copy all messages to clipboard with nice formatting
+	const handleCopyMessages = useCallback(async () => {
+		const formatted = messages
+			.filter((m) => m.role !== "system")
+			.map((m) => {
+				const role = m.role === "user" ? "User" : "Assistant";
+				// Strip tool result JSON blocks for cleaner copy
+				const cleanContent = m.content.replace(/\n\s*\{[\s\S]*?\}\s*(?=\n|$)/g, "").trim();
+				return `${role}: ${cleanContent}`;
+			})
+			.join("\n\n");
+
+		await navigator.clipboard.writeText(formatted);
+		setCopied(true);
+		setTimeout(() => setCopied(false), 2000);
+	}, [messages]);
+
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 		if (!input.trim() || isLoading) return;
@@ -261,110 +279,152 @@ export function Chat({ threadId: propThreadId, onThreadChange }: Props) {
 	return (
 		<div className="flex h-full flex-col">
 			{/* Messages area */}
-			<div className="flex-1 space-y-4 overflow-y-auto p-4">
-				{messages.length === 0 && !isLoading && (
-					<div className="flex h-full flex-col items-center justify-center text-zinc-500">
-						<Bot className="mb-4 h-12 w-12" />
-						<p className="text-lg font-medium">The Machine</p>
-						<p className="text-sm">Ask me about your homelab</p>
-					</div>
+			<div className="relative flex-1 overflow-y-auto p-3 md:p-4">
+				{/* Copy button - only show when there are messages */}
+				{messages.length > 0 && (
+					<button
+						type="button"
+						onClick={handleCopyMessages}
+						className="absolute right-3 top-3 z-10 flex items-center gap-1.5 rounded-md bg-zinc-800 px-2 py-1.5 text-xs text-zinc-400 transition-colors hover:bg-zinc-700 hover:text-zinc-300 md:right-4 md:top-4 md:px-2.5"
+						title="Copy conversation"
+					>
+						{copied ? (
+							<>
+								<Check className="h-3.5 w-3.5 text-emerald-400" />
+								<span className="hidden text-emerald-400 sm:inline">Copied</span>
+							</>
+						) : (
+							<>
+								<Copy className="h-3.5 w-3.5" />
+								<span className="hidden sm:inline">Copy</span>
+							</>
+						)}
+					</button>
 				)}
 
-				{messages.map((message) => {
-					// System messages (wake notifications) get special centered styling
-					if (message.role === "system") {
-						return (
-							<div key={message.id} className="flex justify-center">
-								<div className="flex items-center gap-2 rounded-full bg-amber-500/10 px-4 py-2 text-sm text-amber-400">
-									<Bell className="h-4 w-4" />
-									<span>{message.content}</span>
-								</div>
-							</div>
-						);
-					}
-
-					return (
-						<div
-							key={message.id}
-							className={`flex gap-3 ${message.role === "user" ? "justify-end" : "justify-start"}`}
-						>
-							{message.role === "assistant" && (
-								<div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-500/20">
-									<Bot className="h-4 w-4 text-emerald-400" />
-								</div>
-							)}
-
-							<div
-								className={`max-w-[80%] rounded-lg px-4 py-2 ${
-									message.role === "user" ? "bg-zinc-700 text-white" : "bg-zinc-800 text-zinc-100"
-								}`}
-							>
-								<MessageContent content={message.content} />
-							</div>
-
-							{message.role === "user" && (
-								<div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-zinc-600">
-									<User className="h-4 w-4 text-zinc-300" />
-								</div>
-							)}
-						</div>
-					);
-				})}
-
-				{/* Active tool calls */}
-				{activeToolCalls.size > 0 && (
-					<div className="flex gap-3">
-						<div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-500/20">
-							<Wrench className="h-4 w-4 text-amber-400" />
-						</div>
-						<div className="space-y-1">
-							{Array.from(activeToolCalls.values()).map((tc) => (
-								<div
-									key={tc.toolName}
-									className="flex items-center gap-2 rounded-lg bg-zinc-800 px-3 py-1.5 text-sm"
-								>
-									<Loader2 className="h-3 w-3 animate-spin text-amber-400" />
-									<span className="font-mono text-amber-300">{tc.toolName}</span>
-								</div>
-							))}
-						</div>
-					</div>
-				)}
-
-				{isLoading &&
-					activeToolCalls.size === 0 &&
-					(messages.length === 0 || messages[messages.length - 1]?.role === "user") && (
-						<div className="flex gap-3">
-							<div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-500/20">
-								<Loader2 className="h-4 w-4 animate-spin text-emerald-400" />
-							</div>
-							<div className="rounded-lg bg-zinc-800 px-4 py-2 text-zinc-400">Thinking...</div>
+				<div className="space-y-4">
+					{messages.length === 0 && !isLoading && (
+						<div className="flex h-full flex-col items-center justify-center text-zinc-500">
+							<Bot className="mb-4 h-12 w-12" />
+							<p className="text-lg font-medium">The Machine</p>
+							<p className="text-sm">Ask me about your homelab</p>
 						</div>
 					)}
 
-				{error && (
-					<div className="rounded-lg bg-red-900/20 px-4 py-2 text-red-400">Error: {error}</div>
-				)}
+					{messages.map((message) => {
+						// System messages (wake notifications) get special centered styling
+						if (message.role === "system") {
+							return (
+								<div key={message.id} className="flex justify-center">
+									<div className="flex items-center gap-2 rounded-full bg-amber-500/10 px-4 py-2 text-sm text-amber-400">
+										<Bell className="h-4 w-4" />
+										<span>{message.content}</span>
+									</div>
+								</div>
+							);
+						}
 
-				<div ref={messagesEndRef} />
+						return (
+							<div
+								key={message.id}
+								className={`flex gap-3 ${message.role === "user" ? "justify-end" : "justify-start"}`}
+							>
+								{message.role === "assistant" && (
+									<div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-500/20">
+										<Bot className="h-4 w-4 text-emerald-400" />
+									</div>
+								)}
+
+								<div
+									className={`max-w-[85%] rounded-lg px-3 py-2 md:max-w-[80%] md:px-4 ${
+										message.role === "user" ? "bg-zinc-700 text-white" : "bg-zinc-800 text-zinc-100"
+									}`}
+								>
+									<MessageContent content={message.content} />
+								</div>
+
+								{message.role === "user" && (
+									<div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-zinc-600">
+										<User className="h-4 w-4 text-zinc-300" />
+									</div>
+								)}
+							</div>
+						);
+					})}
+
+					{/* Active tool calls */}
+					{activeToolCalls.size > 0 && (
+						<div className="flex gap-3">
+							<div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-500/20">
+								<Wrench className="h-4 w-4 text-amber-400" />
+							</div>
+							<div className="space-y-1">
+								{Array.from(activeToolCalls.values()).map((tc) => (
+									<div
+										key={tc.toolName}
+										className="flex items-center gap-2 rounded-lg bg-zinc-800 px-3 py-1.5 text-sm"
+									>
+										<Loader2 className="h-3 w-3 animate-spin text-amber-400" />
+										<span className="font-mono text-amber-300">{tc.toolName}</span>
+									</div>
+								))}
+							</div>
+						</div>
+					)}
+
+					{isLoading &&
+						activeToolCalls.size === 0 &&
+						(messages.length === 0 || messages[messages.length - 1]?.role === "user") && (
+							<div className="flex gap-3">
+								<div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-500/20">
+									<Loader2 className="h-4 w-4 animate-spin text-emerald-400" />
+								</div>
+								<div className="rounded-lg bg-zinc-800 px-4 py-2 text-zinc-400">Thinking...</div>
+							</div>
+						)}
+
+					{error && (
+						<div className="rounded-lg bg-red-900/20 px-4 py-2 text-red-400">Error: {error}</div>
+					)}
+
+					<div ref={messagesEndRef} />
+				</div>
 			</div>
 
 			{/* Input area */}
-			<form onSubmit={handleSubmit} className="border-t border-zinc-800 p-4">
+			<form onSubmit={handleSubmit} className="border-t border-zinc-800 p-3 md:p-4">
 				<div className="flex gap-2">
-					<input
+					<textarea
 						ref={inputRef}
-						type="text"
 						value={input}
 						onChange={(e) => setInput(e.target.value)}
-						placeholder="Ask about servers, system stats..."
-						className="flex-1 rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-2 text-white placeholder-zinc-500 focus:border-emerald-500 focus:outline-none"
+						onKeyDown={(e) => {
+							// Enter submits, Shift+Enter adds newline
+							if (e.key === "Enter" && !e.shiftKey) {
+								e.preventDefault();
+								handleSubmit(e);
+							}
+						}}
+						placeholder="Ask something... (Shift+Enter for new line)"
+						rows={1}
+						className="max-h-40 min-h-[42px] flex-1 resize-none rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-white placeholder-zinc-500 focus:border-emerald-500 focus:outline-none md:px-4 md:text-base"
 						disabled={isLoading}
+						style={{
+							height: "auto",
+							overflow: "hidden",
+						}}
+						onInput={(e) => {
+							// Auto-resize textarea
+							const target = e.target as HTMLTextAreaElement;
+							target.style.height = "auto";
+							target.style.height = `${Math.min(target.scrollHeight, 160)}px`;
+							target.style.overflow = target.scrollHeight > 160 ? "auto" : "hidden";
+						}}
 					/>
 					<button
 						type="submit"
 						disabled={!input.trim() || isLoading}
-						className="rounded-lg bg-emerald-600 px-4 py-2 text-white transition-colors hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
+						className="self-end rounded-lg bg-emerald-600 px-3 py-2 text-white transition-colors hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50 md:px-4"
 					>
 						<Send className="h-5 w-5" />
 					</button>
