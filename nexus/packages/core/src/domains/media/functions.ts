@@ -6,6 +6,8 @@ import { withTool } from "../../infra/tools";
 import {
 	MediaStatusLabels,
 	type JellyseerrRequestOptionsType,
+	type MediaRequestBodyType,
+	type MediaRequestResponseType,
 	type MovieDetailsResponseType,
 	type SabnzbdHistoryResponseType,
 	type SabnzbdQueueResponseType,
@@ -102,6 +104,14 @@ export async function getTvDetails(tmdbId: number): Promise<TvDetailsResponseTyp
 export async function getMovieDetails(tmdbId: number): Promise<MovieDetailsResponseType> {
 	log.info({ tmdbId }, "Getting movie details");
 	return jellyseerrFetch<MovieDetailsResponseType>(`/movie/${tmdbId}`);
+}
+
+export async function requestMedia(body: MediaRequestBodyType): Promise<MediaRequestResponseType> {
+	log.info({ mediaId: body.mediaId, mediaType: body.mediaType, seasons: body.seasons }, "Requesting media");
+	return jellyseerrFetch<MediaRequestResponseType>("/request", {
+		method: "POST",
+		body,
+	});
 }
 
 // === AI Tool-exposed functions ===
@@ -364,9 +374,119 @@ Use this to continue downloading after a pause.`,
 	}
 );
 
+export const requestMovieTool = withTool(
+	{
+		name: "request_movie",
+		description: `Request a movie to be downloaded via Jellyseerr.
+
+Use this when:
+- User asks to download/add a specific movie
+- User wants a movie that's not available yet
+- After searching and confirming which movie they want
+
+IMPORTANT: You must first search for the movie using search_media to get its TMDB ID.
+
+Example workflow:
+1. User: "Can you download The Batman?"
+2. Call search_media("The Batman")
+3. Confirm which result matches (e.g., "The Batman (2022)")
+4. Call request_movie with the tmdbId from search results
+
+Parameters:
+- tmdbId: The TMDB ID from search_media results
+- is4k: Optional, request 4K version (default false)`,
+		input: z.object({
+			tmdbId: z.number().describe("The TMDB ID from search_media results"),
+			is4k: z.boolean().optional().describe("Request 4K version (default false)"),
+		}),
+	},
+	async ({ tmdbId, is4k }) => {
+		try {
+			const result = await requestMedia({
+				mediaId: tmdbId,
+				mediaType: "movie",
+				is4k: is4k ?? false,
+			});
+
+			return {
+				success: true,
+				message: "Movie request submitted successfully",
+				requestId: result.id,
+				status: getStatusLabel(result.media.status),
+				tmdbId: result.media.tmdbId,
+			};
+		} catch (error) {
+			log.error({ error, tmdbId }, "Failed to request movie");
+			return {
+				success: false,
+				error: error instanceof Error ? error.message : "Failed to request movie",
+			};
+		}
+	}
+);
+
+export const requestTvShowTool = withTool(
+	{
+		name: "request_tv_show",
+		description: `Request a TV show (or specific seasons) to be downloaded via Jellyseerr.
+
+Use this when:
+- User asks to download/add a TV show
+- User wants specific seasons of a show
+- After searching and confirming which show they want
+
+IMPORTANT: You must first search for the show using search_media to get its TMDB ID.
+
+Example workflow:
+1. User: "Can you download Breaking Bad season 1?"
+2. Call search_media("Breaking Bad")
+3. Confirm which result matches
+4. Call request_tv_show with tmdbId and seasons: [1]
+
+Parameters:
+- tmdbId: The TMDB ID from search_media results
+- seasons: Optional array of season numbers to request (e.g., [1, 2, 3]). If not specified, requests all seasons.
+- is4k: Optional, request 4K version (default false)`,
+		input: z.object({
+			tmdbId: z.number().describe("The TMDB ID from search_media results"),
+			seasons: z.array(z.number()).optional().describe("Season numbers to request (e.g., [1, 2]). Omit to request all seasons."),
+			is4k: z.boolean().optional().describe("Request 4K version (default false)"),
+		}),
+	},
+	async ({ tmdbId, seasons, is4k }) => {
+		try {
+			const result = await requestMedia({
+				mediaId: tmdbId,
+				mediaType: "tv",
+				seasons,
+				is4k: is4k ?? false,
+			});
+
+			return {
+				success: true,
+				message: seasons
+					? `TV show request submitted for season${seasons.length > 1 ? "s" : ""} ${seasons.join(", ")}`
+					: "TV show request submitted for all seasons",
+				requestId: result.id,
+				status: getStatusLabel(result.media.status),
+				tmdbId: result.media.tmdbId,
+				requestedSeasons: seasons,
+			};
+		} catch (error) {
+			log.error({ error, tmdbId, seasons }, "Failed to request TV show");
+			return {
+				success: false,
+				error: error instanceof Error ? error.message : "Failed to request TV show",
+			};
+		}
+	}
+);
+
 // Export tools array for agent
 export const mediaTools = [
 	searchMediaTool.tool,
+	requestMovieTool.tool,
+	requestTvShowTool.tool,
 	getDownloadQueueTool.tool,
 	getDownloadHistoryTool.tool,
 	pauseDownloadsTool.tool,
