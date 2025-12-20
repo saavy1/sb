@@ -29,6 +29,7 @@ export const config = {
 	OPS_FLAKE_PATH: Bun.env.OPS_FLAKE_PATH || "/home/saavy/dev/sb",
 	OPS_FLAKE_TARGET: Bun.env.OPS_FLAKE_TARGET || "superbloom",
 	GITHUB_WEBHOOK_SECRET: Bun.env.GITHUB_WEBHOOK_SECRET,
+	OTEL_EXPORTER_OTLP_ENDPOINT: Bun.env.OTEL_EXPORTER_OTLP_ENDPOINT,
 
 	// Grafana webhook for alerts
 	GRAFANA_WEBHOOK_TOKEN: Bun.env.GRAFANA_WEBHOOK_TOKEN,

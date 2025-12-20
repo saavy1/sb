@@ -40,8 +40,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
 	await withSpan("discord", `command.${commandName}`, async (span) => {
 		span.setAttribute("discord.command", commandName);
-		span.setAttribute("discord.user", interaction.user.tag);
-		span.setAttribute("discord.guild", interaction.guildId ?? "dm");
+		span.setAttribute("discord.user_id", interaction.user.id);
+		span.setAttribute("discord.user_tag", interaction.user.tag);
+		span.setAttribute("discord.guild_id", interaction.guildId ?? "dm");
+		span.setAttribute("discord.channel_id", interaction.channelId);
 
 		try {
 			await handleCommand(interaction);
@@ -54,7 +56,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
 			} else {
 				await interaction.reply({ content, flags: 64 });
 			}
-			throw error; // Re-throw so span records error
 		}
 	});
 });
