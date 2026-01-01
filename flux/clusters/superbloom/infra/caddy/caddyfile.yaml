@@ -80,6 +80,15 @@ data:
         reverse_proxy prowlarr.prowlarr.svc.cluster.local:9696
     }
 
+    # Bazarr - protected with forward_auth
+    subtitles.saavylab.dev {
+        forward_auth authelia.authelia.svc.cluster.local:80 {
+            uri /api/authz/forward-auth
+            copy_headers Remote-User Remote-Groups Remote-Email Remote-Name
+        }
+        reverse_proxy bazarr.bazarr.svc.cluster.local:6767
+    }
+
     # Health endpoint (optional - for k8s probes on the caddy service itself)
     :80 {
         respond /health 200
