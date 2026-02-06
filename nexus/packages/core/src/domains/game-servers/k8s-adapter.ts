@@ -62,6 +62,11 @@ export function generateMinecraftManifests(spec: K8sDeploymentSpec) {
 								{ name: "TYPE", value: "AUTO_CURSEFORGE" },
 								{ name: "CF_SLUG", value: modpack },
 								{ name: "MEMORY", value: memory },
+								// Optimized server settings for modded MC
+								{ name: "VIEW_DISTANCE", value: "16" },
+								{ name: "SIMULATION_DISTANCE", value: "12" },
+								{ name: "MAX_TICK_TIME", value: "-1" },
+								{ name: "SYNC_CHUNK_WRITES", value: "false" },
 								...(cfApiKey ? [{ name: "CF_API_KEY", value: cfApiKey }] : []),
 							],
 							resources: {

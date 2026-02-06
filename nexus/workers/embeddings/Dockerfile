@@ -20,6 +20,14 @@ COPY --from=installer /app/packages ./packages
 COPY --from=pruner /app/out/full/workers/embeddings ./workers/embeddings
 COPY --from=pruner /app/out/full/packages ./packages
 
+# Recreate workspace symlinks (buildx multi-platform builds drop symlinks
+# that point outside the COPY source tree during multi-stage COPY)
+RUN mkdir -p node_modules/@nexus && \
+    for pkg in packages/*/; do \
+      name=$(basename "$pkg") && \
+      ln -sf "../../packages/$name" "node_modules/@nexus/$name"; \
+    done
+
 ENV NODE_ENV=production
 WORKDIR /app/workers/embeddings
 USER bun

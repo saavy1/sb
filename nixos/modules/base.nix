@@ -42,6 +42,7 @@
     curl
     pciutils  # lspci
     usbutils  # lsusb
+    tpm2-tools
   ];
 
   programs.zsh.enable = true;
