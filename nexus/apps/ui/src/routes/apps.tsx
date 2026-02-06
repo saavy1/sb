@@ -97,7 +97,7 @@ function AppsPage() {
 	const sortedCategories = categoryOrder.filter((cat) => groupedApps[cat]?.length > 0);
 
 	return (
-		<div className="space-y-4">
+		<div className="container mx-auto space-y-4 px-4 py-4">
 			{/* Header */}
 			<div className="flex items-center justify-between px-3 py-2 bg-surface border border-border rounded text-xs">
 				<div className="flex items-center gap-4">

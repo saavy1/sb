@@ -166,3 +166,44 @@ export async function executeZfs(command: string): Promise<CommandResult> {
 	validateCommand(command);
 	return executeSSH(`zfs ${command}`);
 }
+
+/**
+ * Create a GitHub issue via gh CLI over SSH.
+ * Uses base64 encoding to safely transport the markdown body through the SSH shell.
+ */
+export async function executeGhIssueCreate(options: {
+	repo: string;
+	title: string;
+	body: string;
+	labels?: string[];
+	assignees?: string[];
+}): Promise<CommandResult> {
+	const { repo, title, body, labels, assignees } = options;
+
+	// Validate repo format (owner/name)
+	if (!/^[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+$/.test(repo)) {
+		throw new Error("Invalid repo format, expected owner/name");
+	}
+
+	// Base64 encode body — charset [A-Za-z0-9+/=] is always shell-safe
+	const bodyB64 = Buffer.from(body).toString("base64");
+
+	// Escape single quotes in title: replace ' with '\''
+	const escapedTitle = title.replace(/'/g, "'\\''");
+
+	let cmd = `echo '${bodyB64}' | base64 -d | gh issue create --title '${escapedTitle}' --body-file - --repo '${repo}'`;
+
+	if (labels?.length) {
+		const safeLabels = labels.map((l) => l.replace(/'/g, "")).join(",");
+		cmd += ` --label '${safeLabels}'`;
+	}
+
+	if (assignees?.length) {
+		const safeAssignees = assignees
+			.map((a) => a.replace(/[^a-zA-Z0-9-]/g, ""))
+			.join(",");
+		cmd += ` --assignee '${safeAssignees}'`;
+	}
+
+	return executeSSH(cmd);
+}

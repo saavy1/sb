@@ -30,20 +30,13 @@ export function TopNav() {
           <div className="flex items-center gap-6">
             <Link
               to="/"
-              className="flex items-center gap-1.5 text-sm font-semibold group"
+              className="text-sm font-semibold text-text-primary hover:text-accent transition-colors"
             >
-              <pre className="text-[10px] leading-none text-accent group-hover:text-accent-hover transition-colors">
-                {`┌─┐
-│▪│
-└─┘`}
-              </pre>
-              <span className="hidden sm:inline text-text-primary">
-                the-machine
-              </span>
+              the-machine
             </Link>
 
             <nav className="hidden md:flex items-center">
-              {navItems.map(({ to, label, key }) => (
+              {navItems.map(({ to, label }) => (
                 <Link
                   key={to}
                   to={to}
@@ -59,7 +52,6 @@ export function TopNav() {
                             : "text-text-secondary hover:text-text-primary"
                         }`}
                       >
-                        <span className="text-text-tertiary mr-1">{key}</span>
                         {label}
                       </span>
                       {isActive && (
@@ -73,17 +65,16 @@ export function TopNav() {
           </div>
 
           <div className="flex items-center gap-4 text-xs text-text-tertiary">
-            <span className="hidden sm:inline">v1.0.0</span>
             <div className="flex items-center gap-1">
               {connected ? (
                 <>
                   <Wifi size={12} className="text-success" />
-                  <span className="text-success">live</span>
+                  <span className="hidden sm:inline text-success">live</span>
                 </>
               ) : (
                 <>
                   <WifiOff size={12} />
-                  <span>offline</span>
+                  <span className="hidden sm:inline">offline</span>
                 </>
               )}
             </div>
@@ -102,7 +93,7 @@ export function TopNav() {
       {/* Mobile dropdown menu */}
       {menuOpen && (
         <nav className="md:hidden border-t border-border bg-surface">
-          {navItems.map(({ to, label, key }) => (
+          {navItems.map(({ to, label }) => (
             <Link
               key={to}
               to={to}
@@ -115,7 +106,6 @@ export function TopNav() {
                     isActive ? "text-accent" : "text-text-secondary"
                   }`}
                 >
-                  <span className="text-text-tertiary mr-2">{key}</span>
                   {label}
                 </span>
               )}

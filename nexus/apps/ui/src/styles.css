@@ -31,8 +31,8 @@ code {
 	--text-tertiary: hsl(240 5% 45%);
 
 	/* Semantic Colors */
-	--accent: hsl(215 100% 50%);
-	--accent-hover: hsl(215 100% 60%);
+	--accent: hsl(36 95% 55%);
+	--accent-hover: hsl(36 95% 65%);
 
 	--success: hsl(142 76% 36%);
 	--success-bg: hsl(142 76% 36% / 0.1);
@@ -55,8 +55,8 @@ code {
 	--status-unknown: hsl(240 5% 45%);
 
 	/* Typography */
-	--font-sans: "Inter", system-ui, sans-serif;
-	--font-mono: "JetBrains Mono", "Fira Code", monospace;
+	--font-sans: "JetBrains Mono", monospace;
+	--font-mono: "JetBrains Mono", monospace;
 
 	/* Spacing System */
 	--space-1: 0.25rem;

@@ -8,6 +8,7 @@ import {
 	executeKubectl,
 	executeFlux,
 	executeHelm,
+	executeGhIssueCreate,
 	sshHost,
 	sshUser,
 	validateK8sName,
@@ -752,6 +753,62 @@ export const getEndpointsTool = withTool(
 	}
 );
 
+export const createGithubIssueTool = withTool(
+	{
+		name: "create_github_issue",
+		description:
+			"Create a GitHub issue in the Superbloom repo. Use this when you've investigated a problem (e.g. CrashLoopBackOff, failed deployment) and determined it needs a code change to fix. Include your investigation findings, relevant logs, and what you think needs to change. Adding the 'claude-fix' label will trigger automated code fixing via Claude Code.",
+		input: z.object({
+			title: z.string().describe("Short, descriptive issue title"),
+			body: z
+				.string()
+				.describe(
+					"Markdown body with: problem summary, investigation findings (logs, errors), affected files/services, and suggested fix direction"
+				),
+			labels: z
+				.array(z.string())
+				.optional()
+				.describe(
+					"Labels to add. Use 'claude-fix' to trigger automated fixing, 'bug' for bugs, 'ops' for infra issues"
+				),
+			assignees: z.array(z.string()).optional().describe("GitHub usernames to assign"),
+		}),
+	},
+	async ({ title, body, labels, assignees }) => {
+		const repo = config.GITHUB_REPO;
+		if (!repo) {
+			return { success: false, error: "GITHUB_REPO not configured" };
+		}
+
+		const result = await executeGhIssueCreate({
+			repo,
+			title,
+			body,
+			labels,
+			assignees,
+		});
+
+		if (!result.success) {
+			return {
+				success: false,
+				error: result.errorMessage || "Failed to create issue",
+				output: result.output,
+			};
+		}
+
+		// gh outputs the issue URL on success (e.g. https://github.com/owner/repo/issues/42)
+		const issueUrl = result.output.trim();
+		const issueNumber = issueUrl.match(/\/issues\/(\d+)/)?.[1];
+
+		return {
+			success: true,
+			issueUrl,
+			issueNumber: issueNumber ? Number(issueNumber) : null,
+			message: `Created issue #${issueNumber}: ${title}`,
+		};
+	}
+);
+
 export const opsTools = [
 	triggerNixosRebuildTool.tool,
 	triggerFluxReconcileTool.tool,
@@ -771,4 +828,5 @@ export const opsTools = [
 	getJobsTool.tool,
 	getStorageClassesTool.tool,
 	getEndpointsTool.tool,
+	createGithubIssueTool.tool,
 ];

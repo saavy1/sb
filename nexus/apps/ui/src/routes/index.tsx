@@ -288,7 +288,7 @@ function HomePage() {
 	const failedJobs = queues.reduce((sum, q) => sum + q.failed, 0);
 
 	return (
-		<div className="space-y-4">
+		<div className="container mx-auto space-y-4 px-4 py-4">
 			{/* System Stats Strip */}
 			<div className="bg-surface border border-border rounded text-xs">
 				<div className="flex items-center justify-between px-3 py-2">

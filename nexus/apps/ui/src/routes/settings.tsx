@@ -134,7 +134,7 @@ function SettingsPage() {
 	);
 
 	return (
-		<div className="space-y-4 max-w-2xl">
+		<div className="container mx-auto max-w-2xl space-y-4 px-4 py-4">
 			{/* Header Strip */}
 			<div className="flex items-center justify-between px-3 py-2 bg-surface border border-border rounded text-xs">
 				<span className="text-text-secondary uppercase tracking-wider">Settings</span>
