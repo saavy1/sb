@@ -880,7 +880,7 @@ function StorageRootItem({
 			{/* Children */}
 			{isExpanded && hasChildren && (
 				<div className="ml-4 mt-1 space-y-0.5">
-					{root.children!.map((child) => (
+					{root.children?.map((child) => (
 						<StorageEntryItem
 							key={child.path}
 							entry={child}
@@ -950,7 +950,7 @@ function StorageEntryItem({
 
 			{isExpanded && hasChildren && (
 				<div className="space-y-0.5">
-					{entry.children!.map((child) => (
+					{entry.children?.map((child) => (
 						<StorageEntryItem
 							key={child.path}
 							entry={child}
