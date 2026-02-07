@@ -1,12 +1,12 @@
 # Prune stage - create minimal workspace for API
-FROM oven/bun:1 AS pruner
+FROM oven/bun:1.3.3 AS pruner
 RUN bun add -g turbo
 WORKDIR /app
 COPY . .
 RUN turbo prune @nexus/api --docker
 
 # UI Build stage - build the dashboard
-FROM oven/bun:1 AS ui-builder
+FROM oven/bun:1.3.3 AS ui-builder
 RUN bun add -g turbo
 WORKDIR /app
 COPY . .
@@ -14,17 +14,17 @@ RUN turbo prune @nexus/ui --docker
 WORKDIR /app/out/full
 # Copy root tsconfig.json that UI extends
 RUN cp /app/tsconfig.json .
-RUN bun install --frozen-lockfile --ignore-scripts
+RUN bun install --ignore-scripts
 RUN cd apps/ui && bun run build
 
 # Install stage - API dependencies
-FROM oven/bun:1 AS installer
+FROM oven/bun:1.3.3 AS installer
 WORKDIR /app
 COPY --from=pruner /app/out/json/ .
-RUN bun install --frozen-lockfile --production --ignore-scripts
+RUN bun install --ignore-scripts
 
 # Runtime stage
-FROM oven/bun:1
+FROM oven/bun:1.3.3
 WORKDIR /app
 
 # Install tailscale CLI + ssh client for Tailscale SSH to host

@@ -1,18 +1,18 @@
 # Prune stage - create minimal workspace
-FROM oven/bun:1 AS pruner
+FROM oven/bun:1.3.3 AS pruner
 RUN bun add -g turbo
 WORKDIR /app
 COPY . .
 RUN turbo prune @nexus/worker-embeddings --docker
 
 # Install stage
-FROM oven/bun:1 AS installer
+FROM oven/bun:1.3.3 AS installer
 WORKDIR /app
 COPY --from=pruner /app/out/json/ .
-RUN bun install --frozen-lockfile --production --ignore-scripts
+RUN bun install --ignore-scripts
 
 # Runtime stage
-FROM oven/bun:1
+FROM oven/bun:1.3.3
 WORKDIR /app
 
 COPY --from=installer /app/node_modules ./node_modules
