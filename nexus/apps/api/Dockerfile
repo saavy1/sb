@@ -14,7 +14,7 @@ RUN turbo prune @nexus/ui --docker
 WORKDIR /app/out/full
 # Copy root tsconfig.json that UI extends
 RUN cp /app/tsconfig.json .
-RUN bun install --ignore-scripts
+RUN bun install --frozen-lockfile --ignore-scripts
 RUN cd apps/ui && bun run build
 
 # Install stage - API dependencies

@@ -4,14 +4,7 @@
 name: Build <IMAGE_NAME>
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - '<image-dir>/**'
-      - '.github/workflows/<this-file>.yml'
-  schedule:
-    - cron: '0 0 * * 0'  # Weekly rebuild for base image updates
-  workflow_dispatch:  # Manual trigger
+  workflow_dispatch: # Template only; copy/rename before use
 
 env:
   REGISTRY: ghcr.io
