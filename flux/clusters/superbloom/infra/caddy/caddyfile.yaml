@@ -43,12 +43,8 @@ data:
         reverse_proxy argo-workflows-server.argo.svc.cluster.local:2746
     }
 
-    # Argo CD - protected with forward_auth
+    # Argo CD - uses built-in auth
     argocd.saavylab.dev {
-        forward_auth authelia.authelia.svc.cluster.local:80 {
-            uri /api/authz/forward-auth
-            copy_headers Remote-User Remote-Groups Remote-Email Remote-Name
-        }
         reverse_proxy argocd-server.argocd.svc.cluster.local:80
     }
 
