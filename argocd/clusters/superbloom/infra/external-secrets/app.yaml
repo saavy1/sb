@@ -18,7 +18,7 @@ spec:
         releaseName: external-secrets
         valueFiles:
           - $values/argocd/clusters/superbloom/infra/external-secrets/values.yaml
-    - repoURL: git@github.com:saavy1/sb.git
+    - repoURL: https://github.com/saavy1/sb.git
       targetRevision: main
       ref: values
   syncPolicy:

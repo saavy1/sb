@@ -11,7 +11,7 @@ spec:
     server: https://kubernetes.default.svc
     namespace: nexus
   source:
-    repoURL: git@github.com:saavy1/sb.git
+    repoURL: https://github.com/saavy1/sb.git
     targetRevision: main
     path: argocd/clusters/superbloom/nexus/core/resources
   syncPolicy:

@@ -18,7 +18,7 @@ spec:
         releaseName: nexus-bot
         valueFiles:
           - $values/argocd/clusters/superbloom/nexus/bot/values.yaml
-    - repoURL: git@github.com:saavy1/sb.git
+    - repoURL: https://github.com/saavy1/sb.git
       targetRevision: main
       ref: values
   syncPolicy:
