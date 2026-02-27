@@ -3,6 +3,7 @@ kind: Kustomization
 resources:
   - flux-system/
   - infra.yaml
+  - argocd.yaml
   - data.yaml
   - media.yaml
   - nexus.yaml

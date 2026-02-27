@@ -1,0 +1,20 @@
+infisical:
+  fullnameOverride: infisical
+  replicaCount: 1
+  image:
+    repository: infisical/infisical
+    tag: v0.151.0
+  kubeSecretRef: infisical-secrets
+  autoBootstrap:
+    enabled: true
+    organization: saavylab
+    secretTemplate: '{"stringData":{"accessToken":"{{.Identity.Credentials.Token}}"}}'
+    secretDestination:
+      name: infisical-token-auth
+      namespace: infisical
+    credentialSecret:
+      name: infisical-bootstrap-credentials
+ingress:
+  enabled: false
+  nginx:
+    enabled: false

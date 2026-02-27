@@ -4,6 +4,7 @@ metadata:
   name: nexus-mc-monitor
   namespace: nexus
 spec:
+  suspend: true
   interval: 5m
   chart:
     spec:

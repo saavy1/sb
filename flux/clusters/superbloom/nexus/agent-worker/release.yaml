@@ -4,6 +4,7 @@ metadata:
   name: nexus-agent-worker
   namespace: nexus
 spec:
+  suspend: true
   interval: 5m
   chart:
     spec:

@@ -1,1 +1,2 @@
 sops_age_keys.txt
+.claude/worktrees/*

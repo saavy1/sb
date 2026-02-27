@@ -4,6 +4,7 @@ metadata:
   name: nexus-bot
   namespace: nexus
 spec:
+  suspend: true
   interval: 1m
   chart:
     spec:

@@ -61,6 +61,15 @@ data:
         reverse_proxy kargo-api.kargo.svc.cluster.local:80
     }
 
+    # Infisical - protected with forward_auth
+    infisical.saavylab.dev {
+        forward_auth authelia.authelia.svc.cluster.local:80 {
+            uri /api/authz/forward-auth
+            copy_headers Remote-User Remote-Groups Remote-Email Remote-Name
+        }
+        reverse_proxy infisical.infisical.svc.cluster.local:8080
+    }
+
     # Jellyfin - no forward_auth (uses built-in auth, easier for TVs/Xbox)
     watch.saavylab.dev {
         reverse_proxy jellyfin.jellyfin.svc.cluster.local:8096

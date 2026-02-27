@@ -6,6 +6,7 @@ resources:
   - argo-workflows/
   - argocd/
   - kargo/
+  - infisical/
   - caddy/
   - authelia/
   - ddns/

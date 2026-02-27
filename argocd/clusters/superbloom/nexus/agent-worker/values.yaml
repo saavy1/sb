@@ -1,0 +1,55 @@
+controllers:
+  main:
+    replicas: 1
+    serviceAccount:
+      name: nexus
+    containers:
+      main:
+        image:
+          repository: ghcr.io/saavy1/nexus-agent-worker
+          tag: latest
+          pullPolicy: Always
+        env:
+          NODE_ENV: production
+          OTEL_EXPORTER_OTLP_ENDPOINT: http://grafana-k8s-monitoring-alloy-receiver.alloy:4318
+          OPS_SSH_HOST: superbloom
+          OPS_SSH_USER: saavy
+          OPS_FLAKE_PATH: /home/saavy/dev/sb
+          OPS_FLAKE_TARGET: superbloom
+          VALKEY_URL: redis://valkey.valkey.svc.cluster.local:6379
+          QDRANT_URL: http://qdrant.qdrant.svc.cluster.local:6333
+        envFrom:
+          - secretRef:
+              name: nexus-env
+      tailscale:
+        image:
+          repository: ghcr.io/tailscale/tailscale
+          tag: v1.78.1
+        env:
+          TS_HOSTNAME: nexus-agent-worker
+          TS_STATE_DIR: /var/lib/tailscale
+          TS_USERSPACE: "true"
+          TS_SOCKET: /var/run/tailscale/tailscaled.sock
+          TS_KUBE_SECRET: nexus-agent-worker-tailscale
+          TS_AUTHKEY:
+            valueFrom:
+              secretKeyRef:
+                name: nexus-env
+                key: TS_AUTHKEY
+        securityContext:
+          runAsUser: 0
+          runAsGroup: 0
+service:
+  main:
+    enabled: false
+persistence:
+  tailscale-state:
+    enabled: true
+    type: emptyDir
+    globalMounts:
+      - path: /var/lib/tailscale
+  tailscale-socket:
+    enabled: true
+    type: emptyDir
+    globalMounts:
+      - path: /var/run/tailscale

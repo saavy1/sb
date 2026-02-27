@@ -1,0 +1,20 @@
+controllers:
+  main:
+    replicas: 1
+    containers:
+      main:
+        image:
+          repository: ghcr.io/saavy1/nexus-mc-monitor
+          tag: latest
+          pullPolicy: Always
+        env:
+          NODE_ENV: production
+          OTEL_EXPORTER_OTLP_ENDPOINT: http://grafana-k8s-monitoring-alloy-receiver.alloy:4318
+          VALKEY_URL: redis://valkey.valkey.svc.cluster.local:6379
+          MC_LOADBALANCER_HOST: minecraft.game-servers.svc.cluster.local
+        envFrom:
+          - secretRef:
+              name: nexus-env
+service:
+  main:
+    enabled: false
