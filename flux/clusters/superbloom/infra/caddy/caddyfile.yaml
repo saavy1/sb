@@ -43,6 +43,24 @@ data:
         reverse_proxy argo-workflows-server.argo.svc.cluster.local:2746
     }
 
+    # Argo CD - protected with forward_auth
+    argocd.saavylab.dev {
+        forward_auth authelia.authelia.svc.cluster.local:80 {
+            uri /api/authz/forward-auth
+            copy_headers Remote-User Remote-Groups Remote-Email Remote-Name
+        }
+        reverse_proxy argocd-server.argocd.svc.cluster.local:80
+    }
+
+    # Kargo - protected with forward_auth
+    kargo.saavylab.dev {
+        forward_auth authelia.authelia.svc.cluster.local:80 {
+            uri /api/authz/forward-auth
+            copy_headers Remote-User Remote-Groups Remote-Email Remote-Name
+        }
+        reverse_proxy kargo-api.kargo.svc.cluster.local:80
+    }
+
     # Jellyfin - no forward_auth (uses built-in auth, easier for TVs/Xbox)
     watch.saavylab.dev {
         reverse_proxy jellyfin.jellyfin.svc.cluster.local:8096

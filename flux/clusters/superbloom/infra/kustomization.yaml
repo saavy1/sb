@@ -4,6 +4,8 @@ resources:
   - bjw-s.yaml
   - cnpg-operator.yaml
   - argo-workflows/
+  - argocd/
+  - kargo/
   - caddy/
   - authelia/
   - ddns/

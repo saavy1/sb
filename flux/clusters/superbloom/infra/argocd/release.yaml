@@ -1,0 +1,37 @@
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: argo-cd
+  namespace: flux-system
+spec:
+  interval: 30m
+  url: https://argoproj.github.io/argo-helm
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: argocd
+  namespace: argocd
+spec:
+  interval: 5m
+  chart:
+    spec:
+      chart: argo-cd
+      version: "9.4.5"
+      sourceRef:
+        kind: HelmRepository
+        name: argo-cd
+        namespace: flux-system
+  install:
+    createNamespace: true
+  values:
+    global:
+      domain: argocd.saavylab.dev
+    configs:
+      cm:
+        url: https://argocd.saavylab.dev
+      params:
+        server.insecure: true
+    server:
+      service:
+        type: ClusterIP

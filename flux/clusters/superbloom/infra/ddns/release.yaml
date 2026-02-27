@@ -25,7 +25,7 @@ spec:
               tag: latest
               pullPolicy: IfNotPresent
             env:
-              DOMAINS: saavylab.dev,mc.saavylab.dev,auth.saavylab.dev,nexus.saavylab.dev,workflows.saavylab.dev,watch.saavylab.dev,shows.saavylab.dev,movies.saavylab.dev,downloads.saavylab.dev,fbi.saavylab.dev,indexers.saavylab.dev,subtitles.saavylab.dev
+              DOMAINS: saavylab.dev,mc.saavylab.dev,auth.saavylab.dev,nexus.saavylab.dev,workflows.saavylab.dev,argocd.saavylab.dev,kargo.saavylab.dev,watch.saavylab.dev,shows.saavylab.dev,movies.saavylab.dev,downloads.saavylab.dev,fbi.saavylab.dev,indexers.saavylab.dev,subtitles.saavylab.dev
               PROXIED: "true"
             envFrom:
               - secretRef:
