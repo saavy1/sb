@@ -38,6 +38,7 @@
     kubectl
     k9s
     fluxcd
+    argocd
     jq
     curl
     pciutils  # lspci
