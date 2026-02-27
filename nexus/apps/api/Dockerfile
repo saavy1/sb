@@ -1,13 +1,13 @@
 # Prune stage - create minimal workspace for API
 FROM oven/bun:1.3.3 AS pruner
-RUN bun add -g turbo
+RUN bun add -g turbo@2.6.3
 WORKDIR /app
 COPY . .
 RUN turbo prune @nexus/api --docker
 
 # UI Build stage - build the dashboard
 FROM oven/bun:1.3.3 AS ui-builder
-RUN bun add -g turbo
+RUN bun add -g turbo@2.6.3
 WORKDIR /app
 COPY . .
 RUN turbo prune @nexus/ui --docker
