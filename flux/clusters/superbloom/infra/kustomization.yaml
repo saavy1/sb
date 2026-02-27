@@ -3,6 +3,7 @@ kind: Kustomization
 resources:
   - bjw-s.yaml
   - cnpg-operator.yaml
+  - argo-workflows/
   - caddy/
   - authelia/
   - ddns/
