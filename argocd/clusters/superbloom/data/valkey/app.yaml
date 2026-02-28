@@ -1,0 +1,33 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: data-valkey
+  namespace: argocd
+  annotations:
+    kargo.akuity.io/authorized-stage: valkey:prod
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: valkey
+  sources:
+    - repoURL: https://bjw-s-labs.github.io/helm-charts
+      chart: app-template
+      targetRevision: "4.1.1"
+      helm:
+        releaseName: valkey
+        valueFiles:
+          - $values/argocd/clusters/superbloom/data/valkey/values.yaml
+    - repoURL: https://github.com/saavy1/sb.git
+      targetRevision: main
+      ref: values
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ApplyOutOfSyncOnly=true
+      - ServerSideApply=true

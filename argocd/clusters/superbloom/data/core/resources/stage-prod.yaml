@@ -1,0 +1,44 @@
+apiVersion: kargo.akuity.io/v1alpha1
+kind: Stage
+metadata:
+  name: prod
+  namespace: valkey
+spec:
+  requestedFreight:
+    - origin:
+        kind: Warehouse
+        name: valkey-images
+      sources:
+        direct: true
+  promotionTemplate:
+    spec:
+      vars:
+        - name: gitRepo
+          value: https://github.com/saavy1/sb.git
+        - name: targetBranch
+          value: main
+      steps:
+        - uses: git-clone
+          config:
+            repoURL: ${{ vars.gitRepo }}
+            checkout:
+              - branch: ${{ vars.targetBranch }}
+                path: ./work
+        - uses: yaml-update
+          config:
+            path: ./work/argocd/clusters/superbloom/data/valkey/values.yaml
+            updates:
+              - key: controllers.main.containers.main.image.repository
+                value: docker.io/valkey/valkey
+              - key: controllers.main.containers.main.image.digest
+                value: ${{ imageFrom("docker.io/valkey/valkey").Digest }}
+        - uses: git-commit
+          config:
+            path: ./work
+            message: "chore(kargo): promote valkey to ${{ ctx.stage }}"
+        - uses: git-push
+          as: push
+          config:
+            path: ./work
+            targetBranch: ${{ vars.targetBranch }}
+            provider: github

@@ -1,0 +1,46 @@
+controllers:
+  main:
+    containers:
+      main:
+        image:
+          repository: docker.io/valkey/valkey
+          tag: "9.0.1"
+          digest: ""
+        command:
+          - valkey-server
+          - --appendonly
+          - "yes"
+          - --appendfsync
+          - everysec
+        probes:
+          liveness:
+            enabled: true
+            custom: true
+            spec:
+              exec:
+                command: ["valkey-cli", "ping"]
+              initialDelaySeconds: 5
+              periodSeconds: 10
+          readiness:
+            enabled: true
+            custom: true
+            spec:
+              exec:
+                command: ["valkey-cli", "ping"]
+              initialDelaySeconds: 5
+              periodSeconds: 5
+service:
+  main:
+    controller: main
+    ports:
+      redis:
+        port: 6379
+persistence:
+  data:
+    enabled: true
+    type: persistentVolumeClaim
+    accessMode: ReadWriteOnce
+    size: 2Gi
+    storageClass: local-path
+    globalMounts:
+      - path: /data
