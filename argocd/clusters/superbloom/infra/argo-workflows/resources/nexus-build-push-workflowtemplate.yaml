@@ -12,7 +12,7 @@ spec:
       - name: repoURL
         value: https://github.com/saavy1/sb.git
       - name: registry
-        value: registry.saavylab.dev
+        value: zot.zot.svc.cluster.local:5000
       - name: imageOwner
         value: saavy1
   podGC:
@@ -92,6 +92,7 @@ spec:
           - "--dockerfile={{inputs.parameters.dockerfile}}"
           - "--destination={{inputs.parameters.image}}:latest"
           - "--destination={{inputs.parameters.image}}:{{workflow.uid}}"
+          - "--insecure-registry={{workflow.parameters.registry}}"
           - "--snapshot-mode=redo"
           - "--use-new-run"
         volumeMounts:
