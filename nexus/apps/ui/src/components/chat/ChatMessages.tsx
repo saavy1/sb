@@ -1,31 +1,17 @@
+import type { UIMessage } from "@tanstack/ai-react";
 import { Check, Copy, Loader2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ScrollArea } from "../ui/scroll-area";
 import { ChatMessage } from "./ChatMessage";
-import { ToolCallIndicator } from "./ToolCallIndicator";
-
-type Message = {
-	id: string;
-	role: "user" | "assistant" | "system";
-	content: string;
-};
-
-type ToolCall = {
-	toolName: string;
-	status: "calling" | "complete" | "error";
-	args?: Record<string, unknown>;
-};
 
 export function ChatMessages({
 	messages,
 	isLoading,
 	error,
-	activeToolCalls,
 }: {
-	messages: Message[];
+	messages: UIMessage[];
 	isLoading: boolean;
 	error: string | null;
-	activeToolCalls: Map<string, ToolCall>;
 }) {
 	const messagesEndRef = useRef<HTMLDivElement>(null);
 	const [copied, setCopied] = useState(false);
@@ -41,8 +27,11 @@ export function ChatMessages({
 			.filter((m) => m.role !== "system")
 			.map((m) => {
 				const role = m.role === "user" ? "User" : "Assistant";
-				const cleanContent = m.content.replace(/\n\s*\{[\s\S]*?\}\s*(?=\n|$)/g, "").trim();
-				return `${role}: ${cleanContent}`;
+				const content = m.parts
+					.filter((p) => p.type === "text")
+					.map((p) => (p as { type: "text"; content: string }).content)
+					.join("");
+				return `${role}: ${content}`;
 			})
 			.join("\n\n");
 
@@ -92,10 +81,7 @@ export function ChatMessages({
 						<ChatMessage key={message.id} message={message} />
 					))}
 
-					<ToolCallIndicator toolCalls={activeToolCalls} />
-
 					{isLoading &&
-						activeToolCalls.size === 0 &&
 						(messages.length === 0 || messages[messages.length - 1]?.role === "user") && (
 							<div className="flex items-center gap-2 px-3 py-2 text-sm text-text-tertiary">
 								<span>$</span>

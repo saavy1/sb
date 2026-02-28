@@ -1,7 +1,22 @@
+import { chat, convertMessagesToModelMessages, maxIterations, toServerSentEventsResponse } from "@tanstack/ai";
+import type { StreamChunk, ModelMessage } from "@tanstack/ai";
 import { Elysia, t } from "elysia";
 import logger from "@nexus/logger";
+import { generateConversationTitle } from "../../infra/ai";
+import { appEvents } from "../../infra/events";
 import { getToolSummary, getToolsByCategory, toolRegistry } from "../../infra/tool-registry";
-import { createThread, getThread, listThreads, processChat, sendMessage } from "./functions";
+import {
+	AGENT_SYSTEM_PROMPT,
+	createAdapter,
+	createThread,
+	getAllDomainTools,
+	getContextStr,
+	getThread,
+	listThreads,
+	queueEmbedding,
+	sendMessage,
+} from "./functions";
+import { agentRepository } from "./repository";
 import type { AgentThread } from "./schema";
 import {
 	AgentThreadDetail,
@@ -13,6 +28,12 @@ import {
 	ThreadIdParam,
 	ThreadsQueryParams,
 } from "./types";
+
+const log = logger.child({ module: "agent-routes" });
+
+function generateId(): string {
+	return crypto.randomUUID().slice(0, 8);
+}
 
 function threadToResponse(thread: AgentThread) {
 	return {
@@ -36,13 +57,126 @@ function threadToDetail(thread: AgentThread) {
 		source: thread.source,
 		sourceId: thread.sourceId,
 		title: thread.title,
-		messages: thread.messages,
+		messages: thread.messages.map(m => ({
+			role: m.role,
+			content: typeof m.content === "string" || m.content === null ? m.content : null,
+			toolCalls: m.toolCalls,
+			toolCallId: m.toolCallId,
+			name: m.name,
+		})),
 		context: thread.context,
 		wakeJobId: thread.wakeJobId,
 		wakeReason: thread.wakeReason,
 		createdAt: thread.createdAt.toISOString(),
 		updatedAt: thread.updatedAt.toISOString(),
 	};
+}
+
+/**
+ * Async generator that wraps the chat stream with side effects:
+ * - Collects messages for DB persistence
+ * - Queues embeddings
+ * - Triggers title generation on first exchange
+ */
+async function* withPersistence(
+	stream: AsyncIterable<StreamChunk>,
+	thread: AgentThread,
+	existingMessages: ModelMessage[],
+	firstUserContent: string | null,
+	timeout: ReturnType<typeof setTimeout>,
+): AsyncIterable<StreamChunk> {
+	const collectedMessages: ModelMessage[] = [];
+	let currentContent = "";
+	let currentToolCalls: Array<{ id: string; type: "function"; function: { name: string; arguments: string } }> = [];
+	let lastAssistantContent: string | null = null;
+
+	// Track tool call args accumulation
+	const toolCallArgsBuffers = new Map<string, { name: string; args: string }>();
+
+	try {
+		for await (const chunk of stream) {
+			// Track state for persistence
+			switch (chunk.type) {
+				case "TEXT_MESSAGE_CONTENT":
+					currentContent += chunk.delta;
+					break;
+
+				case "TEXT_MESSAGE_END":
+					if (currentContent) {
+						const msg: ModelMessage = {
+							role: "assistant",
+							content: currentContent,
+							...(currentToolCalls.length > 0 && { toolCalls: currentToolCalls }),
+						};
+						collectedMessages.push(msg);
+						lastAssistantContent = currentContent;
+						queueEmbedding(thread.id, generateId(), "assistant", currentContent);
+					}
+					currentContent = "";
+					currentToolCalls = [];
+					break;
+
+				case "TOOL_CALL_START":
+					toolCallArgsBuffers.set(chunk.toolCallId, { name: chunk.toolName, args: "" });
+					break;
+
+				case "TOOL_CALL_ARGS":
+					if (toolCallArgsBuffers.has(chunk.toolCallId)) {
+						const buf = toolCallArgsBuffers.get(chunk.toolCallId)!;
+						buf.args += chunk.delta;
+					}
+					break;
+
+				case "TOOL_CALL_END": {
+					const buf = toolCallArgsBuffers.get(chunk.toolCallId);
+					if (buf) {
+						currentToolCalls.push({
+							id: chunk.toolCallId,
+							type: "function",
+							function: { name: buf.name, arguments: buf.args },
+						});
+						toolCallArgsBuffers.delete(chunk.toolCallId);
+
+						// Tool result message
+						if (chunk.result !== undefined) {
+							collectedMessages.push({
+								role: "tool",
+								content: typeof chunk.result === "string" ? chunk.result : JSON.stringify(chunk.result),
+								toolCallId: chunk.toolCallId,
+							});
+						}
+					}
+					break;
+				}
+
+				case "RUN_FINISHED":
+					// Persist all collected messages to DB
+					try {
+						await agentRepository.update(thread.id, {
+							messages: [...existingMessages, ...collectedMessages],
+						});
+					} catch (dbErr) {
+						log.error({ dbErr, threadId: thread.id }, "Failed to persist messages to DB");
+					}
+					break;
+			}
+
+			yield chunk; // Forward all events to the client
+		}
+	} finally {
+		clearTimeout(timeout);
+
+		// Title generation on first exchange
+		if (!thread.title && firstUserContent && lastAssistantContent) {
+			generateConversationTitle(firstUserContent, lastAssistantContent).then((title) => {
+				if (title) {
+					log.info({ threadId: thread.id, title }, "Generated thread title");
+					agentRepository.update(thread.id, { title });
+					appEvents.emit("thread:updated", { id: thread.id, title });
+				}
+			});
+		}
+	}
 }
 
 export const agentRoutes = new Elysia({ prefix: "/agent" })
@@ -111,7 +245,7 @@ export const agentRoutes = new Elysia({ prefix: "/agent" })
 		}
 	)
 
-	// Send message to thread (non-streaming)
+	// Send message to thread (non-streaming, for workers/discord)
 	.post(
 		"/threads/:id/message",
 		async ({ params, body, set }) => {
@@ -140,38 +274,95 @@ export const agentRoutes = new Elysia({ prefix: "/agent" })
 		}
 	)
 
-	// Chat endpoint - creates thread if needed, processes message
-	// UI receives updates via WebSocket, not HTTP streaming
+	// Chat endpoint - SSE streaming via TanStack AI
 	.post(
 		"/chat",
-		async ({ body, query, set }) => {
-			try {
-				const threadIdInput = query.threadId || body.threadId;
-				const { threadId, response } = await processChat(body.messages, threadIdInput);
+		async ({ body, query }) => {
+			const threadIdInput = query.threadId;
 
-				return {
-					threadId,
-					response,
-				};
-			} catch (err) {
-				logger.error({ err }, "Agent chat failed");
-				set.status = 500;
-				return { error: err instanceof Error ? err.message : "Chat failed" };
+			// Load or create thread
+			let thread: AgentThread;
+			if (threadIdInput) {
+				const existing = await agentRepository.findById(threadIdInput);
+				if (!existing) {
+					return new Response(JSON.stringify({ error: "Thread not found" }), {
+						status: 404,
+						headers: { "Content-Type": "application/json" },
+					});
+				}
+				thread = existing;
+			} else {
+				thread = await createThread("chat");
 			}
+
+			// Convert incoming UIMessages → ModelMessages for the LLM
+			const modelMessages = convertMessagesToModelMessages(body.messages);
+
+			// Get existing thread messages from DB
+			const existingMessages = thread.messages ?? [];
+
+			// Build messages with text-only content (our text adapter only handles string content)
+			const allMessages = [
+				...existingMessages.map(m => ({
+					role: m.role,
+					content: typeof m.content === "string" || m.content === null ? m.content : null,
+					toolCalls: m.toolCalls,
+					toolCallId: m.toolCallId,
+					name: m.name,
+				})),
+				...modelMessages.map(m => ({
+					role: m.role,
+					content: typeof m.content === "string" || m.content === null ? m.content : null,
+					toolCalls: m.toolCalls,
+					toolCallId: m.toolCallId,
+					name: m.name,
+				})),
+			];
+
+			// Extract first user content for title generation
+			const userMessages = allMessages.filter((m) => m.role === "user");
+			const firstUserContent = userMessages.length === 1 ? (userMessages[0].content || null) : null;
+
+			// Queue embedding for the new user message
+			const lastUserMsg = modelMessages.filter((m) => m.role === "user").pop();
+			if (lastUserMsg && typeof lastUserMsg.content === "string") {
+				queueEmbedding(thread.id, generateId(), "user", lastUserMsg.content);
+			}
+
+			// Persist user message immediately
+			await agentRepository.update(thread.id, { messages: allMessages });
+
+			// Create adapter
+			const { adapter } = await createAdapter();
+			const contextStr = getContextStr(thread);
+			const allTools = getAllDomainTools(thread);
+
+			// Set up timeout
+			const abortController = new AbortController();
+			const timeout = setTimeout(() => abortController.abort(), 120_000);
+
+			// Run chat with built-in agent loop
+			const stream = chat({
+				adapter,
+				messages: allMessages,
+				systemPrompts: [AGENT_SYSTEM_PROMPT + contextStr],
+				tools: allTools,
+				agentLoopStrategy: maxIterations(10),
+				abortController,
+			});
+
+			// Wrap with side effects (DB persistence, embeddings, title gen)
+			const wrapped = withPersistence(stream, thread, allMessages, firstUserContent, timeout);
+
+			// Return SSE Response
+			return toServerSentEventsResponse(wrapped, { abortController });
 		},
 		{
-			detail: { tags: ["Agent"], summary: "Chat with agent (updates via WebSocket)" },
+			detail: { tags: ["Agent"], summary: "Chat with agent (SSE streaming)" },
 			query: t.Object({
 				threadId: t.Optional(t.String()),
 			}),
 			body: ChatRequest,
-			response: {
-				200: t.Object({
-					threadId: t.String(),
-					response: t.String(),
-				}),
-				500: ApiError,
-			},
 		}
 	)
 

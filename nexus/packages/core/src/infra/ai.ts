@@ -1,18 +1,11 @@
+import { chat } from "@tanstack/ai";
+import { createOpenRouterText } from "@tanstack/ai-openrouter";
 import logger from "@nexus/logger";
 import { config } from "./config";
-import { tracedFetch } from "./telemetry";
 
 const log = logger.child({ module: "ai" });
 
 const TITLE_PROMPT = `Generate a concise 3-5 word title for this conversation. Return ONLY the title, no quotes, no explanation.`;
-
-type OpenRouterResponse = {
-	choices: Array<{
-		message: {
-			content: string;
-		};
-	}>;
-};
 
 export async function generateConversationTitle(
 	userMessage: string,
@@ -29,33 +22,22 @@ export async function generateConversationTitle(
 	}
 
 	try {
-		const response = await tracedFetch("https://openrouter.ai/api/v1/chat/completions", {
-			method: "POST",
-			headers: {
-				Authorization: `Bearer ${config.OPENROUTER_API_KEY}`,
-				"Content-Type": "application/json",
-			},
-			body: JSON.stringify({
-				model: config.AI_MODEL,
-				messages: [
-					{ role: "system", content: TITLE_PROMPT },
-					{ role: "user", content: `User: ${userMessage}\n\nAssistant: ${assistantResponse}` },
-				],
-				max_tokens: 20,
-			}),
+		const adapter = createOpenRouterText(
+			config.AI_MODEL as Parameters<typeof createOpenRouterText>[0],
+			config.OPENROUTER_API_KEY,
+		);
+
+		const title = await chat({
+			adapter,
+			systemPrompts: [TITLE_PROMPT],
+			messages: [{ role: "user", content: `User: ${userMessage}\n\nAssistant: ${assistantResponse}` }],
+			maxTokens: 20,
+			stream: false,
 		});
 
-		if (!response.ok) {
-			const errorText = await response.text();
-			log.error({ status: response.status, error: errorText }, "OpenRouter API error");
-			throw new Error(`OpenRouter API error: ${response.status}`);
-		}
-
-		const data = (await response.json()) as OpenRouterResponse;
-		const title = data.choices[0]?.message?.content?.trim();
-
-		log.info({ title }, "generated conversation title");
-		return title || null;
+		const trimmed = title?.trim() || null;
+		log.info({ title: trimmed }, "generated conversation title");
+		return trimmed;
 	} catch (error) {
 		log.error({ error }, "failed to generate title");
 		return null;

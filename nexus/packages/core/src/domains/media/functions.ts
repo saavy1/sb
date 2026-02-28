@@ -2,7 +2,7 @@ import logger from "@nexus/logger";
 import { z } from "zod";
 import { config } from "../../infra/config";
 import { tracedFetch } from "../../infra/telemetry";
-import { withTool } from "../../infra/tools";
+import { toolDefinition } from "@tanstack/ai";
 import {
 	MediaStatusLabels,
 	type JellyseerrRequestOptionsType,
@@ -116,8 +116,7 @@ export async function requestMedia(body: MediaRequestBodyType): Promise<MediaReq
 
 // === AI Tool-exposed functions ===
 
-export const searchMediaTool = withTool(
-	{
+export const searchMediaTool = toolDefinition({
 		name: "search_media",
 		description: `Search the media library for movies and TV shows.
 
@@ -139,11 +138,10 @@ The status field tells you everything:
 - "unknown" = not in library, not requested
 
 You do NOT need to call any other tool after this - the status in results is authoritative.`,
-		input: z.object({
+		inputSchema: z.object({
 			query: z.string().describe("Movie or TV show title (no season/episode numbers)"),
 		}),
-	},
-	async ({ query }) => {
+	}).server(async ({ query }) => {
 		try {
 			const response = await searchMedia(query);
 
@@ -214,8 +212,7 @@ export async function resumeDownloads(): Promise<boolean> {
 
 // === SABnzbd AI Tool-exposed functions ===
 
-export const getDownloadQueueTool = withTool(
-	{
+export const getDownloadQueueTool = toolDefinition({
 		name: "get_download_queue",
 		description: `Get the current download queue from SABnzbd.
 
@@ -232,9 +229,8 @@ Returns:
 - Disk space available
 
 This is read-only - use pause_downloads/resume_downloads to control the queue.`,
-		input: z.object({}),
-	},
-	async () => {
+		inputSchema: z.object({}),
+	}).server(async () => {
 		try {
 			const queue = await getDownloadQueue();
 
@@ -269,8 +265,7 @@ This is read-only - use pause_downloads/resume_downloads to control the queue.`,
 	}
 );
 
-export const getDownloadHistoryTool = withTool(
-	{
+export const getDownloadHistoryTool = toolDefinition({
 		name: "get_download_history",
 		description: `Get recent download history from SABnzbd.
 
@@ -281,11 +276,10 @@ Use this to answer questions like:
 - "Any failed downloads?"
 
 Returns completed and failed downloads with timestamps.`,
-		input: z.object({
+		inputSchema: z.object({
 			limit: z.number().min(1).max(50).optional().describe("Number of history items (default 10, max 50)"),
 		}),
-	},
-	async ({ limit }) => {
+	}).server(async ({ limit }) => {
 		try {
 			const history = await getDownloadHistory(limit ?? 10);
 
@@ -319,8 +313,7 @@ Returns completed and failed downloads with timestamps.`,
 	}
 );
 
-export const pauseDownloadsTool = withTool(
-	{
+export const pauseDownloadsTool = toolDefinition({
 		name: "pause_downloads",
 		description: `Pause all downloads in SABnzbd.
 
@@ -330,9 +323,8 @@ Use this when:
 - User explicitly asks to pause
 
 This is reversible - use resume_downloads to continue.`,
-		input: z.object({}),
-	},
-	async () => {
+		inputSchema: z.object({}),
+	}).server(async () => {
 		try {
 			await pauseDownloads();
 			return {
@@ -349,15 +341,13 @@ This is reversible - use resume_downloads to continue.`,
 	}
 );
 
-export const resumeDownloadsTool = withTool(
-	{
+export const resumeDownloadsTool = toolDefinition({
 		name: "resume_downloads",
 		description: `Resume paused downloads in SABnzbd.
 
 Use this to continue downloading after a pause.`,
-		input: z.object({}),
-	},
-	async () => {
+		inputSchema: z.object({}),
+	}).server(async () => {
 		try {
 			await resumeDownloads();
 			return {
@@ -374,8 +364,7 @@ Use this to continue downloading after a pause.`,
 	}
 );
 
-export const requestMovieTool = withTool(
-	{
+export const requestMovieTool = toolDefinition({
 		name: "request_movie",
 		description: `Request a movie to be downloaded via Jellyseerr.
 
@@ -395,12 +384,11 @@ Example workflow:
 Parameters:
 - tmdbId: The TMDB ID from search_media results
 - is4k: Optional, request 4K version (default false)`,
-		input: z.object({
+		inputSchema: z.object({
 			tmdbId: z.number().describe("The TMDB ID from search_media results"),
 			is4k: z.boolean().optional().describe("Request 4K version (default false)"),
 		}),
-	},
-	async ({ tmdbId, is4k }) => {
+	}).server(async ({ tmdbId, is4k }) => {
 		try {
 			const result = await requestMedia({
 				mediaId: tmdbId,
@@ -425,8 +413,7 @@ Parameters:
 	}
 );
 
-export const requestTvShowTool = withTool(
-	{
+export const requestTvShowTool = toolDefinition({
 		name: "request_tv_show",
 		description: `Request a TV show (or specific seasons) to be downloaded via Jellyseerr.
 
@@ -447,13 +434,12 @@ Parameters:
 - tmdbId: The TMDB ID from search_media results
 - seasons: Optional array of season numbers to request (e.g., [1, 2, 3]). If not specified, requests all seasons.
 - is4k: Optional, request 4K version (default false)`,
-		input: z.object({
+		inputSchema: z.object({
 			tmdbId: z.number().describe("The TMDB ID from search_media results"),
 			seasons: z.array(z.number()).optional().describe("Season numbers to request (e.g., [1, 2]). Omit to request all seasons."),
 			is4k: z.boolean().optional().describe("Request 4K version (default false)"),
 		}),
-	},
-	async ({ tmdbId, seasons, is4k }) => {
+	}).server(async ({ tmdbId, seasons, is4k }) => {
 		try {
 			const result = await requestMedia({
 				mediaId: tmdbId,
@@ -484,11 +470,11 @@ Parameters:
 
 // Export tools array for agent
 export const mediaTools = [
-	searchMediaTool.tool,
-	requestMovieTool.tool,
-	requestTvShowTool.tool,
-	getDownloadQueueTool.tool,
-	getDownloadHistoryTool.tool,
-	pauseDownloadsTool.tool,
-	resumeDownloadsTool.tool,
+	searchMediaTool,
+	requestMovieTool,
+	requestTvShowTool,
+	getDownloadQueueTool,
+	getDownloadHistoryTool,
+	pauseDownloadsTool,
+	resumeDownloadsTool,
 ];

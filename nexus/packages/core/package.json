@@ -25,8 +25,8 @@
 		"@nexus/logger": "workspace:*",
 		"@nexus/mc-monitor": "workspace:*",
 		"@qdrant/js-client-rest": "^1.16.2",
-		"@tanstack/ai": "^0.0.3",
-		"@tanstack/ai-openai": "^0.0.3",
+		"@tanstack/ai": "^0.5.1",
+		"@tanstack/ai-openrouter": "^0.5.1",
 		"bullmq": "catalog:",
 		"drizzle-orm": "^0.45.1",
 		"elysia": "catalog:",
@@ -36,6 +36,7 @@
 	},
 	"devDependencies": {
 		"@biomejs/biome": "catalog:",
+		"@standard-schema/spec": "^1.1.0",
 		"bun-types": "catalog:",
 		"drizzle-kit": "^0.31.8",
 		"typescript": "catalog:"

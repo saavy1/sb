@@ -19,7 +19,6 @@ function setupEventBroadcasting() {
 		"queue:job:failed",
 		"queue:stats:updated",
 		"thread:updated",
-		"thread:message",
 	];
 
 	for (const eventName of eventNames) {

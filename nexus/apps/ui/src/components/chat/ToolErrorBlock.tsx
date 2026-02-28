@@ -15,7 +15,7 @@ export function ToolErrorBlock({ error, toolName }: { error: string; toolName?: 
 				className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-error-bg"
 			>
 				<span className="text-error">✕</span>
-				<span className="text-error/80">{toolName || "tool"}</span>
+				{toolName && <span className="text-error/80">{toolName}</span>}
 				<span className="text-error/60">{mainError}</span>
 				<span className="ml-auto text-error/40">{expanded ? "▼" : "▶"}</span>
 			</button>
