@@ -1,0 +1,24 @@
+api:
+  enabled: true
+  host: kargo.saavylab.dev
+  adminAccount:
+    enabled: true
+  secret:
+    name: kargo-api-secret
+  tls:
+    enabled: false
+    terminatedUpstream: true
+
+externalWebhooksServer:
+  enabled: false
+
+webhooks:
+  register: false
+
+webhooksServer:
+  enabled: false
+
+controller:
+  argocd:
+    integrationEnabled: true
+    namespace: argocd

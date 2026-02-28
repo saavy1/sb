@@ -4,4 +4,5 @@ resources:
   - argo-workflows/
   - external-secrets/
   - infisical/
+  - kargo/
   - zot/

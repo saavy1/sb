@@ -4,7 +4,6 @@ resources:
   - bjw-s.yaml
   - cnpg-operator.yaml
   - argocd/
-  - kargo/
   - infisical/
   - caddy/
   - authelia/

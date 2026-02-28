@@ -1,0 +1,34 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: infra-kargo
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kargo
+  sources:
+    - repoURL: ghcr.io/akuity/kargo-charts
+      chart: kargo
+      targetRevision: "1.9.3"
+      helm:
+        releaseName: kargo
+        valueFiles:
+          - $values/argocd/clusters/superbloom/infra/kargo/values.yaml
+    - repoURL: https://github.com/saavy1/sb.git
+      targetRevision: main
+      ref: values
+    - repoURL: https://github.com/saavy1/sb.git
+      targetRevision: main
+      path: argocd/clusters/superbloom/infra/kargo/resources
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ApplyOutOfSyncOnly=true
+      - ServerSideApply=true
