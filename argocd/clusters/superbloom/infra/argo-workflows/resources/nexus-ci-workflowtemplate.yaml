@@ -4,6 +4,7 @@ metadata:
   name: nexus-ci
   namespace: argo
 spec:
+  serviceAccountName: workflow-runner
   entrypoint: ci
   arguments:
     parameters:

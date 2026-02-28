@@ -4,6 +4,7 @@ metadata:
   name: nexus-build-push
   namespace: argo
 spec:
+  serviceAccountName: workflow-runner
   entrypoint: build-push
   arguments:
     parameters:

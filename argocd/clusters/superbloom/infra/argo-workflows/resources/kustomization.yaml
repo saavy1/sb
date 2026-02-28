@@ -1,6 +1,7 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
+  - workflow-runner-rbac.yaml
   - zot-push-external-secret.yaml
   - nexus-build-push-workflowtemplate.yaml
   - nexus-ci-workflowtemplate.yaml
