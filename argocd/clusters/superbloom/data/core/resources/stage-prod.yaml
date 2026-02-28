@@ -28,10 +28,8 @@ spec:
           config:
             path: ./work/argocd/clusters/superbloom/data/valkey/values.yaml
             updates:
-              - key: controllers.main.containers.main.image.repository
-                value: docker.io/valkey/valkey
-              - key: controllers.main.containers.main.image.digest
-                value: ${{ imageFrom("docker.io/valkey/valkey").Digest }}
+              - key: controllers.main.containers.main.image.tag
+                value: ${{ imageFrom("docker.io/valkey/valkey").Tag }}
         - uses: git-commit
           config:
             path: ./work
