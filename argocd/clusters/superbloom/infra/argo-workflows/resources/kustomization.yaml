@@ -1,6 +1,7 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
+  - argo-workflows-server-rbac.yaml
   - github-webhook-rbac.yaml
   - github-webhook-clients-external-secret.yaml
   - nexus-build-push-workfloweventbinding.yaml
