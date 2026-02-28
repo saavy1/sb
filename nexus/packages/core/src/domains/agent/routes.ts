@@ -52,13 +52,7 @@ function threadToDetail(thread: AgentThread) {
 		source: thread.source,
 		sourceId: thread.sourceId,
 		title: thread.title,
-		messages: thread.messages.map(m => ({
-			role: m.role,
-			content: typeof m.content === "string" || m.content === null ? m.content : null,
-			toolCalls: m.toolCalls,
-			toolCallId: m.toolCallId,
-			name: m.name,
-		})),
+		messages: thread.messages,
 		context: thread.context,
 		wakeJobId: thread.wakeJobId,
 		wakeReason: thread.wakeReason,
@@ -292,35 +286,14 @@ export const agentRoutes = new Elysia({ prefix: "/agent" })
 			}
 
 			// Convert incoming UIMessages → ModelMessages for the LLM
-			const modelMessages = convertMessagesToModelMessages(body.messages);
+			// useChat sends the full conversation each time — no need to load from DB
+			const messages = convertMessagesToModelMessages(body.messages);
 
-			// Get existing thread messages from DB
-			const existingMessages = thread.messages ?? [];
-
-			// Build messages with text-only content (our text adapter only handles string content)
-			const allMessages = [
-				...existingMessages.map(m => ({
-					role: m.role,
-					content: typeof m.content === "string" || m.content === null ? m.content : null,
-					toolCalls: m.toolCalls,
-					toolCallId: m.toolCallId,
-					name: m.name,
-				})),
-				...modelMessages.map(m => ({
-					role: m.role,
-					content: typeof m.content === "string" || m.content === null ? m.content : null,
-					toolCalls: m.toolCalls,
-					toolCallId: m.toolCallId,
-					name: m.name,
-				})),
-			];
-
-			// Extract first user content for title generation
-			const userMessages = allMessages.filter((m) => m.role === "user");
-			const firstUserContent = userMessages.length === 1 ? (userMessages[0].content || null) : null;
-
-			// Persist user message immediately
-			await agentRepository.update(thread.id, { messages: allMessages });
+			// First exchange? Extract user content for title generation
+			const isFirstExchange = !thread.title && messages.filter((m) => m.role === "user").length === 1;
+			const firstUserContent = isFirstExchange
+				? (messages.find((m) => m.role === "user")?.content as string | null)
+				: null;
 
 			// Create adapter
 			const { adapter } = await createAdapter();
@@ -332,9 +305,11 @@ export const agentRoutes = new Elysia({ prefix: "/agent" })
 			const timeout = setTimeout(() => abortController.abort(), 120_000);
 
 			// Run chat with built-in agent loop
+			// Note: convertMessagesToModelMessages returns ModelMessage[] but chat() expects
+			// ConstrainedModelMessage — a TanStack AI type gap between their own functions
 			const stream = chat({
 				adapter,
-				messages: allMessages,
+				messages: messages as Parameters<typeof chat>[0]["messages"],
 				systemPrompts: [AGENT_SYSTEM_PROMPT + contextStr],
 				tools: allTools,
 				agentLoopStrategy: maxIterations(10),
@@ -342,7 +317,7 @@ export const agentRoutes = new Elysia({ prefix: "/agent" })
 			});
 
 			// Wrap with side effects (DB persistence, title gen)
-			const wrapped = withPersistence(stream, thread, allMessages, firstUserContent, timeout);
+			const wrapped = withPersistence(stream, thread, messages, firstUserContent, timeout);
 
 			// Return SSE Response
 			return toServerSentEventsResponse(wrapped, { abortController });
