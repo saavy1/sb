@@ -18,10 +18,6 @@ spec:
         imageSelectionStrategy: Digest
         constraint: latest
     - image:
-        repoURL: ghcr.io/saavy1/nexus-embeddings-worker
-        imageSelectionStrategy: Digest
-        constraint: latest
-    - image:
         repoURL: ghcr.io/saavy1/nexus-mc-monitor
         imageSelectionStrategy: Digest
         constraint: latest

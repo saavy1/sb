@@ -17,7 +17,6 @@ controllers:
           OPS_FLAKE_PATH: /home/saavy/dev/sb
           OPS_FLAKE_TARGET: superbloom
           VALKEY_URL: redis://valkey.valkey.svc.cluster.local:6379
-          QDRANT_URL: http://qdrant.qdrant.svc.cluster.local:6333
         envFrom:
           - secretRef:
               name: nexus-env
