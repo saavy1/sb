@@ -321,23 +321,3 @@ export const DriveSmartStatus = t.Object({
 	uncorrectableSectors: t.Optional(t.Number()),
 });
 
-// === Qdrant (Vector DB) Types ===
-
-export const QdrantCollectionInfo = t.Object({
-	name: t.String(),
-	pointsCount: t.Number(),
-	segmentsCount: t.Number(),
-	status: t.String(),
-	diskSizeBytes: t.Number(),
-	diskSizeFormatted: t.String(),
-});
-export type QdrantCollectionInfoType = typeof QdrantCollectionInfo.static;
-
-export const QdrantInfo = t.Object({
-	healthy: t.Boolean(),
-	collections: t.Array(QdrantCollectionInfo),
-	totalPoints: t.Number(),
-	totalDiskSize: t.Number(),
-	totalDiskSizeFormatted: t.String(),
-});
-export type QdrantInfoType = typeof QdrantInfo.static;

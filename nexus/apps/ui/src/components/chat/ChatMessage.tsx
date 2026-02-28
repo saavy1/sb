@@ -2,8 +2,8 @@ import type { UIMessage } from "@tanstack/ai-react";
 import { Bell } from "lucide-react";
 import Markdown from "react-markdown";
 import { ToolCallIndicator } from "./ToolCallIndicator";
-import { ToolResultBlock } from "./ToolResultBlock";
 import { ToolErrorBlock } from "./ToolErrorBlock";
+import { ToolResultBlock } from "./ToolResultBlock";
 
 export function ChatMessage({ message }: { message: UIMessage }) {
 	if (message.role === "system") {
@@ -38,7 +38,7 @@ export function ChatMessage({ message }: { message: UIMessage }) {
 function getTextContent(message: UIMessage): string {
 	return message.parts
 		.filter((p) => p.type === "text")
-		.map((p) => (p as { type: "text"; content: string }).content)
+		.map((p) => ("content" in p ? p.content : ""))
 		.join("");
 }
 
@@ -54,69 +54,43 @@ function MessageParts({ message }: { message: UIMessage }) {
 			{parts.map((part, i) => {
 				switch (part.type) {
 					case "text": {
-						const textPart = part as { type: "text"; content: string };
-						if (!textPart.content.trim()) return null;
+						if (!part.content.trim()) return null;
 						return (
 							<div
 								key={`text-${i}`}
 								className="prose prose-invert prose-sm max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-pre:bg-surface prose-pre:border prose-pre:border-border prose-code:text-accent prose-code:before:content-none prose-code:after:content-none"
 							>
-								<Markdown>{textPart.content}</Markdown>
+								<Markdown>{part.content}</Markdown>
 							</div>
 						);
 					}
 
-					case "tool-call": {
-						const toolPart = part as {
-							type: "tool-call";
-							id: string;
-							name: string;
-							state: string;
-						};
+					case "tool-call":
 						return (
-							<ToolCallIndicator
-								key={`tool-${toolPart.id}`}
-								name={toolPart.name}
-								state={toolPart.state}
-							/>
+							<ToolCallIndicator key={`tool-${part.id}`} name={part.name} state={part.state} />
 						);
-					}
 
 					case "tool-result": {
-						const resultPart = part as {
-							type: "tool-result";
-							toolCallId: string;
-							content: string;
-							state: string;
-							error?: string;
-						};
-						if (resultPart.state === "error" || resultPart.error) {
+						if (part.state === "error" || part.error) {
 							return (
 								<ToolErrorBlock
-									key={`result-${resultPart.toolCallId}`}
-									error={resultPart.error || resultPart.content}
+									key={`result-${part.toolCallId}`}
+									error={part.error || part.content}
 								/>
 							);
 						}
-						return (
-							<ToolResultBlock
-								key={`result-${resultPart.toolCallId}`}
-								content={resultPart.content}
-							/>
-						);
+						return <ToolResultBlock key={`result-${part.toolCallId}`} content={part.content} />;
 					}
 
-					case "thinking": {
-						const thinkingPart = part as { type: "thinking"; content: string };
+					case "thinking":
 						return (
 							<div
 								key={`thinking-${i}`}
 								className="rounded border border-border/50 bg-surface/50 px-3 py-2 text-xs text-text-tertiary italic"
 							>
-								{thinkingPart.content}
+								{part.content}
 							</div>
 						);
-					}
 
 					default:
 						return null;

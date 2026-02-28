@@ -6,7 +6,6 @@ import type { Static } from "elysia";
 import logger from "@nexus/logger";
 import { z } from "zod";
 import { systemInfoDb, withDb } from "../../infra/db";
-import { getQdrantInfo } from "../../infra/qdrant";
 import { executeZpool, executeZfs, executeSSH } from "../../infra/ssh";
 import { toolDefinition } from "@tanstack/ai";
 import type { DriveRecord } from "./schema";
@@ -1065,34 +1064,10 @@ export const zfsTools = [
 	getDirectorySizesTool,
 ];
 
-// === Qdrant AI Tools ===
-
-export const getQdrantInfoTool = toolDefinition({
-		name: "get_qdrant_info",
-		description:
-			"Get Qdrant vector database status and collection statistics. Use when checking embedding storage, vector database health, or how many embeddings are stored.",
-		inputSchema: z.object({}),
-	}).server(async () => {
-		const info = await getQdrantInfo();
-		return {
-			healthy: info.healthy,
-			totalVectors: info.totalPoints,
-			estimatedSize: info.totalDiskSizeFormatted,
-			collections: info.collections.map((c) => ({
-				name: c.name,
-				vectors: c.pointsCount,
-				status: c.status,
-				size: c.diskSizeFormatted,
-			})),
-		};
-	}
-);
-
 export const systemInfoTools = [
 	getSystemStatsTool,
 	getDrivesTool,
 	...zfsTools,
-	getQdrantInfoTool,
 ];
 
 // === Unified Storage API ===

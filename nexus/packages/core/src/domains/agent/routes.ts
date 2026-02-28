@@ -13,7 +13,6 @@ import {
 	getContextStr,
 	getThread,
 	listThreads,
-	queueEmbedding,
 	sendMessage,
 } from "./functions";
 import { agentRepository } from "./repository";
@@ -30,10 +29,6 @@ import {
 } from "./types";
 
 const log = logger.child({ module: "agent-routes" });
-
-function generateId(): string {
-	return crypto.randomUUID().slice(0, 8);
-}
 
 function threadToResponse(thread: AgentThread) {
 	return {
@@ -75,12 +70,12 @@ function threadToDetail(thread: AgentThread) {
 /**
  * Async generator that wraps the chat stream with side effects:
  * - Collects messages for DB persistence
- * - Queues embeddings
  * - Triggers title generation on first exchange
  */
 async function* withPersistence(
 	stream: AsyncIterable<StreamChunk>,
 	thread: AgentThread,
+	// Note: existingMessages already includes the user message (persisted before streaming starts)
 	existingMessages: ModelMessage[],
 	firstUserContent: string | null,
 	timeout: ReturnType<typeof setTimeout>,
@@ -110,7 +105,6 @@ async function* withPersistence(
 						};
 						collectedMessages.push(msg);
 						lastAssistantContent = currentContent;
-						queueEmbedding(thread.id, generateId(), "assistant", currentContent);
 					}
 					currentContent = "";
 					currentToolCalls = [];
@@ -144,6 +138,8 @@ async function* withPersistence(
 								content: typeof chunk.result === "string" ? chunk.result : JSON.stringify(chunk.result),
 								toolCallId: chunk.toolCallId,
 							});
+						} else {
+							log.warn({ toolCallId: chunk.toolCallId, toolName: buf.name }, "TOOL_CALL_END received without result");
 						}
 					}
 					break;
@@ -323,12 +319,6 @@ export const agentRoutes = new Elysia({ prefix: "/agent" })
 			const userMessages = allMessages.filter((m) => m.role === "user");
 			const firstUserContent = userMessages.length === 1 ? (userMessages[0].content || null) : null;
 
-			// Queue embedding for the new user message
-			const lastUserMsg = modelMessages.filter((m) => m.role === "user").pop();
-			if (lastUserMsg && typeof lastUserMsg.content === "string") {
-				queueEmbedding(thread.id, generateId(), "user", lastUserMsg.content);
-			}
-
 			// Persist user message immediately
 			await agentRepository.update(thread.id, { messages: allMessages });
 
@@ -351,7 +341,7 @@ export const agentRoutes = new Elysia({ prefix: "/agent" })
 				abortController,
 			});
 
-			// Wrap with side effects (DB persistence, embeddings, title gen)
+			// Wrap with side effects (DB persistence, title gen)
 			const wrapped = withPersistence(stream, thread, allMessages, firstUserContent, timeout);
 
 			// Return SSE Response

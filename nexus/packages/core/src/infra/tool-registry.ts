@@ -211,15 +211,6 @@ export const toolRegistry: ToolInfo[] = [
 			message: { type: "string", description: "The notification text", required: true },
 		},
 	},
-	{
-		name: "search_history",
-		description: "Search past conversations for relevant context using semantic search",
-		category: "Agent Lifecycle",
-		parameters: {
-			query: { type: "string", description: "Natural language search query", required: true },
-			limit: { type: "number", description: "Max results (1-10, default 5)", required: false },
-		},
-	},
 ];
 
 /**

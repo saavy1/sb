@@ -3,7 +3,6 @@ import { appEvents } from "@nexus/core/infra/events";
 import {
 	agentWakeQueue,
 	discordAsksQueue,
-	embeddingsQueue,
 	emitAllQueueStats,
 	QUEUES,
 	systemEventQueue,
@@ -15,7 +14,6 @@ import { Elysia, t } from "elysia";
 const queueMap: Record<string, Queue> = {
 	[QUEUES.AGENT_WAKES]: agentWakeQueue,
 	[QUEUES.EVENTS_SYSTEM]: systemEventQueue,
-	[QUEUES.EMBEDDINGS]: embeddingsQueue,
 	[QUEUES.DISCORD_ASKS]: discordAsksQueue,
 };
 

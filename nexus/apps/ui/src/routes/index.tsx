@@ -1,6 +1,5 @@
 import type { GameServerType } from "@nexus/core/domains/game-servers";
 import type {
-	QdrantInfoType,
 	StorageEntryType,
 	StorageRootTypeT,
 	ZfsPoolStatusType,
@@ -10,7 +9,6 @@ import { createFileRoute } from "@tanstack/react-router";
 import {
 	AlertCircle,
 	AlertTriangle,
-	Boxes,
 	CheckCircle,
 	ChevronDown,
 	ChevronRight,
@@ -68,7 +66,6 @@ function HomePage() {
 	const [showNetDetails, setShowNetDetails] = useState(false);
 
 	// Data Stores
-	const [qdrantInfo, setQdrantInfo] = useState<QdrantInfoType | null>(null);
 	const [expandedDataStores, setExpandedDataStores] = useState(false);
 
 	// ZFS Health
@@ -132,15 +129,6 @@ function HomePage() {
 		}
 	}, []);
 
-	const fetchQdrantInfo = useCallback(async () => {
-		try {
-			const { data } = await client.api.systemInfo.qdrant.get();
-			if (data) setQdrantInfo(data);
-		} catch (error) {
-			console.error("Failed to fetch Qdrant info:", error);
-		}
-	}, []);
-
 	const fetchZfsHealth = useCallback(async () => {
 		setZfsLoading(true);
 		try {
@@ -173,17 +161,9 @@ function HomePage() {
 		fetchServers();
 		fetchMinecraftStatus();
 		fetchStorage();
-		fetchQdrantInfo();
 		fetchZfsHealth();
 		fetchQueues();
-	}, [
-		fetchServers,
-		fetchMinecraftStatus,
-		fetchStorage,
-		fetchQdrantInfo,
-		fetchZfsHealth,
-		fetchQueues,
-	]);
+	}, [fetchServers, fetchMinecraftStatus, fetchStorage, fetchZfsHealth, fetchQueues]);
 
 	// Lazy-load deeper storage paths
 	const loadStoragePath = useCallback(
@@ -661,39 +641,6 @@ function HomePage() {
 								</div>
 							)}
 						</div>
-
-						{/* Qdrant Summary */}
-						{qdrantInfo && (
-							<div className="pt-2 border-t border-border">
-								<div className="flex items-center justify-between py-1">
-									<div className="flex items-center gap-2">
-										<Boxes size={14} className="text-text-tertiary" />
-										<span className="text-sm">Qdrant</span>
-										<span
-											className={`w-1.5 h-1.5 rounded-full ${qdrantInfo.healthy ? "bg-success" : "bg-error"}`}
-										/>
-									</div>
-									<span className="text-xs text-text-tertiary tabular-nums">
-										{qdrantInfo.totalPoints?.toLocaleString() ?? 0} vectors
-									</span>
-								</div>
-								{expandedDataStores && qdrantInfo.collections.length > 0 && (
-									<div className="mt-2 ml-6 space-y-1">
-										{qdrantInfo.collections.map((col) => (
-											<div
-												key={col.name}
-												className="flex items-center justify-between text-xs text-text-secondary"
-											>
-												<span>{col.name}</span>
-												<span className="text-text-tertiary tabular-nums">
-													{col.pointsCount.toLocaleString()} pts
-												</span>
-											</div>
-										))}
-									</div>
-								)}
-							</div>
-						)}
 					</div>
 				</Panel>
 

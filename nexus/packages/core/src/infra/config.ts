@@ -40,15 +40,8 @@ export const config = {
 	AI_MODEL: Bun.env.AI_MODEL || "deepseek/deepseek-v3.2",
 	AI_MODELS: Bun.env.AI_MODELS, // Additional models (format: "id:name:provider,id:name:provider")
 
-	// OpenAI (for embeddings)
-	OPENAI_API_KEY: Bun.env.OPENAI_API_KEY,
-	EMBEDDING_MODEL: Bun.env.EMBEDDING_MODEL || "text-embedding-3-small",
-
 	// Valkey (Redis-compatible) for BullMQ queues
 	VALKEY_URL: Bun.env.VALKEY_URL || "redis://localhost:6379",
-
-	// Qdrant (vector database) for embeddings
-	QDRANT_URL: Bun.env.QDRANT_URL || "http://localhost:6333",
 
 	// Media services (Jellyseerr)
 	JELLYSEERR_URL: Bun.env.JELLYSEERR_URL || "http://jellyseerr.jellyseerr.svc.cluster.local:5055",

@@ -1,6 +1,5 @@
 import { config } from "@nexus/core/infra/config";
 import { closePubSub, initPubSub } from "@nexus/core/infra/pubsub";
-import { initializeQdrant } from "@nexus/core/infra/qdrant";
 import { closeQueues, redis } from "@nexus/core/infra/queue";
 import logger from "@nexus/logger";
 import { app } from "./app";
@@ -23,13 +22,6 @@ process.on("unhandledRejection", (reason, _promise) => {
 		"Unhandled promise rejection"
 	);
 });
-
-// Initialize Qdrant collections (creates if not exists)
-try {
-	await initializeQdrant();
-} catch (error) {
-	logger.warn({ error }, "Qdrant initialization failed - embeddings will be unavailable");
-}
 
 // Initialize pub/sub for real-time events
 initPubSub(redis);
