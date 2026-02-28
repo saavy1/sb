@@ -10,6 +10,13 @@ spec:
   destination:
     server: https://kubernetes.default.svc
     namespace: nexus
+  ignoreDifferences:
+    - group: external-secrets.io
+      kind: ExternalSecret
+      jqPathExpressions:
+        - .spec.data[].remoteRef.conversionStrategy
+        - .spec.data[].remoteRef.decodingStrategy
+        - .spec.data[].remoteRef.metadataPolicy
   source:
     repoURL: https://github.com/saavy1/sb.git
     targetRevision: main
@@ -21,5 +28,6 @@ spec:
     syncOptions:
       - CreateNamespace=true
       - ApplyOutOfSyncOnly=true
+      - RespectIgnoreDifferences=true
       - ServerSideApply=true
       - SkipDryRunOnMissingResource=true
