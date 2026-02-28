@@ -5,5 +5,4 @@ resources:
   - api/
   - bot/
   - agent-worker/
-  - embeddings-worker/
   - mc-monitor/

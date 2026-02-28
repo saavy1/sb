@@ -58,7 +58,6 @@ spec:
               OTEL_EXPORTER_OTLP_ENDPOINT: http://grafana-k8s-monitoring-alloy-receiver.alloy:4318
               # External services
               VALKEY_URL: redis://valkey.valkey.svc.cluster.local:6379
-              QDRANT_URL: http://qdrant.qdrant.svc.cluster.local:6333
               # Minecraft - use in-cluster service for status queries
               MC_LOADBALANCER_HOST: minecraft.game-servers.svc.cluster.local
             envFrom:

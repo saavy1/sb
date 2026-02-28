@@ -46,12 +46,6 @@ spec:
                 value: ${{ imageFrom("ghcr.io/saavy1/nexus-agent-worker").Digest }}
         - uses: yaml-update
           config:
-            path: ./work/argocd/clusters/superbloom/nexus/embeddings-worker/values.yaml
-            updates:
-              - key: controllers.main.containers.main.image.digest
-                value: ${{ imageFrom("ghcr.io/saavy1/nexus-embeddings-worker").Digest }}
-        - uses: yaml-update
-          config:
             path: ./work/argocd/clusters/superbloom/nexus/mc-monitor/values.yaml
             updates:
               - key: controllers.main.containers.main.image.digest
