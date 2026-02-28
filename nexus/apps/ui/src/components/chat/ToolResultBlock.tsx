@@ -44,7 +44,9 @@ function generateSummary(result: unknown): string {
 
 	if ("results" in obj && Array.isArray(obj.results)) {
 		const count = obj.results.length;
-		const firstTitle = (obj.results[0] as Record<string, unknown>)?.title || (obj.results[0] as Record<string, unknown>)?.name;
+		const firstTitle =
+			(obj.results[0] as Record<string, unknown>)?.title ||
+			(obj.results[0] as Record<string, unknown>)?.name;
 		if (firstTitle) {
 			return `Found ${count} result${count !== 1 ? "s" : ""}: "${firstTitle}"${count > 1 ? "..." : ""}`;
 		}

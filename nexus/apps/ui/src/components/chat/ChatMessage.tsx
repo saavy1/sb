@@ -20,7 +20,9 @@ export function ChatMessage({ message }: { message: UIMessage }) {
 	if (message.role === "user") {
 		return (
 			<div className="border-l-2 border-accent bg-accent/5 px-3 py-2">
-				<div className="text-sm text-text-primary whitespace-pre-wrap">{getTextContent(message)}</div>
+				<div className="text-sm text-text-primary whitespace-pre-wrap">
+					{getTextContent(message)}
+				</div>
 			</div>
 		);
 	}
