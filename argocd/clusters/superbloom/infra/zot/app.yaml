@@ -1,0 +1,31 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: infra-zot
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: zot
+  sources:
+    - repoURL: https://zotregistry.dev/helm-charts
+      chart: zot
+      targetRevision: "0.1.98"
+      helm:
+        releaseName: zot
+        valueFiles:
+          - $values/argocd/clusters/superbloom/infra/zot/values.yaml
+    - repoURL: https://github.com/saavy1/sb.git
+      targetRevision: main
+      ref: values
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ApplyOutOfSyncOnly=true
+      - ServerSideApply=true

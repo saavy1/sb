@@ -66,6 +66,11 @@ data:
         reverse_proxy infisical.infisical.svc.cluster.local:8080
     }
 
+    # Zot registry + ZUI - uses built-in auth
+    registry.saavylab.dev {
+        reverse_proxy zot.zot.svc.cluster.local:5000
+    }
+
     # Jellyfin - no forward_auth (uses built-in auth, easier for TVs/Xbox)
     watch.saavylab.dev {
         reverse_proxy jellyfin.jellyfin.svc.cluster.local:8096

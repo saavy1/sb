@@ -1,0 +1,70 @@
+service:
+  type: ClusterIP
+
+persistence: true
+pvc:
+  create: true
+  storage: 100Gi
+  storageClassName: local-path
+
+mountConfig: true
+mountSecret: true
+
+secretFiles:
+  htpasswd: |-
+    saavy:$2b$12$3/rTHjklEkVo.Lj1bu2Zze/N7msAkNPRXycZLF3hTu.CGJ24m1i/K
+
+configFiles:
+  config.json: |-
+    {
+      "distSpecVersion": "1.1.1",
+      "storage": {
+        "rootDirectory": "/var/lib/registry"
+      },
+      "http": {
+        "address": "0.0.0.0",
+        "port": "5000",
+        "compat": ["docker2s2"],
+        "auth": {
+          "htpasswd": {
+            "path": "/secret/htpasswd"
+          }
+        },
+        "accessControl": {
+          "repositories": {
+            "**": {
+              "policies": [
+                {
+                  "users": ["saavy"],
+                  "actions": ["read", "create", "update", "delete"]
+                }
+              ],
+              "defaultPolicy": ["read"]
+            }
+          },
+          "adminPolicy": {
+            "users": ["saavy"],
+            "actions": ["read", "create", "update", "delete"]
+          }
+        }
+      },
+      "log": {
+        "level": "info"
+      },
+      "extensions": {
+        "search": {
+          "enable": true
+        },
+        "ui": {
+          "enable": true
+        }
+      }
+    }
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: "1"
+    memory: 1Gi
