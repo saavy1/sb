@@ -3,6 +3,7 @@ kind: Kustomization
 resources:
   - argo-workflows-server-rbac.yaml
   - github-webhook-rbac.yaml
+  - github-webhook-token-secret.yaml
   - github-webhook-clients-external-secret.yaml
   - nexus-build-push-workfloweventbinding.yaml
   - workflow-runner-rbac.yaml
