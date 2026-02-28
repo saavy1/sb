@@ -5,6 +5,4 @@ resources:
   - infra.yaml
   - argocd.yaml
   - data.yaml
-  - media.yaml
-  - nexus.yaml
   - games.yaml

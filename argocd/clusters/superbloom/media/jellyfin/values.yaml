@@ -1,0 +1,91 @@
+controllers:
+  main:
+    strategy: Recreate
+    containers:
+      main:
+        image:
+          repository: jellyfin/jellyfin
+          tag: latest
+          pullPolicy: IfNotPresent
+        env:
+          TZ: America/Denver
+          JELLYFIN_PublishedServerUrl: https://watch.saavylab.dev
+          DOTNET_GC_SERVER: "1"
+          DOTNET_RUNNING_IN_CONTAINER: "true"
+        securityContext:
+          privileged: true
+        resources:
+          requests:
+            cpu: 500m
+            memory: 1Gi
+          limits:
+            cpu: 4000m
+            memory: 8Gi
+        probes:
+          liveness:
+            enabled: true
+            custom: true
+            spec:
+              httpGet:
+                path: /health
+                port: 8096
+              initialDelaySeconds: 30
+              periodSeconds: 10
+          readiness:
+            enabled: true
+            custom: true
+            spec:
+              httpGet:
+                path: /health
+                port: 8096
+              initialDelaySeconds: 10
+              periodSeconds: 5
+          startup:
+            enabled: true
+            custom: true
+            spec:
+              httpGet:
+                path: /health
+                port: 8096
+              initialDelaySeconds: 15
+              failureThreshold: 30
+              periodSeconds: 5
+service:
+  main:
+    controller: main
+    ports:
+      http:
+        port: 8096
+ingress:
+  main:
+    enabled: false
+persistence:
+  config:
+    enabled: true
+    type: persistentVolumeClaim
+    accessMode: ReadWriteOnce
+    size: 10Gi
+    storageClass: local-path
+    globalMounts:
+      - path: /config
+  cache:
+    enabled: true
+    type: persistentVolumeClaim
+    accessMode: ReadWriteOnce
+    size: 300Gi
+    storageClass: local-path
+    globalMounts:
+      - path: /cache
+  media:
+    enabled: true
+    type: hostPath
+    hostPath: /tank/media
+    globalMounts:
+      - path: /media
+        readOnly: true
+  dri:
+    enabled: true
+    type: hostPath
+    hostPath: /dev/dri
+    globalMounts:
+      - path: /dev/dri
