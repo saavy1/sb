@@ -1,0 +1,16 @@
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowEventBinding
+metadata:
+  name: nexus-build-push-on-main
+  namespace: argo
+spec:
+  event:
+    selector: metadata["x-github-event"] == ["push"] && payload.repository.full_name == "saavy1/sb" && payload.ref == "refs/heads/main" && discriminator == "nexus-build-push"
+  submit:
+    workflowTemplateRef:
+      name: nexus-build-push
+    arguments:
+      parameters:
+        - name: revision
+          valueFrom:
+            event: payload.after

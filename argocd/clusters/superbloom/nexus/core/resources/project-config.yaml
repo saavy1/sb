@@ -1,0 +1,10 @@
+apiVersion: kargo.akuity.io/v1alpha1
+kind: ProjectConfig
+metadata:
+  name: nexus
+  namespace: nexus
+spec:
+  promotionPolicies:
+    - stageSelector:
+        name: prod
+      autoPromotionEnabled: true

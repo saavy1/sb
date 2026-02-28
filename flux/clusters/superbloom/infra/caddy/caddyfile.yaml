@@ -34,13 +34,20 @@ data:
         }
     }
 
-    # Argo Workflows - protected with forward_auth
+    # Argo Workflows - GitHub webhook bypasses auth, UI stays protected
     workflows.saavylab.dev {
-        forward_auth authelia.authelia.svc.cluster.local:80 {
-            uri /api/authz/forward-auth
-            copy_headers Remote-User Remote-Groups Remote-Email Remote-Name
+        @github_workflows_webhook path /api/v1/events/argo/nexus-build-push
+        handle @github_workflows_webhook {
+            reverse_proxy argo-workflows-server.argo.svc.cluster.local:2746
         }
-        reverse_proxy argo-workflows-server.argo.svc.cluster.local:2746
+
+        handle {
+            forward_auth authelia.authelia.svc.cluster.local:80 {
+                uri /api/authz/forward-auth
+                copy_headers Remote-User Remote-Groups Remote-Email Remote-Name
+            }
+            reverse_proxy argo-workflows-server.argo.svc.cluster.local:2746
+        }
     }
 
     # Argo CD - uses built-in auth
