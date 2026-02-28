@@ -15,7 +15,7 @@ import {
 	validateNamespace,
 	validatePositiveInt,
 } from "../../infra/ssh";
-import { withTool } from "../../infra/tools";
+import { toolDefinition } from "@tanstack/ai";
 import type { NewOperationRecord, OperationRecord } from "./schema";
 import { operations } from "./schema";
 import type { CommandResultType, OperationTypeValue, TriggerSourceValue } from "./types";
@@ -183,14 +183,12 @@ export function shouldTriggerFluxReconcile(changedFiles: string[]): boolean {
 
 // === AI Tool-exposed functions ===
 
-export const triggerNixosRebuildTool = withTool(
-	{
+export const triggerNixosRebuildTool = toolDefinition({
 		name: "trigger_nixos_rebuild",
 		description:
 			"Trigger a NixOS rebuild on the server. This will git pull the latest config and run nixos-rebuild switch. Use when user says things like 'rebuild the server', 'apply my nixos changes', 'update the system config'.",
-		input: z.object({}),
-	},
-	async () => {
+		inputSchema: z.object({}),
+	}).server(async () => {
 		const op = await triggerOperation("nixos-rebuild", "ai", "the-machine");
 		return {
 			success: true,
@@ -201,14 +199,12 @@ export const triggerNixosRebuildTool = withTool(
 	}
 );
 
-export const triggerFluxReconcileTool = withTool(
-	{
+export const triggerFluxReconcileTool = toolDefinition({
 		name: "trigger_flux_reconcile",
 		description:
 			"Trigger a Flux reconciliation to deploy Kubernetes changes. Use when user says things like 'reconcile flux', 'deploy k8s changes', 'sync the cluster'.",
-		input: z.object({}),
-	},
-	async () => {
+		inputSchema: z.object({}),
+	}).server(async () => {
 		const op = await triggerOperation("flux-reconcile", "ai", "the-machine");
 		return {
 			success: true,
@@ -219,16 +215,14 @@ export const triggerFluxReconcileTool = withTool(
 	}
 );
 
-export const getOperationStatusTool = withTool(
-	{
+export const getOperationStatusTool = toolDefinition({
 		name: "get_operation_status",
 		description:
 			"Get the status of an infrastructure operation by ID. Use when user asks about the status of a rebuild or deployment.",
-		input: z.object({
+		inputSchema: z.object({
 			id: z.string().describe("The operation ID"),
 		}),
-	},
-	async ({ id }) => {
+	}).server(async ({ id }) => {
 		const op = await getOperation(id);
 		if (!op) {
 			return { error: `Operation '${id}' not found` };
@@ -245,16 +239,14 @@ export const getOperationStatusTool = withTool(
 	}
 );
 
-export const listRecentOperationsTool = withTool(
-	{
+export const listRecentOperationsTool = toolDefinition({
 		name: "list_recent_operations",
 		description:
 			"List recent infrastructure operations (rebuilds, deployments). Use when user asks 'what operations ran recently' or 'show me recent deploys'.",
-		input: z.object({
+		inputSchema: z.object({
 			limit: z.number().optional().describe("Number of operations to return (default 10)"),
 		}),
-	},
-	async ({ limit }) => {
+	}).server(async ({ limit }) => {
 		const ops = await listOperations(limit ?? 10);
 		return ops.map((op) => ({
 			id: op.id,
@@ -311,12 +303,11 @@ export async function testConnection(): Promise<{
 
 // === Kubectl/Flux query tools ===
 
-export const getPodsTool = withTool(
-	{
+export const getPodsTool = toolDefinition({
 		name: "get_pods",
 		description:
 			"List Kubernetes pods with their status, restarts, and age. Use when user asks 'what pods are running', 'show me pod status', 'are all pods healthy', or to investigate cluster issues.",
-		input: z.object({
+		inputSchema: z.object({
 			namespace: z
 				.string()
 				.optional()
@@ -326,8 +317,7 @@ export const getPodsTool = withTool(
 				.optional()
 				.describe("List pods from all namespaces (default: true)"),
 		}),
-	},
-	async ({ namespace, allNamespaces = true }) => {
+	}).server(async ({ namespace, allNamespaces = true }) => {
 		let cmd = "get pods -o wide";
 		if (namespace) {
 			cmd += ` -n ${validateNamespace(namespace)}`;
@@ -343,12 +333,11 @@ export const getPodsTool = withTool(
 	}
 );
 
-export const getPodLogsTool = withTool(
-	{
+export const getPodLogsTool = toolDefinition({
 		name: "get_pod_logs",
 		description:
 			"Get logs from a Kubernetes pod. Use when user asks to 'show logs for X', 'what's happening in pod Y', or to debug pod issues.",
-		input: z.object({
+		inputSchema: z.object({
 			pod: z.string().describe("Name of the pod"),
 			namespace: z.string().describe("Namespace the pod is in"),
 			container: z.string().optional().describe("Container name (if pod has multiple containers)"),
@@ -358,8 +347,7 @@ export const getPodLogsTool = withTool(
 				.optional()
 				.describe("Show logs from previous container instance (for crash debugging)"),
 		}),
-	},
-	async ({ pod, namespace, container, tail, previous = false }) => {
+	}).server(async ({ pod, namespace, container, tail, previous = false }) => {
 		const validPod = validateK8sName(pod, "pod");
 		const validNamespace = validateNamespace(namespace);
 		const validTail = validatePositiveInt(tail, 100, 10000);
@@ -380,17 +368,15 @@ export const getPodLogsTool = withTool(
 	}
 );
 
-export const getEventsTool = withTool(
-	{
+export const getEventsTool = toolDefinition({
 		name: "get_events",
 		description:
 			"Get recent Kubernetes cluster events. Use when debugging issues, user asks 'what events happened', 'why did pod X fail', or 'show cluster activity'.",
-		input: z.object({
+		inputSchema: z.object({
 			namespace: z.string().optional().describe("Namespace to filter events (default: all)"),
 			limit: z.number().optional().describe("Number of events to show (default: 50)"),
 		}),
-	},
-	async ({ namespace, limit }) => {
+	}).server(async ({ namespace, limit }) => {
 		const validLimit = validatePositiveInt(limit, 50, 500);
 
 		let cmd = `get events --sort-by='.lastTimestamp'`;
@@ -413,19 +399,17 @@ export const getEventsTool = withTool(
 	}
 );
 
-export const getFluxStatusTool = withTool(
-	{
+export const getFluxStatusTool = toolDefinition({
 		name: "get_flux_status",
 		description:
 			"Get Flux GitOps status including Kustomizations and HelmReleases. Use when user asks 'is flux healthy', 'what's the deployment status', 'show GitOps status'.",
-		input: z.object({
+		inputSchema: z.object({
 			type: z
 				.enum(["all", "kustomizations", "helmreleases", "sources"])
 				.optional()
 				.describe("Type of Flux resources to show (default: all)"),
 		}),
-	},
-	async ({ type = "all" }) => {
+	}).server(async ({ type = "all" }) => {
 		let cmd: string;
 		switch (type) {
 			case "kustomizations":
@@ -449,20 +433,18 @@ export const getFluxStatusTool = withTool(
 	}
 );
 
-export const describeResourceTool = withTool(
-	{
+export const describeResourceTool = toolDefinition({
 		name: "describe_resource",
 		description:
 			"Get detailed information about a Kubernetes resource including events, conditions, and status. Use when debugging issues like CrashLoopBackOff, ImagePullBackOff, or when user asks 'why is X failing', 'describe pod Y', 'what's wrong with Z'.",
-		input: z.object({
+		inputSchema: z.object({
 			kind: z
 				.enum(["pod", "deployment", "service", "statefulset", "configmap", "secret", "pvc", "node"])
 				.describe("Type of resource to describe"),
 			name: z.string().describe("Name of the resource"),
 			namespace: z.string().optional().describe("Namespace (not needed for nodes)"),
 		}),
-	},
-	async ({ kind, name, namespace }) => {
+	}).server(async ({ kind, name, namespace }) => {
 		const validName = validateK8sName(name, "name");
 
 		let cmd = `describe ${kind} ${validName}`;
@@ -478,12 +460,11 @@ export const describeResourceTool = withTool(
 	}
 );
 
-export const rolloutRestartTool = withTool(
-	{
+export const rolloutRestartTool = toolDefinition({
 		name: "rollout_restart",
 		description:
 			"Restart a Kubernetes deployment or statefulset by triggering a rolling restart. Use when user asks to 'restart X', 'bounce the pods', or to apply config changes that require a restart.",
-		input: z.object({
+		inputSchema: z.object({
 			name: z.string().describe("Name of the deployment or statefulset"),
 			namespace: z.string().describe("Namespace the resource is in"),
 			kind: z
@@ -491,8 +472,7 @@ export const rolloutRestartTool = withTool(
 				.optional()
 				.describe("Resource kind (default: deployment)"),
 		}),
-	},
-	async ({ name, namespace, kind = "deployment" }) => {
+	}).server(async ({ name, namespace, kind = "deployment" }) => {
 		const validName = validateK8sName(name, "name");
 		const validNamespace = validateNamespace(namespace);
 
@@ -509,12 +489,11 @@ export const rolloutRestartTool = withTool(
 	}
 );
 
-export const helmRollbackTool = withTool(
-	{
+export const helmRollbackTool = toolDefinition({
 		name: "helm_rollback",
 		description:
 			"Rollback a Helm release to a previous revision. Use when user asks to 'rollback X', 'revert the deploy', or to undo a failed deployment.",
-		input: z.object({
+		inputSchema: z.object({
 			release: z.string().describe("Name of the Helm release"),
 			namespace: z.string().describe("Namespace the release is in"),
 			revision: z
@@ -522,8 +501,7 @@ export const helmRollbackTool = withTool(
 				.optional()
 				.describe("Revision number to rollback to (default: previous revision)"),
 		}),
-	},
-	async ({ release, namespace, revision }) => {
+	}).server(async ({ release, namespace, revision }) => {
 		const validRelease = validateK8sName(release, "release");
 		const validNamespace = validateNamespace(namespace);
 		const validRevision =
@@ -546,14 +524,12 @@ export const helmRollbackTool = withTool(
 	}
 );
 
-export const listNamespacesTool = withTool(
-	{
+export const listNamespacesTool = toolDefinition({
 		name: "list_namespaces",
 		description:
 			"List all Kubernetes namespaces in the cluster. Use when user asks 'what namespaces exist', 'show me the cluster structure', or when you need to discover where resources are located.",
-		input: z.object({}),
-	},
-	async () => {
+		inputSchema: z.object({}),
+	}).server(async () => {
 		const result = await executeKubectl("get namespaces -o wide");
 		if (!result.success) {
 			return { error: result.errorMessage, output: result.output };
@@ -562,12 +538,11 @@ export const listNamespacesTool = withTool(
 	}
 );
 
-export const listResourcesTool = withTool(
-	{
+export const listResourcesTool = toolDefinition({
 		name: "list_resources",
 		description:
 			"List Kubernetes resources of a specific type. Use when user asks 'what deployments are running', 'show me all PVCs', 'list services', etc. Supports deployments, statefulsets, daemonsets, services, configmaps, secrets, pvcs, and nodes.",
-		input: z.object({
+		inputSchema: z.object({
 			kind: z
 				.enum([
 					"deployments",
@@ -593,8 +568,7 @@ export const listResourcesTool = withTool(
 				.optional()
 				.describe("List from all namespaces (default: true for namespaced resources)"),
 		}),
-	},
-	async ({ kind, namespace, allNamespaces = true }) => {
+	}).server(async ({ kind, namespace, allNamespaces = true }) => {
 		// Cluster-scoped resources don't use namespace
 		const clusterScoped = ["nodes", "pvs"];
 		const isClusterScoped = clusterScoped.includes(kind);
@@ -616,16 +590,14 @@ export const listResourcesTool = withTool(
 	}
 );
 
-export const getNodeStatusTool = withTool(
-	{
+export const getNodeStatusTool = toolDefinition({
 		name: "get_node_status",
 		description:
 			"Get detailed status of Kubernetes nodes including conditions, resources, taints, and capacity. Use when checking cluster health, investigating node issues, or understanding resource availability.",
-		input: z.object({
+		inputSchema: z.object({
 			nodeName: z.string().optional().describe("Specific node name (default: all nodes)"),
 		}),
-	},
-	async ({ nodeName }) => {
+	}).server(async ({ nodeName }) => {
 		let cmd = "get nodes -o wide";
 		if (nodeName) {
 			cmd = `describe node ${validateK8sName(nodeName, "node")}`;
@@ -639,12 +611,11 @@ export const getNodeStatusTool = withTool(
 	}
 );
 
-export const getResourceUsageTool = withTool(
-	{
+export const getResourceUsageTool = toolDefinition({
 		name: "get_resource_usage",
 		description:
 			"Get CPU and memory usage for pods or nodes using kubectl top. Use when investigating resource consumption, identifying resource hogs, or checking if pods need more resources.",
-		input: z.object({
+		inputSchema: z.object({
 			type: z.enum(["pods", "nodes"]).describe("Type of resource to check usage for"),
 			namespace: z.string().optional().describe("Namespace for pods (default: all namespaces)"),
 			sortBy: z
@@ -652,8 +623,7 @@ export const getResourceUsageTool = withTool(
 				.optional()
 				.describe("Sort by resource type (default: memory)"),
 		}),
-	},
-	async ({ type, namespace, sortBy = "memory" }) => {
+	}).server(async ({ type, namespace, sortBy = "memory" }) => {
 		let cmd = `top ${type} --sort-by=${sortBy}`;
 		if (type === "pods") {
 			if (namespace) {
@@ -671,20 +641,18 @@ export const getResourceUsageTool = withTool(
 	}
 );
 
-export const getJobsTool = withTool(
-	{
+export const getJobsTool = toolDefinition({
 		name: "get_jobs",
 		description:
 			"List Kubernetes Jobs and CronJobs. Use when checking scheduled tasks, investigating failed jobs, or understanding batch workloads.",
-		input: z.object({
+		inputSchema: z.object({
 			type: z
 				.enum(["jobs", "cronjobs", "both"])
 				.optional()
 				.describe("Type of job resource (default: both)"),
 			namespace: z.string().optional().describe("Namespace (default: all namespaces)"),
 		}),
-	},
-	async ({ type = "both", namespace }) => {
+	}).server(async ({ type = "both", namespace }) => {
 		const nsFlag = namespace ? `-n ${validateNamespace(namespace)}` : "-A";
 		const results: string[] = [];
 
@@ -706,14 +674,12 @@ export const getJobsTool = withTool(
 	}
 );
 
-export const getStorageClassesTool = withTool(
-	{
+export const getStorageClassesTool = toolDefinition({
 		name: "get_storage_classes",
 		description:
 			"List available Kubernetes storage classes and their configurations. Use when understanding storage options, debugging PVC issues, or setting up new persistent storage.",
-		input: z.object({}),
-	},
-	async () => {
+		inputSchema: z.object({}),
+	}).server(async () => {
 		const result = await executeKubectl("get storageclasses -o wide");
 		if (!result.success) {
 			return { error: result.errorMessage, output: result.output };
@@ -722,17 +688,15 @@ export const getStorageClassesTool = withTool(
 	}
 );
 
-export const getEndpointsTool = withTool(
-	{
+export const getEndpointsTool = toolDefinition({
 		name: "get_endpoints",
 		description:
 			"Get service endpoints showing which pods back each service. Use when debugging connectivity issues, verifying service discovery, or checking if services are properly routing traffic.",
-		input: z.object({
+		inputSchema: z.object({
 			serviceName: z.string().optional().describe("Specific service name (default: all services)"),
 			namespace: z.string().optional().describe("Namespace (default: all namespaces)"),
 		}),
-	},
-	async ({ serviceName, namespace }) => {
+	}).server(async ({ serviceName, namespace }) => {
 		let cmd = "get endpoints -o wide";
 		if (serviceName) {
 			cmd = `get endpoints ${validateK8sName(serviceName, "service")}`;
@@ -753,12 +717,11 @@ export const getEndpointsTool = withTool(
 	}
 );
 
-export const createGithubIssueTool = withTool(
-	{
+export const createGithubIssueTool = toolDefinition({
 		name: "create_github_issue",
 		description:
 			"Create a GitHub issue in the Superbloom repo. Use this when you've investigated a problem (e.g. CrashLoopBackOff, failed deployment) and determined it needs a code change to fix. Include your investigation findings, relevant logs, and what you think needs to change. Adding the 'claude-fix' label will trigger automated code fixing via Claude Code.",
-		input: z.object({
+		inputSchema: z.object({
 			title: z.string().describe("Short, descriptive issue title"),
 			body: z
 				.string()
@@ -773,8 +736,7 @@ export const createGithubIssueTool = withTool(
 				),
 			assignees: z.array(z.string()).optional().describe("GitHub usernames to assign"),
 		}),
-	},
-	async ({ title, body, labels, assignees }) => {
+	}).server(async ({ title, body, labels, assignees }) => {
 		const repo = config.GITHUB_REPO;
 		if (!repo) {
 			return { success: false, error: "GITHUB_REPO not configured" };
@@ -810,23 +772,23 @@ export const createGithubIssueTool = withTool(
 );
 
 export const opsTools = [
-	triggerNixosRebuildTool.tool,
-	triggerFluxReconcileTool.tool,
-	getOperationStatusTool.tool,
-	listRecentOperationsTool.tool,
-	getPodsTool.tool,
-	getPodLogsTool.tool,
-	getEventsTool.tool,
-	getFluxStatusTool.tool,
-	describeResourceTool.tool,
-	rolloutRestartTool.tool,
-	helmRollbackTool.tool,
-	listNamespacesTool.tool,
-	listResourcesTool.tool,
-	getNodeStatusTool.tool,
-	getResourceUsageTool.tool,
-	getJobsTool.tool,
-	getStorageClassesTool.tool,
-	getEndpointsTool.tool,
-	createGithubIssueTool.tool,
+	triggerNixosRebuildTool,
+	triggerFluxReconcileTool,
+	getOperationStatusTool,
+	listRecentOperationsTool,
+	getPodsTool,
+	getPodLogsTool,
+	getEventsTool,
+	getFluxStatusTool,
+	describeResourceTool,
+	rolloutRestartTool,
+	helmRollbackTool,
+	listNamespacesTool,
+	listResourcesTool,
+	getNodeStatusTool,
+	getResourceUsageTool,
+	getJobsTool,
+	getStorageClassesTool,
+	getEndpointsTool,
+	createGithubIssueTool,
 ];

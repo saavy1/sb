@@ -19,29 +19,21 @@ export const ThreadSource = t.Union([
 ]);
 export type ThreadSourceType = typeof ThreadSource.static;
 
-export const MessagePart = t.Object({
-	type: t.String(),
-	content: t.Optional(t.String()),
-	text: t.Optional(t.String()),
+// ModelMessage format: matches @tanstack/ai ModelMessage for direct LLM use
+export const ModelMessageSchema = t.Object({
+	role: t.Union([t.Literal("user"), t.Literal("assistant"), t.Literal("tool")]),
+	content: t.Union([t.String(), t.Null()]),
+	toolCalls: t.Optional(t.Array(t.Object({
+		id: t.String(),
+		type: t.Literal("function"),
+		function: t.Object({
+			name: t.String(),
+			arguments: t.String(),
+		}),
+	}))),
+	toolCallId: t.Optional(t.String()),
 	name: t.Optional(t.String()),
-	toolName: t.Optional(t.String()),
-	id: t.Optional(t.String()),
 });
-export type MessagePartType = typeof MessagePart.static;
-
-export const ThreadMessage = t.Object({
-	id: t.String(),
-	role: t.Union([
-		t.Literal("user"),
-		t.Literal("assistant"),
-		t.Literal("tool"),
-		t.Literal("system"),
-	]),
-	content: t.Optional(t.Nullable(t.String())),
-	parts: t.Optional(t.Nullable(t.Array(MessagePart))),
-});
-export type ThreadMessageType = typeof ThreadMessage.static;
-
 // === API schemas ===
 
 export const AgentThreadResponse = t.Object({
@@ -63,7 +55,7 @@ export const AgentThreadDetail = t.Object({
 	source: ThreadSource,
 	sourceId: t.Nullable(t.String()),
 	title: t.Nullable(t.String()),
-	messages: t.Array(ThreadMessage),
+	messages: t.Array(ModelMessageSchema),
 	context: t.Record(t.String(), t.Any()),
 	wakeJobId: t.Nullable(t.String()),
 	wakeReason: t.Nullable(t.String()),
@@ -95,21 +87,12 @@ export const ApiError = t.Object({
 	error: t.String(),
 });
 
-// === TanStack AI chat request (for useChat integration) ===
-
-export const ChatMessage = t.Object({
-	id: t.Optional(t.String()),
-	role: t.Union([t.Literal("user"), t.Literal("assistant"), t.Literal("tool")]),
-	content: t.Optional(t.Nullable(t.String())),
-	parts: t.Optional(t.Array(MessagePart)),
-});
-export type ChatMessageType = typeof ChatMessage.static;
+// === TanStack AI chat request (UIMessage[] from useChat) ===
+// Messages are validated by the SDK's convertMessagesToModelMessages at conversion time
 
 export const ChatRequest = t.Object({
-	messages: t.Array(ChatMessage),
-	threadId: t.Optional(t.String()),
+	messages: t.Any(),
 });
-export type ChatRequestType = typeof ChatRequest.static;
 
 // === Wake job data ===
 

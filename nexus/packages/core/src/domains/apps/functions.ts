@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import logger from "@nexus/logger";
 import { z } from "zod";
 import { tracedFetch } from "../../infra/telemetry";
-import { withTool } from "../../infra/tools";
+import { toolDefinition } from "@tanstack/ai";
 import { appRepository } from "./repository";
 import type { App } from "./schema";
 import type { AppStatusType, AppWithStatusType, StatusCacheEntryType } from "./types";
@@ -142,13 +142,11 @@ export async function refreshStatus(id: string): Promise<AppStatusType> {
 
 // === AI Tool-exposed functions ===
 
-export const listAppsTool = withTool(
-	{
+export const listAppsTool = toolDefinition({
 		name: "list_apps",
 		description: "List all registered apps/services in the homelab with their URLs and status",
-		input: z.object({}),
-	},
-	async () => {
+		inputSchema: z.object({}),
+	}).server(async () => {
 		const apps = await list();
 		return apps.map((app) => ({
 			name: app.name,
@@ -160,18 +158,16 @@ export const listAppsTool = withTool(
 	}
 );
 
-export const getAppUrlTool = withTool(
-	{
+export const getAppUrlTool = toolDefinition({
 		name: "get_app_url",
 		description:
 			"Get the URL for a specific app by name. Use this when the user asks things like 'what's the jellyfin url' or 'how do I access grafana'",
-		input: z.object({
+		inputSchema: z.object({
 			name: z
 				.string()
 				.describe("The app name to search for (case-insensitive, partial match supported)"),
 		}),
-	},
-	async ({ name }) => {
+	}).server(async ({ name }) => {
 		const app = await findByName(name);
 		if (!app) {
 			return { error: `No app found matching '${name}'` };
@@ -185,12 +181,11 @@ export const getAppUrlTool = withTool(
 	}
 );
 
-export const addAppTool = withTool(
-	{
+export const addAppTool = toolDefinition({
 		name: "add_app",
 		description:
 			"Register a new app/service in the homelab. Use when user wants to add, register, or save an app URL.",
-		input: z.object({
+		inputSchema: z.object({
 			name: z.string().describe("The app name (e.g., 'Jellyfin', 'Grafana')"),
 			url: z.string().describe("The app URL"),
 			category: z
@@ -203,8 +198,7 @@ export const addAppTool = withTool(
 				.optional()
 				.describe("URL to check if the app is up (defaults to main URL)"),
 		}),
-	},
-	async ({ name, url, category, description, healthCheckUrl }) => {
+	}).server(async ({ name, url, category, description, healthCheckUrl }) => {
 		const app = await create({
 			name,
 			url,
@@ -220,16 +214,14 @@ export const addAppTool = withTool(
 	}
 );
 
-export const deleteAppTool = withTool(
-	{
+export const deleteAppTool = toolDefinition({
 		name: "delete_app",
 		description:
 			"Remove an app/service from the homelab registry. Use when user wants to delete or remove an app.",
-		input: z.object({
+		inputSchema: z.object({
 			name: z.string().describe("The app name to delete"),
 		}),
-	},
-	async ({ name }) => {
+	}).server(async ({ name }) => {
 		const app = await findByName(name);
 		if (!app) {
 			return { success: false, error: `No app found matching '${name}'` };
@@ -243,8 +235,8 @@ export const deleteAppTool = withTool(
 );
 
 export const appTools = [
-	listAppsTool.tool,
-	getAppUrlTool.tool,
-	addAppTool.tool,
-	deleteAppTool.tool,
+	listAppsTool,
+	getAppUrlTool,
+	addAppTool,
+	deleteAppTool,
 ];

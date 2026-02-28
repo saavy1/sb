@@ -1,5 +1,5 @@
 import { index, integer, jsonb, pgSchema, text, timestamp } from "drizzle-orm/pg-core";
-import type { ThreadMessageType } from "./types";
+import type { ModelMessage } from "@tanstack/ai";
 
 // Postgres schema for agent tables
 export const agentSchema = pgSchema("agent");
@@ -28,7 +28,7 @@ export const agentThreads = agentSchema.table(
 		sourceId: text("source_id"), // conversation id, discord channel, event type, etc.
 
 		// Conversation state (JSONB - automatically serialized/deserialized)
-		messages: jsonb("messages").$type<ThreadMessageType[]>().notNull().default([]),
+		messages: jsonb("messages").$type<ModelMessage[]>().notNull().default([]),
 
 		// Arbitrary context the agent persists across sleep/wake
 		context: jsonb("context").$type<ThreadContext>().notNull().default({}),

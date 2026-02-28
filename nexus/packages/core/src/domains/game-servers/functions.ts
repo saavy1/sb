@@ -3,7 +3,7 @@ import logger from "@nexus/logger";
 import { ping as mcPing, type ServerStatus } from "@nexus/mc-monitor";
 import { z } from "zod";
 import { config } from "../../infra/config";
-import { withTool } from "../../infra/tools";
+import { toolDefinition } from "@tanstack/ai";
 import { getMcDefaultMemory, getMcDefaultStorage } from "../core/functions";
 import { generateMinecraftManifests, k8sAdapter } from "./k8s-adapter";
 import { gameServerRepository } from "./repository";
@@ -192,13 +192,11 @@ export async function syncStatus(name: string): Promise<GameServerType | null> {
 
 // === AI Tool-exposed functions ===
 
-export const listServersTool = withTool(
-	{
+export const listServersTool = toolDefinition({
 		name: "list_game_servers",
 		description: "List all game servers with their current status",
-		input: z.object({}),
-	},
-	async () => {
+		inputSchema: z.object({}),
+	}).server(async () => {
 		const servers = await list();
 		return servers.map((s) => ({
 			name: s.name,
@@ -210,15 +208,13 @@ export const listServersTool = withTool(
 	}
 );
 
-export const getServerTool = withTool(
-	{
+export const getServerTool = toolDefinition({
 		name: "get_server",
 		description: "Get details about a specific game server by name",
-		input: z.object({
+		inputSchema: z.object({
 			name: z.string().describe("The server name"),
 		}),
-	},
-	async ({ name }) => {
+	}).server(async ({ name }) => {
 		const server = await get(name);
 		if (!server) {
 			return { error: `Server '${name}' not found` };
@@ -235,15 +231,13 @@ export const getServerTool = withTool(
 	}
 );
 
-export const startServerTool = withTool(
-	{
+export const startServerTool = toolDefinition({
 		name: "start_server",
 		description: "Start a game server by name. Use this when the user wants to start a server.",
-		input: z.object({
+		inputSchema: z.object({
 			name: z.string().describe("The server name to start"),
 		}),
-	},
-	async ({ name }) => {
+	}).server(async ({ name }) => {
 		try {
 			const server = await start(name);
 			return {
@@ -260,15 +254,13 @@ export const startServerTool = withTool(
 	}
 );
 
-export const stopServerTool = withTool(
-	{
+export const stopServerTool = toolDefinition({
 		name: "stop_server",
 		description: "Stop a game server by name. Use this when the user wants to stop a server.",
-		input: z.object({
+		inputSchema: z.object({
 			name: z.string().describe("The server name to stop"),
 		}),
-	},
-	async ({ name }) => {
+	}).server(async ({ name }) => {
 		try {
 			const server = await stop(name);
 			return {
@@ -285,12 +277,11 @@ export const stopServerTool = withTool(
 	}
 );
 
-export const createServerTool = withTool(
-	{
+export const createServerTool = toolDefinition({
 		name: "create_server",
 		description:
 			"Create a new Minecraft game server. Use when user wants to set up a new modded Minecraft server.",
-		input: z.object({
+		inputSchema: z.object({
 			name: z
 				.string()
 				.regex(/^[a-z0-9-]+$/)
@@ -303,8 +294,7 @@ export const createServerTool = withTool(
 				.optional()
 				.describe("Memory allocation (e.g., '8G', '16G'). Defaults to 8G"),
 		}),
-	},
-	async ({ name, modpack, memory }) => {
+	}).server(async ({ name, modpack, memory }) => {
 		try {
 			const server = await create({
 				name,
@@ -327,16 +317,14 @@ export const createServerTool = withTool(
 	}
 );
 
-export const deleteServerTool = withTool(
-	{
+export const deleteServerTool = toolDefinition({
 		name: "delete_server",
 		description:
 			"Delete a Minecraft game server and all its resources. This is destructive and cannot be undone.",
-		input: z.object({
+		inputSchema: z.object({
 			name: z.string().describe("The server name to delete"),
 		}),
-	},
-	async ({ name }) => {
+	}).server(async ({ name }) => {
 		try {
 			await deleteServer(name);
 			return {
@@ -373,14 +361,12 @@ export async function queryServerStatus(
 	}
 }
 
-export const queryServerStatusTool = withTool(
-	{
+export const queryServerStatusTool = toolDefinition({
 		name: "query_minecraft_status",
 		description:
 			"Query the Minecraft server for live status including player count, version, and MOTD. Use this to check if a server is actually running and how many players are online.",
-		input: z.object({}),
-	},
-	async () => {
+		inputSchema: z.object({}),
+	}).server(async () => {
 		const status = await queryServerStatus();
 		if (!status) {
 			return { online: false, error: "Server not responding or not running" };
@@ -399,14 +385,12 @@ export const queryServerStatusTool = withTool(
 	}
 );
 
-export const getPlayerCountTool = withTool(
-	{
+export const getPlayerCountTool = toolDefinition({
 		name: "get_player_count",
 		description:
 			"Get the current player count on the Minecraft server. Quick way to check if anyone is playing.",
-		input: z.object({}),
-	},
-	async () => {
+		inputSchema: z.object({}),
+	}).server(async () => {
 		const status = await queryServerStatus();
 		if (!status) {
 			return { online: false, players: 0, max: 0 };
@@ -436,14 +420,12 @@ export async function listGameServerPods() {
 	}));
 }
 
-export const listPodsTool = withTool(
-	{
+export const listPodsTool = toolDefinition({
 		name: "list_game_server_pods",
 		description:
 			"List all Kubernetes pods for game servers. Shows pod status, readiness, restart count, and IP addresses. Use this to debug server issues or check pod health.",
-		input: z.object({}),
-	},
-	async () => {
+		inputSchema: z.object({}),
+	}).server(async () => {
 		try {
 			const pods = await listGameServerPods();
 			return {
@@ -461,13 +443,13 @@ export const listPodsTool = withTool(
 );
 
 export const gameServerTools = [
-	listServersTool.tool,
-	getServerTool.tool,
-	startServerTool.tool,
-	stopServerTool.tool,
-	createServerTool.tool,
-	deleteServerTool.tool,
-	queryServerStatusTool.tool,
-	getPlayerCountTool.tool,
-	listPodsTool.tool,
+	listServersTool,
+	getServerTool,
+	startServerTool,
+	stopServerTool,
+	createServerTool,
+	deleteServerTool,
+	queryServerStatusTool,
+	getPlayerCountTool,
+	listPodsTool,
 ];

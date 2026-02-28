@@ -2,7 +2,8 @@ import { and, desc, eq, sql } from "drizzle-orm";
 import { agentDb } from "../../infra/db";
 import type { AgentThread, NewAgentThread, ThreadContext } from "./schema";
 import { agentThreads } from "./schema";
-import type { ThreadMessageType, ThreadSourceType, ThreadStatusType } from "./types";
+import type { ModelMessage } from "@tanstack/ai";
+import type { ThreadSourceType, ThreadStatusType } from "./types";
 
 export class OptimisticLockError extends Error {
 	constructor(id: string) {
@@ -57,7 +58,7 @@ export const agentRepository = {
 		data: Partial<{
 			status: ThreadStatusType;
 			title: string;
-			messages: ThreadMessageType[];
+			messages: ModelMessage[];
 			context: ThreadContext;
 			wakeJobId: string | null;
 			wakeReason: string | null;
@@ -87,7 +88,7 @@ export const agentRepository = {
 		data: Partial<{
 			status: ThreadStatusType;
 			title: string;
-			messages: ThreadMessageType[];
+			messages: ModelMessage[];
 			context: ThreadContext;
 			wakeJobId: string | null;
 			wakeReason: string | null;

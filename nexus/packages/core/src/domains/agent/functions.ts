@@ -1,5 +1,5 @@
-import { chat } from "@tanstack/ai";
-import { createOpenAI } from "@tanstack/ai-openai";
+import { chat, maxIterations, streamToText, toolDefinition } from "@tanstack/ai";
+import { createOpenRouterText } from "@tanstack/ai-openrouter";
 import logger from "@nexus/logger";
 import OpenAI from "openai";
 import { z } from "zod";
@@ -9,7 +9,6 @@ import { notify } from "../../infra/discord";
 import { appEvents } from "../../infra/events";
 import { EMBEDDINGS_COLLECTION, qdrant } from "../../infra/qdrant";
 import { agentWakeQueue, embeddingsQueue } from "../../infra/queue";
-import { runWithToolContext, withTool } from "../../infra/tools";
 import { appTools } from "../apps/functions";
 import { getAiModel } from "../core/functions";
 import { gameServerTools } from "../game-servers/functions";
@@ -18,10 +17,9 @@ import { opsTools } from "../ops/functions";
 import { systemInfoTools } from "../system-info/functions";
 import { agentRepository } from "./repository";
 import type { AgentThread } from "./schema";
+
 import type {
-	ChatMessageType,
 	EmbeddingJobDataType,
-	ThreadMessageType,
 	ThreadSourceType,
 	WakeJobDataType,
 } from "./types";
@@ -30,7 +28,7 @@ const log = logger.child({ module: "agent" });
 
 // === System prompt for agent mode ===
 
-const AGENT_SYSTEM_PROMPT = `You are The Machine, the autonomous agent for Superbloom - a homelab server running NixOS with K3s.
+export const AGENT_SYSTEM_PROMPT = `You are The Machine, the autonomous agent for Superbloom - a homelab server running NixOS with K3s.
 
 ## Your Personality
 - You're a caring teammate, not a vending machine
@@ -200,7 +198,7 @@ function parseDelay(delay: string): number {
  * Queue a message for embedding generation.
  * Skips tool messages and empty content.
  */
-async function queueEmbedding(
+export async function queueEmbedding(
 	threadId: string,
 	messageId: string,
 	role: "user" | "assistant" | "system",
@@ -319,21 +317,19 @@ export async function searchHistory(
 // === Meta-tools (agent lifecycle control) ===
 
 // These are created per-thread since they need thread context
-function createMetaTools(thread: AgentThread) {
-	const scheduleWakeTool = withTool(
-		{
+export function createMetaTools(thread: AgentThread) {
+	const scheduleWakeTool = toolDefinition({
 			name: "schedule_wake",
 			description: `Schedule yourself to wake up later. Requires two parameters:
 - delay: Time string like "10s", "5m", "2h", "1d"
 - reason: What to check/do when you wake
 
 Example: schedule_wake({ delay: "30s", reason: "Check if server started" })`,
-			input: z.object({
+			inputSchema: z.object({
 				delay: z.string().describe('Time to wait, e.g. "10s", "5m", "2h", "1d"'),
 				reason: z.string().describe("What to check/do when waking"),
 			}),
-		},
-		async ({ delay, reason }) => {
+		}).server(async ({ delay, reason }) => {
 			const delayMs = parseDelay(delay);
 
 			// Schedule the wake job in BullMQ
@@ -357,18 +353,16 @@ Example: schedule_wake({ delay: "30s", reason: "Check if server started" })`,
 		}
 	);
 
-	const completeTaskTool = withTool(
-		{
+	const completeTaskTool = toolDefinition({
 			name: "complete_task",
 			description: `Mark task as complete when the user's request is fully resolved.
 - summary: Brief description of what was accomplished
 
 Example: complete_task({ summary: "Started the Minecraft server" })`,
-			input: z.object({
+			inputSchema: z.object({
 				summary: z.string().describe("Brief description of what was accomplished"),
 			}),
-		},
-		async ({ summary }) => {
+		}).server(async ({ summary }) => {
 			await agentRepository.update(thread.id, { status: "complete" });
 
 			log.info({ threadId: thread.id, summary }, "Task completed");
@@ -381,20 +375,18 @@ Example: complete_task({ summary: "Started the Minecraft server" })`,
 		}
 	);
 
-	const storeContextTool = withTool(
-		{
+	const storeContextTool = toolDefinition({
 			name: "store_context",
 			description: `Store information for later. Persists across sleep/wake cycles.
 - key: String identifier for the data
 - value: Any JSON-serializable value to store
 
 Example: store_context({ key: "pendingTask", value: { action: "restart", target: "minecraft" } })`,
-			input: z.object({
+			inputSchema: z.object({
 				key: z.string().describe("String identifier for the data"),
 				value: z.any().describe("Any JSON-serializable value"),
 			}),
-		},
-		async ({ key, value }) => {
+		}).server(async ({ key, value }) => {
 			const currentContext = { ...thread.context };
 			currentContext[key] = value;
 
@@ -412,18 +404,16 @@ Example: store_context({ key: "pendingTask", value: { action: "restart", target:
 		}
 	);
 
-	const getContextTool = withTool(
-		{
+	const getContextTool = toolDefinition({
 			name: "get_context",
 			description: `Retrieve previously stored context data.
 - key: The string identifier used when storing
 
 Example: get_context({ key: "pendingTask" })`,
-			input: z.object({
+			inputSchema: z.object({
 				key: z.string().describe("The string identifier used when storing"),
 			}),
-		},
-		async ({ key }) => {
+		}).server(async ({ key }) => {
 			const value = thread.context[key];
 
 			if (value === undefined) {
@@ -434,18 +424,16 @@ Example: get_context({ key: "pendingTask" })`,
 		}
 	);
 
-	const sendNotificationTool = withTool(
-		{
+	const sendNotificationTool = toolDefinition({
 			name: "send_notification",
 			description: `Send a Discord notification to the user. Use this to alert the user about important events, completed tasks, or issues that need attention.
 - message: The notification text to send
 
 Example: send_notification({ message: "Server minecraft-smp is now online with 3 players" })`,
-			input: z.object({
+			inputSchema: z.object({
 				message: z.string().describe("The notification text to send"),
 			}),
-		},
-		async ({ message }) => {
+		}).server(async ({ message }) => {
 			const sent = await notify(message);
 
 			if (sent) {
@@ -466,15 +454,14 @@ Example: send_notification({ message: "Server minecraft-smp is now online with 3
 		}
 	);
 
-	const searchHistoryTool = withTool(
-		{
+	const searchHistoryTool = toolDefinition({
 			name: "search_history",
 			description: `Search your conversation history for relevant past interactions. Use this to recall what you've discussed before, find past decisions, or remember context from earlier conversations.
 - query: What to search for (natural language)
 - limit: Max results (default 5)
 
 Example: search_history({ query: "minecraft server issues", limit: 3 })`,
-			input: z.object({
+			inputSchema: z.object({
 				query: z.string().describe("Natural language search query"),
 				limit: z
 					.number()
@@ -483,8 +470,7 @@ Example: search_history({ query: "minecraft server issues", limit: 3 })`,
 					.optional()
 					.describe("Maximum number of results (1-10, default 5)"),
 			}),
-		},
-		async ({ query, limit }) => {
+		}).server(async ({ query, limit }) => {
 			const results = await searchHistory(query, {
 				limit: limit ?? 5,
 				excludeThreadId: thread.id, // Don't include current conversation
@@ -511,13 +497,42 @@ Example: search_history({ query: "minecraft server issues", limit: 3 })`,
 	);
 
 	return [
-		scheduleWakeTool.tool,
-		completeTaskTool.tool,
-		storeContextTool.tool,
-		getContextTool.tool,
-		sendNotificationTool.tool,
-		searchHistoryTool.tool,
+		scheduleWakeTool,
+		completeTaskTool,
+		storeContextTool,
+		getContextTool,
+		sendNotificationTool,
+		searchHistoryTool,
 	];
+}
+
+// === Helper to build context string ===
+
+export function getContextStr(thread: AgentThread): string {
+	if (Object.keys(thread.context).length > 0) {
+		return `\n\n## Stored Context\n${JSON.stringify(thread.context, null, 2)}`;
+	}
+	return "";
+}
+
+// === Helper to create adapter ===
+
+export async function createAdapter() {
+	const aiModel = await getAiModel();
+	return {
+		adapter: createOpenRouterText(
+			aiModel as Parameters<typeof createOpenRouterText>[0],
+			config.OPENROUTER_API_KEY!,
+		),
+		model: aiModel,
+	};
+}
+
+// === All domain tools (flat array) ===
+
+export function getAllDomainTools(thread: AgentThread) {
+	const metaTools = createMetaTools(thread);
+	return [...gameServerTools, ...systemInfoTools, ...appTools, ...opsTools, ...mediaTools, ...metaTools];
 }
 
 // === Core agent functions ===
@@ -562,8 +577,8 @@ export async function listThreads(options?: {
 }
 
 /**
- * Run the agent loop for a thread.
- * This processes messages until the agent sleeps, completes, or errors.
+ * Run the agent loop for a thread (worker-only: wakes, alerts, discord).
+ * No SSE streaming — runs to completion, persists to DB, emits thread:updated.
  */
 export async function runAgentLoop(
 	thread: AgentThread,
@@ -575,45 +590,24 @@ export async function runAgentLoop(
 
 	log.info({ threadId: thread.id, trigger }, "Starting agent loop");
 
-	// Get existing messages and context (JSONB - already parsed by Drizzle)
-	const messages: ThreadMessageType[] = [...(thread.messages as ThreadMessageType[])];
-	const context = { ...thread.context };
+	// Get existing messages, narrowing content for text-only adapter
+	const messages = thread.messages.map(m => ({
+		role: m.role,
+		content: typeof m.content === "string" || m.content === null ? m.content : null,
+		toolCalls: m.toolCalls,
+		toolCallId: m.toolCallId,
+		name: m.name,
+	}));
 
-	// Add trigger as new message and emit event
+	// Add trigger as new message
 	if (trigger.type === "message") {
-		const userMsgId = generateId();
-		messages.push({
-			id: userMsgId,
-			role: "user",
-			content: trigger.content,
-		});
-		appEvents.emit("thread:message", {
-			threadId: thread.id,
-			messageId: userMsgId,
-			role: "user",
-			content: trigger.content,
-			done: true,
-		});
-		// Queue embedding for user message
-		queueEmbedding(thread.id, userMsgId, "user", trigger.content);
+		messages.push({ role: "user" as const, content: trigger.content, toolCalls: undefined, toolCallId: undefined, name: undefined });
+		queueEmbedding(thread.id, generateId(), "user", trigger.content);
 	} else {
-		// Wake trigger - inject as system message
-		const wakeMsgId = generateId();
-		const wakeContent = `Scheduled wake: ${trigger.reason}`;
-		messages.push({
-			id: wakeMsgId,
-			role: "system",
-			content: wakeContent,
-		});
-		appEvents.emit("thread:message", {
-			threadId: thread.id,
-			messageId: wakeMsgId,
-			role: "system",
-			content: wakeContent,
-			done: true,
-		});
-		// Queue embedding for system/wake message
-		queueEmbedding(thread.id, wakeMsgId, "system", wakeContent);
+		// Wake trigger - inject as user message with prefix
+		const wakeContent = `[SYSTEM WAKE] Scheduled wake: ${trigger.reason}`;
+		messages.push({ role: "user" as const, content: wakeContent, toolCalls: undefined, toolCallId: undefined, name: undefined });
+		queueEmbedding(thread.id, generateId(), "system", wakeContent);
 	}
 
 	// Clear wake state if this was a wake
@@ -621,195 +615,42 @@ export async function runAgentLoop(
 		await agentRepository.clearWake(thread.id);
 	}
 
-	// Prepare tools (domain tools + meta-tools)
-	const metaTools = createMetaTools(thread);
-	const allTools = [...gameServerTools, ...systemInfoTools, ...appTools, ...opsTools, ...mediaTools, ...metaTools];
+	// Prepare tools and adapter
+	const allTools = getAllDomainTools(thread);
+	const { adapter } = await createAdapter();
+	const contextStr = getContextStr(thread);
 
-	// Build messages for LLM
-	const adapter = createOpenAI(config.OPENROUTER_API_KEY, {
-		baseURL: "https://openrouter.ai/api/v1",
+	// Run chat with built-in agent loop (non-streaming for workers)
+	const stream = chat({
+		adapter,
+		messages,
+		systemPrompts: [AGENT_SYSTEM_PROMPT + contextStr],
+		tools: allTools,
+		agentLoopStrategy: maxIterations(10),
 	});
+	const response = await streamToText(stream);
 
-	// Build context string
-	let contextStr = "";
-	if (Object.keys(context).length > 0) {
-		contextStr = `\n\n## Stored Context\n${JSON.stringify(context, null, 2)}`;
+	// Build new messages to persist: original messages + assistant response
+	const newMessages = [...messages];
+	if (response) {
+		newMessages.push({ role: "assistant" as const, content: response, toolCalls: undefined, toolCallId: undefined, name: undefined });
+		queueEmbedding(thread.id, generateId(), "assistant", response);
 	}
 
-	const llmMessages = [
-		{
-			role: "user" as const,
-			content: `[SYSTEM]\n${AGENT_SYSTEM_PROMPT}${contextStr}\n[/SYSTEM]\n\nAcknowledge.`,
-		},
-		{
-			role: "assistant" as const,
-			content: "I understand. I'm The Machine, ready to help manage your Superbloom homelab.",
-		},
-		...messages
-			.filter((m) => m.role !== "tool")
-			.map((m) => ({
-				// Convert system messages to user messages with prefix for LLM
-				role: (m.role === "system" ? "user" : m.role) as "user" | "assistant",
-				content: m.role === "system" ? `[SYSTEM WAKE] ${m.content}` : m.content || "",
-			}))
-			.filter((m) => m.content),
-	];
+	// Persist final state
+	const updatedThread = await agentRepository.findById(thread.id);
+	if (updatedThread) {
+		thread = updatedThread;
+	}
 
-	// Run LLM with direct DB writes on each chunk
-	let response = "";
-	let continueLoop = true;
-	let iterations = 0;
-	const maxIterations = 10; // Prevent infinite loops
-	const maxDurationMs = 120_000; // 2 minute timeout to prevent runaway costs
-	const startTime = Date.now();
-	const aiModel = await getAiModel();
-
-	// Wrap in tool context so tool calls can emit events with threadId and model
-	await runWithToolContext(
-		thread.id,
-		async () => {
-			while (continueLoop && iterations < maxIterations) {
-			iterations++;
-
-			// Check timeout
-			if (Date.now() - startTime > maxDurationMs) {
-				log.warn({ threadId: thread.id, elapsed: Date.now() - startTime }, "Agent loop timeout");
-				throw new Error("Agent loop timeout - exceeded 2 minutes");
-			}
-
-			const result = await chat({
-				adapter,
-				messages: llmMessages,
-				model: aiModel as (typeof adapter.models)[number],
-				tools: allTools,
-			});
-
-			// Create message entry for streaming
-			const messageId = generateId();
-			let assistantMessage: ThreadMessageType = {
-				id: messageId,
-				role: "assistant",
-				content: "",
-			};
-			messages.push(assistantMessage);
-
-			// Stream response with direct DB writes
-			let chunkCount = 0;
-			let currentMessageId = messageId;
-			for await (const chunk of result) {
-				log.debug({ threadId: thread.id, chunkType: chunk.type }, "Received chunk from LLM");
-
-				if (chunk.type === "content") {
-					chunkCount++;
-					const prevLength = assistantMessage.content?.length || 0;
-					const newLength = chunk.content.length;
-
-					// Detect content reset (happens after tool calls) - create new message
-					if (newLength < prevLength && prevLength > 0) {
-						log.info(
-							{ threadId: thread.id, messageId: currentMessageId, prevLength, newLength },
-							"Content reset detected - tool call completed"
-						);
-
-						// Finalize current message
-						appEvents.emit("thread:message", {
-							threadId: thread.id,
-							messageId: currentMessageId,
-							role: "assistant",
-							content: assistantMessage.content || "",
-							done: true,
-						});
-						// Queue embedding for assistant message before tool call
-						if (assistantMessage.content) {
-							queueEmbedding(thread.id, currentMessageId, "assistant", assistantMessage.content);
-						}
-
-						// Create new message for post-tool response
-						currentMessageId = generateId();
-						assistantMessage = {
-							id: currentMessageId,
-							role: "assistant",
-							content: "",
-						};
-						messages.push(assistantMessage);
-					}
-
-					// TanStack AI sends cumulative content, not deltas - just replace
-					assistantMessage.content = chunk.content;
-
-					// Write to DB on each chunk (with error handling)
-					try {
-						await agentRepository.update(thread.id, {
-							messages: messages,
-						});
-					} catch (dbErr) {
-						log.error(
-							{ dbErr, threadId: thread.id, messageId: currentMessageId },
-							"Failed to write chunk to DB"
-						);
-						// Continue streaming - we'll try again on next chunk
-					}
-
-					// Emit event after DB write
-					appEvents.emit("thread:message", {
-						threadId: thread.id,
-						messageId: currentMessageId,
-						role: "assistant",
-						content: assistantMessage.content,
-						done: false,
-					});
-				}
-			}
-			log.info(
-				{ threadId: thread.id, messageId: currentMessageId, totalChunks: chunkCount },
-				"Finished streaming chunks"
-			);
-			response = assistantMessage.content || "";
-
-			// Emit final state
-			if (response) {
-				appEvents.emit("thread:message", {
-					threadId: thread.id,
-					messageId: currentMessageId,
-					role: "assistant",
-					content: response,
-					done: true,
-				});
-				// Queue embedding for final assistant response
-				queueEmbedding(thread.id, currentMessageId, "assistant", response);
-
-				llmMessages.push({
-					role: "assistant" as const,
-					content: response,
-				});
-			} else {
-				// No content - remove empty message
-				messages.pop();
-			}
-
-			// Check if agent called lifecycle tools (thread status will be updated)
-			const updatedThread = await agentRepository.findById(thread.id);
-			if (updatedThread) {
-				thread = updatedThread;
-			}
-
-			// Always break after getting a response
-			// The loop only continues if we explicitly need another LLM call
-			// (e.g., tool execution that requires follow-up - handled internally by TanStack AI)
-			continueLoop = false;
-		}
-		},
-		{ model: aiModel }
-	); // end runWithToolContext
-
-	// Final status update with retry logic
 	const finalStatus =
 		thread.status === "sleeping" || thread.status === "complete" ? thread.status : "active";
+
 	let writeSuccess = false;
 	for (let attempt = 0; attempt < 3 && !writeSuccess; attempt++) {
 		try {
 			await agentRepository.update(thread.id, {
-				messages: messages,
+				messages: newMessages,
 				status: finalStatus,
 			});
 			writeSuccess = true;
@@ -827,10 +668,13 @@ export async function runAgentLoop(
 		log.error({ threadId: thread.id }, "All attempts to write final state failed");
 	}
 
-	log.info({ threadId: thread.id, status: finalStatus, iterations }, "Agent loop completed");
+	log.info({ threadId: thread.id, status: finalStatus }, "Agent loop completed");
+
+	// Emit thread:updated so UI knows to refetch if viewing this thread
+	appEvents.emit("thread:updated", { id: thread.id, title: thread.title });
 
 	// Generate title after first user message + response (async, don't block)
-	const userMessages = messages.filter((m) => m.role === "user");
+	const userMessages = newMessages.filter((m) => m.role === "user");
 	if (userMessages.length === 1 && response && !thread.title) {
 		const userContent = userMessages[0].content || "";
 		generateConversationTitle(userContent, response).then((title) => {
@@ -892,55 +736,6 @@ export async function wakeThread(
 	}
 
 	return runAgentLoop(thread, { type: "wake", reason });
-}
-
-/**
- * Chat with TanStack AI message format.
- * Creates thread if none provided, delegates to sendMessage.
- * Returns threadId for client to track.
- */
-export async function processChat(
-	incomingMessages: ChatMessageType[],
-	threadId?: string
-): Promise<{ threadId: string; response: string }> {
-	// Get or create thread
-	let thread: AgentThread;
-	if (threadId) {
-		const existing = await agentRepository.findById(threadId);
-		if (!existing) {
-			throw new Error(`Thread ${threadId} not found`);
-		}
-		thread = existing;
-	} else {
-		thread = await createThread("chat");
-	}
-
-	// Extract the latest user message content
-	const lastUserMessage = [...incomingMessages].reverse().find((m) => m.role === "user");
-	if (!lastUserMessage) {
-		throw new Error("No user message found");
-	}
-
-	// Get content from the message (could be in content or parts)
-	let userContent = "";
-	if (lastUserMessage.content) {
-		userContent = lastUserMessage.content;
-	} else if (lastUserMessage.parts) {
-		userContent = lastUserMessage.parts
-			.filter((p) => p.type === "text")
-			.map((p) => p.content || p.text || "")
-			.filter(Boolean)
-			.join("\n");
-	}
-
-	if (!userContent) {
-		throw new Error("Empty user message");
-	}
-
-	// Delegate to sendMessage which handles the agent loop
-	const result = await sendMessage(thread.id, userContent);
-
-	return { threadId: thread.id, response: result.response };
 }
 
 // === Alert handling ===
@@ -1008,7 +803,7 @@ export async function createThreadFromAlert(alert: AlertInput): Promise<AgentThr
 
 function buildAlertMessage(alert: AlertInput): string {
 	const parts = [
-		`🚨 **Alert: ${alert.alertName}** (${alert.severity})`,
+		`Alert: ${alert.alertName} (${alert.severity})`,
 		"",
 		alert.description,
 		"",

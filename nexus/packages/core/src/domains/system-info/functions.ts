@@ -8,7 +8,7 @@ import { z } from "zod";
 import { systemInfoDb, withDb } from "../../infra/db";
 import { getQdrantInfo } from "../../infra/qdrant";
 import { executeZpool, executeZfs, executeSSH } from "../../infra/ssh";
-import { withTool } from "../../infra/tools";
+import { toolDefinition } from "@tanstack/ai";
 import type { DriveRecord } from "./schema";
 import { drives } from "./schema";
 import type {
@@ -613,13 +613,11 @@ export async function getSystemOverview() {
 
 // === AI Tool-exposed functions ===
 
-export const getSystemStatsTool = withTool(
-	{
+export const getSystemStatsTool = toolDefinition({
 		name: "get_system_stats",
 		description: "Get current system statistics including CPU, memory, GPU, network, and disk I/O",
-		input: z.object({}),
-	},
-	async () => {
+		inputSchema: z.object({}),
+	}).server(async () => {
 		const stats = await getSystemStats();
 		return {
 			cpu: {
@@ -654,13 +652,11 @@ export const getSystemStatsTool = withTool(
 	}
 );
 
-export const getDrivesTool = withTool(
-	{
+export const getDrivesTool = toolDefinition({
 		name: "get_drives",
 		description: "Get information about registered storage drives and their usage",
-		input: z.object({}),
-	},
-	async () => {
+		inputSchema: z.object({}),
+	}).server(async () => {
 		const drivesList = await listDrivesWithStats();
 		return drivesList.map((d) => ({
 			label: d.label,
@@ -938,14 +934,12 @@ export async function getDirectorySizes(
 
 // === ZFS AI Tools ===
 
-export const getZfsPoolsTool = withTool(
-	{
+export const getZfsPoolsTool = toolDefinition({
 		name: "get_zfs_pools",
 		description:
 			"Get ZFS pool overview including health status, capacity, and fragmentation. Use when user asks about storage health, pool status, or disk space.",
-		input: z.object({}),
-	},
-	async () => {
+		inputSchema: z.object({}),
+	}).server(async () => {
 		const pools = await getZfsPools();
 		return pools.map((p) => ({
 			name: p.name,
@@ -959,16 +953,14 @@ export const getZfsPoolsTool = withTool(
 	}
 );
 
-export const getZfsPoolStatusTool = withTool(
-	{
+export const getZfsPoolStatusTool = toolDefinition({
 		name: "get_zfs_pool_status",
 		description:
 			"Get detailed ZFS pool status including drive health, scrub status, and errors. Use when investigating storage issues, checking drive health, or monitoring scrub progress.",
-		input: z.object({
+		inputSchema: z.object({
 			pool: z.string().describe("Name of the ZFS pool (e.g., 'tank')"),
 		}),
-	},
-	async ({ pool }) => {
+	}).server(async ({ pool }) => {
 		const status = await getZfsPoolStatus(pool);
 		if (!status) {
 			return { error: `Pool '${pool}' not found or inaccessible` };
@@ -1000,14 +992,12 @@ export const getZfsPoolStatusTool = withTool(
 	}
 );
 
-export const getZfsDatasetsTool = withTool(
-	{
+export const getZfsDatasetsTool = toolDefinition({
 		name: "get_zfs_datasets",
 		description:
 			"Get ZFS dataset usage including compression ratios. Use when checking storage usage per dataset, seeing what's using space, or monitoring compression effectiveness.",
-		input: z.object({}),
-	},
-	async () => {
+		inputSchema: z.object({}),
+	}).server(async () => {
 		const datasets = await getZfsDatasets();
 		return datasets.map((d) => ({
 			name: d.name,
@@ -1019,16 +1009,14 @@ export const getZfsDatasetsTool = withTool(
 	}
 );
 
-export const getZfsIostatTool = withTool(
-	{
+export const getZfsIostatTool = toolDefinition({
 		name: "get_zfs_iostat",
 		description:
 			"Get current ZFS pool I/O statistics including read/write operations and bandwidth. Use when monitoring storage performance or investigating slow I/O.",
-		input: z.object({
+		inputSchema: z.object({
 			pool: z.string().describe("Name of the ZFS pool (e.g., 'tank')"),
 		}),
-	},
-	async ({ pool }) => {
+	}).server(async ({ pool }) => {
 		const iostat = await getZfsIostat(pool);
 		if (!iostat) {
 			return { error: `Pool '${pool}' not found or inaccessible` };
@@ -1048,17 +1036,15 @@ export const getZfsIostatTool = withTool(
 	}
 );
 
-export const getDirectorySizesTool = withTool(
-	{
+export const getDirectorySizesTool = toolDefinition({
 		name: "get_directory_sizes",
 		description:
 			"Get sizes of directories within a path (like 'du -sh'). Use when checking what's using space in /tank or /srv, finding large directories, or investigating disk usage.",
-		input: z.object({
+		inputSchema: z.object({
 			path: z.string().describe("Path to analyze (must start with /tank or /srv)"),
 			depth: z.number().optional().describe("Directory depth to scan (1-5, default: 2)"),
 		}),
-	},
-	async ({ path, depth = 2 }) => {
+	}).server(async ({ path, depth = 2 }) => {
 		const sizes = await getDirectorySizes(path, depth);
 		if (sizes.length === 0) {
 			return { error: `No data for path '${path}' or path not allowed` };
@@ -1072,23 +1058,21 @@ export const getDirectorySizesTool = withTool(
 );
 
 export const zfsTools = [
-	getZfsPoolsTool.tool,
-	getZfsPoolStatusTool.tool,
-	getZfsDatasetsTool.tool,
-	getZfsIostatTool.tool,
-	getDirectorySizesTool.tool,
+	getZfsPoolsTool,
+	getZfsPoolStatusTool,
+	getZfsDatasetsTool,
+	getZfsIostatTool,
+	getDirectorySizesTool,
 ];
 
 // === Qdrant AI Tools ===
 
-export const getQdrantInfoTool = withTool(
-	{
+export const getQdrantInfoTool = toolDefinition({
 		name: "get_qdrant_info",
 		description:
 			"Get Qdrant vector database status and collection statistics. Use when checking embedding storage, vector database health, or how many embeddings are stored.",
-		input: z.object({}),
-	},
-	async () => {
+		inputSchema: z.object({}),
+	}).server(async () => {
 		const info = await getQdrantInfo();
 		return {
 			healthy: info.healthy,
@@ -1105,10 +1089,10 @@ export const getQdrantInfoTool = withTool(
 );
 
 export const systemInfoTools = [
-	getSystemStatsTool.tool,
-	getDrivesTool.tool,
+	getSystemStatsTool,
+	getDrivesTool,
 	...zfsTools,
-	getQdrantInfoTool.tool,
+	getQdrantInfoTool,
 ];
 
 // === Unified Storage API ===
@@ -1320,14 +1304,12 @@ export async function exploreStoragePath(
 
 // === Storage AI Tool ===
 
-export const getStorageOverviewTool = withTool(
-	{
+export const getStorageOverviewTool = toolDefinition({
 		name: "get_storage_overview",
 		description:
 			"Get an overview of all storage: ZFS pools and mounted drives with their usage and directory breakdown. Use when checking disk space, storage health, or what's using space.",
-		input: z.object({}),
-	},
-	async () => {
+		inputSchema: z.object({}),
+	}).server(async () => {
 		const storage = await getStorageRoots(2); // Lighter depth for AI
 		return storage.roots.map((r) => ({
 			type: r.type,
