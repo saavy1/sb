@@ -26,15 +26,10 @@ export function ChatView({ threadId: propThreadId, onThreadChange }: Props) {
 		setActiveThreadId(propThreadId ?? null);
 	}, [propThreadId]);
 
-	const {
-		messages,
-		sendMessage,
-		isLoading,
-		error,
-		setMessages,
-	} = useChat({
+	const { messages, sendMessage, isLoading, error, setMessages } = useChat({
 		connection: fetchServerSentEvents(
-			() => `${API_URL}/api/agent/chat${activeThreadIdRef.current ? `?threadId=${activeThreadIdRef.current}` : ""}`,
+			() =>
+				`${API_URL}/api/agent/chat${activeThreadIdRef.current ? `?threadId=${activeThreadIdRef.current}` : ""}`
 		),
 	});
 
@@ -65,15 +60,12 @@ export function ChatView({ threadId: propThreadId, onThreadChange }: Props) {
 	}, [activeThreadId]);
 
 	// Listen for thread:updated events (title changes from workers)
-	const handleThreadUpdated = useCallback(
-		(payload: { id: string; title: string | null }) => {
-			if (payload.id === activeThreadIdRef.current) {
-				// Thread was updated (e.g., by a worker) — could trigger refetch
-				// For now, the title update is handled by the sidebar
-			}
-		},
-		[]
-	);
+	const handleThreadUpdated = useCallback((payload: { id: string; title: string | null }) => {
+		if (payload.id === activeThreadIdRef.current) {
+			// Thread was updated (e.g., by a worker) — could trigger refetch
+			// For now, the title update is handled by the sidebar
+		}
+	}, []);
 	useEvents("thread:updated", handleThreadUpdated);
 
 	const handleSubmit = async () => {
@@ -109,11 +101,7 @@ export function ChatView({ threadId: propThreadId, onThreadChange }: Props) {
 	return (
 		<div className="flex h-full flex-col">
 			<div className="flex-1 overflow-hidden">
-				<ChatMessages
-					messages={messages}
-					isLoading={isLoading}
-					error={error?.message ?? null}
-				/>
+				<ChatMessages messages={messages} isLoading={isLoading} error={error?.message ?? null} />
 			</div>
 			<ChatInput value={input} onChange={setInput} onSubmit={handleSubmit} isLoading={isLoading} />
 		</div>
