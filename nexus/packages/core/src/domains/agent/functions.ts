@@ -416,22 +416,14 @@ export async function runAgentLoop(
 
 	log.info({ threadId: thread.id, trigger }, "Starting agent loop");
 
-	// Get existing messages, narrowing content for text-only adapter
-	const messages = thread.messages.map(m => ({
-		role: m.role,
-		content: typeof m.content === "string" || m.content === null ? m.content : null,
-		toolCalls: m.toolCalls,
-		toolCallId: m.toolCallId,
-		name: m.name,
-	}));
+	const messages = [...thread.messages];
 
 	// Add trigger as new message
 	if (trigger.type === "message") {
-		messages.push({ role: "user" as const, content: trigger.content, toolCalls: undefined, toolCallId: undefined, name: undefined });
+		messages.push({ role: "user" as const, content: trigger.content });
 	} else {
-		// Wake trigger - inject as user message with prefix
 		const wakeContent = `[SYSTEM WAKE] Scheduled wake: ${trigger.reason}`;
-		messages.push({ role: "user" as const, content: wakeContent, toolCalls: undefined, toolCallId: undefined, name: undefined });
+		messages.push({ role: "user" as const, content: wakeContent });
 	}
 
 	// Clear wake state if this was a wake
@@ -450,9 +442,11 @@ export async function runAgentLoop(
 
 	let response: string;
 	try {
+		// convertMessagesToModelMessages returns ModelMessage[] but chat() expects
+		// ConstrainedModelMessage — a known TanStack AI type gap (their internal code uses `as any`)
 		const stream = chat({
 			adapter,
-			messages,
+			messages: messages as Parameters<typeof chat>[0]["messages"],
 			systemPrompts: [AGENT_SYSTEM_PROMPT + contextStr],
 			tools: allTools,
 			agentLoopStrategy: maxIterations(10),
@@ -466,7 +460,7 @@ export async function runAgentLoop(
 	// Build new messages to persist: original messages + assistant response
 	const newMessages = [...messages];
 	if (response) {
-		newMessages.push({ role: "assistant" as const, content: response, toolCalls: undefined, toolCallId: undefined, name: undefined });
+		newMessages.push({ role: "assistant" as const, content: response });
 	}
 
 	// Persist final state
@@ -508,7 +502,7 @@ export async function runAgentLoop(
 	// Generate title after first user message + response (async, don't block)
 	const userMessages = newMessages.filter((m) => m.role === "user");
 	if (userMessages.length === 1 && response && !thread.title) {
-		const userContent = userMessages[0].content || "";
+		const userContent = typeof userMessages[0].content === "string" ? userMessages[0].content : "";
 		generateConversationTitle(userContent, response).then((title) => {
 			if (title) {
 				log.info({ threadId: thread.id, title }, "Generated thread title");

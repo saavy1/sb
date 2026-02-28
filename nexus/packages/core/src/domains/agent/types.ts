@@ -19,21 +19,6 @@ export const ThreadSource = t.Union([
 ]);
 export type ThreadSourceType = typeof ThreadSource.static;
 
-// ModelMessage format: matches @tanstack/ai ModelMessage for direct LLM use
-export const ModelMessageSchema = t.Object({
-	role: t.Union([t.Literal("user"), t.Literal("assistant"), t.Literal("tool")]),
-	content: t.Union([t.String(), t.Null()]),
-	toolCalls: t.Optional(t.Array(t.Object({
-		id: t.String(),
-		type: t.Literal("function"),
-		function: t.Object({
-			name: t.String(),
-			arguments: t.String(),
-		}),
-	}))),
-	toolCallId: t.Optional(t.String()),
-	name: t.Optional(t.String()),
-});
 // === API schemas ===
 
 export const AgentThreadResponse = t.Object({
@@ -55,7 +40,7 @@ export const AgentThreadDetail = t.Object({
 	source: ThreadSource,
 	sourceId: t.Nullable(t.String()),
 	title: t.Nullable(t.String()),
-	messages: t.Array(ModelMessageSchema),
+	messages: t.Array(t.Any()),
 	context: t.Record(t.String(), t.Any()),
 	wakeJobId: t.Nullable(t.String()),
 	wakeReason: t.Nullable(t.String()),
