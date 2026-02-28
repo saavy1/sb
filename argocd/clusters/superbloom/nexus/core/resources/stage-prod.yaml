@@ -66,31 +66,3 @@ spec:
             path: ./work
             targetBranch: ${{ vars.targetBranch }}
             provider: github
-        - uses: argocd-update
-          config:
-            apps:
-              - name: nexus-api
-                namespace: argocd
-                sources:
-                  - repoURL: ${{ vars.gitRepo }}
-                    desiredRevision: ${{ outputs.push.commit }}
-              - name: nexus-bot
-                namespace: argocd
-                sources:
-                  - repoURL: ${{ vars.gitRepo }}
-                    desiredRevision: ${{ outputs.push.commit }}
-              - name: nexus-agent-worker
-                namespace: argocd
-                sources:
-                  - repoURL: ${{ vars.gitRepo }}
-                    desiredRevision: ${{ outputs.push.commit }}
-              - name: nexus-embeddings-worker
-                namespace: argocd
-                sources:
-                  - repoURL: ${{ vars.gitRepo }}
-                    desiredRevision: ${{ outputs.push.commit }}
-              - name: nexus-mc-monitor
-                namespace: argocd
-                sources:
-                  - repoURL: ${{ vars.gitRepo }}
-                    desiredRevision: ${{ outputs.push.commit }}
