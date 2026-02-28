@@ -10,6 +10,20 @@ spec:
   destination:
     server: https://kubernetes.default.svc
     namespace: infisical
+  ignoreDifferences:
+    - group: ""
+      kind: Secret
+      name: postgresql
+      namespace: infisical
+      jsonPointers:
+        - /data/postgres-password
+    - group: apps
+      kind: Deployment
+      name: infisical
+      namespace: infisical
+      jsonPointers:
+        - /metadata/annotations/updatedAt
+        - /spec/template/metadata/annotations/updatedAt
   sources:
     - repoURL: https://dl.cloudsmith.io/public/infisical/helm-charts/helm/charts/
       chart: infisical-standalone
@@ -28,4 +42,5 @@ spec:
     syncOptions:
       - CreateNamespace=true
       - ApplyOutOfSyncOnly=true
+      - RespectIgnoreDifferences=true
       - ServerSideApply=true
