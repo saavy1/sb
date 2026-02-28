@@ -6,18 +6,18 @@ metadata:
 spec:
   subscriptions:
     - image:
-        repoURL: ghcr.io/saavy1/nexus
+        repoURL: registry.saavylab.dev/saavy1/nexus
         imageSelectionStrategy: Digest
         constraint: latest
     - image:
-        repoURL: ghcr.io/saavy1/nexus-bot
+        repoURL: registry.saavylab.dev/saavy1/nexus-bot
         imageSelectionStrategy: Digest
         constraint: latest
     - image:
-        repoURL: ghcr.io/saavy1/nexus-agent-worker
+        repoURL: registry.saavylab.dev/saavy1/nexus-agent-worker
         imageSelectionStrategy: Digest
         constraint: latest
     - image:
-        repoURL: ghcr.io/saavy1/nexus-mc-monitor
+        repoURL: registry.saavylab.dev/saavy1/nexus-mc-monitor
         imageSelectionStrategy: Digest
         constraint: latest

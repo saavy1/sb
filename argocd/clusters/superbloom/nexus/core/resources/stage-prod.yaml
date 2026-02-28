@@ -28,28 +28,38 @@ spec:
           config:
             path: ./work/argocd/clusters/superbloom/nexus/api/values.yaml
             updates:
+              - key: controllers.main.initContainers.db-migrate.image.repository
+                value: registry.saavylab.dev/saavy1/nexus
+              - key: controllers.main.containers.main.image.repository
+                value: registry.saavylab.dev/saavy1/nexus
               - key: controllers.main.initContainers.db-migrate.image.digest
-                value: ${{ imageFrom("ghcr.io/saavy1/nexus").Digest }}
+                value: ${{ imageFrom("registry.saavylab.dev/saavy1/nexus").Digest }}
               - key: controllers.main.containers.main.image.digest
-                value: ${{ imageFrom("ghcr.io/saavy1/nexus").Digest }}
+                value: ${{ imageFrom("registry.saavylab.dev/saavy1/nexus").Digest }}
         - uses: yaml-update
           config:
             path: ./work/argocd/clusters/superbloom/nexus/bot/values.yaml
             updates:
+              - key: controllers.main.containers.main.image.repository
+                value: registry.saavylab.dev/saavy1/nexus-bot
               - key: controllers.main.containers.main.image.digest
-                value: ${{ imageFrom("ghcr.io/saavy1/nexus-bot").Digest }}
+                value: ${{ imageFrom("registry.saavylab.dev/saavy1/nexus-bot").Digest }}
         - uses: yaml-update
           config:
             path: ./work/argocd/clusters/superbloom/nexus/agent-worker/values.yaml
             updates:
+              - key: controllers.main.containers.main.image.repository
+                value: registry.saavylab.dev/saavy1/nexus-agent-worker
               - key: controllers.main.containers.main.image.digest
-                value: ${{ imageFrom("ghcr.io/saavy1/nexus-agent-worker").Digest }}
+                value: ${{ imageFrom("registry.saavylab.dev/saavy1/nexus-agent-worker").Digest }}
         - uses: yaml-update
           config:
             path: ./work/argocd/clusters/superbloom/nexus/mc-monitor/values.yaml
             updates:
+              - key: controllers.main.containers.main.image.repository
+                value: registry.saavylab.dev/saavy1/nexus-mc-monitor
               - key: controllers.main.containers.main.image.digest
-                value: ${{ imageFrom("ghcr.io/saavy1/nexus-mc-monitor").Digest }}
+                value: ${{ imageFrom("registry.saavylab.dev/saavy1/nexus-mc-monitor").Digest }}
         - uses: git-commit
           config:
             path: ./work

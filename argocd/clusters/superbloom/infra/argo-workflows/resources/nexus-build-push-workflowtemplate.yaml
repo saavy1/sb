@@ -1,0 +1,106 @@
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: nexus-build-push
+  namespace: argo
+spec:
+  entrypoint: build-push
+  arguments:
+    parameters:
+      - name: revision
+        value: main
+      - name: repoURL
+        value: https://github.com/saavy1/sb.git
+      - name: registry
+        value: registry.saavylab.dev
+      - name: imageOwner
+        value: saavy1
+  podGC:
+    strategy: OnWorkflowSuccess
+  ttlStrategy:
+    secondsAfterSuccess: 86400
+    secondsAfterFailure: 604800
+  templates:
+    - name: build-push
+      steps:
+        - - name: build-api
+            template: build-image
+            arguments:
+              parameters:
+                - name: revision
+                  value: "{{workflow.parameters.revision}}"
+                - name: repoURL
+                  value: "{{workflow.parameters.repoURL}}"
+                - name: dockerfile
+                  value: /workdir/nexus/apps/api/Dockerfile
+                - name: image
+                  value: "{{workflow.parameters.registry}}/{{workflow.parameters.imageOwner}}/nexus"
+          - name: build-bot
+            template: build-image
+            arguments:
+              parameters:
+                - name: revision
+                  value: "{{workflow.parameters.revision}}"
+                - name: repoURL
+                  value: "{{workflow.parameters.repoURL}}"
+                - name: dockerfile
+                  value: /workdir/nexus/apps/bot/Dockerfile
+                - name: image
+                  value: "{{workflow.parameters.registry}}/{{workflow.parameters.imageOwner}}/nexus-bot"
+          - name: build-agent-worker
+            template: build-image
+            arguments:
+              parameters:
+                - name: revision
+                  value: "{{workflow.parameters.revision}}"
+                - name: repoURL
+                  value: "{{workflow.parameters.repoURL}}"
+                - name: dockerfile
+                  value: /workdir/nexus/workers/agent/Dockerfile
+                - name: image
+                  value: "{{workflow.parameters.registry}}/{{workflow.parameters.imageOwner}}/nexus-agent-worker"
+          - name: build-mc-monitor
+            template: build-image
+            arguments:
+              parameters:
+                - name: revision
+                  value: "{{workflow.parameters.revision}}"
+                - name: repoURL
+                  value: "{{workflow.parameters.repoURL}}"
+                - name: dockerfile
+                  value: /workdir/nexus/workers/mc-monitor/Dockerfile
+                - name: image
+                  value: "{{workflow.parameters.registry}}/{{workflow.parameters.imageOwner}}/nexus-mc-monitor"
+
+    - name: build-image
+      inputs:
+        parameters:
+          - name: revision
+          - name: repoURL
+          - name: dockerfile
+          - name: image
+        artifacts:
+          - name: source
+            path: /workdir
+            git:
+              repo: "{{inputs.parameters.repoURL}}"
+              revision: "{{inputs.parameters.revision}}"
+      container:
+        image: gcr.io/kaniko-project/executor:v1.23.2-debug
+        args:
+          - "--context=/workdir/nexus"
+          - "--dockerfile={{inputs.parameters.dockerfile}}"
+          - "--destination={{inputs.parameters.image}}:latest"
+          - "--destination={{inputs.parameters.image}}:{{workflow.uid}}"
+          - "--snapshot-mode=redo"
+          - "--use-new-run"
+        volumeMounts:
+          - name: docker-config
+            mountPath: /kaniko/.docker
+      volumes:
+        - name: docker-config
+          secret:
+            secretName: zot-push
+            items:
+              - key: .dockerconfigjson
+                path: config.json
