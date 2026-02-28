@@ -7,5 +7,4 @@ resources:
   - infisical/
   - caddy/
   - authelia/
-  - ddns/
   - alloy/
