@@ -1,0 +1,39 @@
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: nexus-ci
+  namespace: argo
+spec:
+  entrypoint: ci
+  arguments:
+    parameters:
+      - name: revision
+        value: main
+  podGC:
+    strategy: OnWorkflowSuccess
+  ttlStrategy:
+    secondsAfterSuccess: 86400
+    secondsAfterFailure: 604800
+  templates:
+    - name: ci
+      inputs:
+        parameters:
+          - name: revision
+        artifacts:
+          - name: source
+            path: /workdir
+            git:
+              repo: https://github.com/saavy1/sb.git
+              revision: "{{inputs.parameters.revision}}"
+      container:
+        image: ghcr.io/oven-sh/bun:1.3.9
+        command:
+          - sh
+          - -ec
+        args:
+          - |
+            cd /workdir/nexus
+            bun install --frozen-lockfile
+            bun run typecheck
+            bun run check
+            bun run test

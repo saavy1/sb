@@ -1,0 +1,4 @@
+singleNamespace: true
+server:
+  authModes:
+    - server
