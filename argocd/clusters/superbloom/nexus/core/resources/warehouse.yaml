@@ -1,0 +1,27 @@
+apiVersion: kargo.akuity.io/v1alpha1
+kind: Warehouse
+metadata:
+  name: nexus-images
+  namespace: nexus
+spec:
+  subscriptions:
+    - image:
+        repoURL: ghcr.io/saavy1/nexus
+        imageSelectionStrategy: Digest
+        constraint: latest
+    - image:
+        repoURL: ghcr.io/saavy1/nexus-bot
+        imageSelectionStrategy: Digest
+        constraint: latest
+    - image:
+        repoURL: ghcr.io/saavy1/nexus-agent-worker
+        imageSelectionStrategy: Digest
+        constraint: latest
+    - image:
+        repoURL: ghcr.io/saavy1/nexus-embeddings-worker
+        imageSelectionStrategy: Digest
+        constraint: latest
+    - image:
+        repoURL: ghcr.io/saavy1/nexus-mc-monitor
+        imageSelectionStrategy: Digest
+        constraint: latest
