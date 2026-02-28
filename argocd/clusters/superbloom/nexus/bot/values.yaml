@@ -1,3 +1,7 @@
+defaultPodOptions:
+  imagePullSecrets:
+    - name: nexus-registry-pull
+
 controllers:
   main:
     replicas: 1
