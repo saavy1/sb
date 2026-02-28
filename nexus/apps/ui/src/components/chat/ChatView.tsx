@@ -1,9 +1,8 @@
-import { useChat } from "@tanstack/ai-react";
 import { fetchServerSentEvents } from "@tanstack/ai-client";
 import type { UIMessage } from "@tanstack/ai-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useChat } from "@tanstack/ai-react";
+import { useEffect, useRef, useState } from "react";
 import { API_URL, client } from "../../lib/api";
-import { useEvents } from "../../lib/useEvents";
 import { ChatInput } from "./ChatInput";
 import { ChatMessages } from "./ChatMessages";
 
@@ -15,6 +14,7 @@ type Props = {
 export function ChatView({ threadId: propThreadId, onThreadChange }: Props) {
 	const [activeThreadId, setActiveThreadId] = useState<string | null>(propThreadId ?? null);
 	const [input, setInput] = useState("");
+	const [submitError, setSubmitError] = useState<string | null>(null);
 	const activeThreadIdRef = useRef<string | null>(activeThreadId);
 
 	useEffect(() => {
@@ -59,20 +59,12 @@ export function ChatView({ threadId: propThreadId, onThreadChange }: Props) {
 		loadThread();
 	}, [activeThreadId]);
 
-	// Listen for thread:updated events (title changes from workers)
-	const handleThreadUpdated = useCallback((payload: { id: string; title: string | null }) => {
-		if (payload.id === activeThreadIdRef.current) {
-			// Thread was updated (e.g., by a worker) — could trigger refetch
-			// For now, the title update is handled by the sidebar
-		}
-	}, []);
-	useEvents("thread:updated", handleThreadUpdated);
-
 	const handleSubmit = async () => {
 		if (!input.trim() || isLoading) return;
 
 		const messageContent = input.trim();
 		setInput("");
+		setSubmitError(null);
 
 		try {
 			// Create thread if needed
@@ -94,14 +86,20 @@ export function ChatView({ threadId: propThreadId, onThreadChange }: Props) {
 			// Send message via useChat — SSE stream handles the rest
 			await sendMessage(messageContent);
 		} catch (err) {
+			const message = err instanceof Error ? err.message : "Failed to send message";
 			console.error("Failed to send message:", err);
+			setSubmitError(message);
 		}
 	};
 
 	return (
 		<div className="flex h-full flex-col">
 			<div className="flex-1 overflow-hidden">
-				<ChatMessages messages={messages} isLoading={isLoading} error={error?.message ?? null} />
+				<ChatMessages
+					messages={messages}
+					isLoading={isLoading}
+					error={submitError ?? error?.message ?? null}
+				/>
 			</div>
 			<ChatInput value={input} onChange={setInput} onSubmit={handleSubmit} isLoading={isLoading} />
 		</div>

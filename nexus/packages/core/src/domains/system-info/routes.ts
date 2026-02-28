@@ -1,7 +1,6 @@
 import { Elysia, t } from "elysia";
 import logger from "@nexus/logger";
 import { withRetry } from "../../infra/db";
-import { getQdrantInfo } from "../../infra/qdrant";
 import {
 	createDrive,
 	deleteDrive,
@@ -26,7 +25,6 @@ import {
 	Drive,
 	DriveIdParam,
 	DriveWithStats,
-	QdrantInfo,
 	SuggestedDrive,
 	SystemOverview,
 	UpdateDriveRequest,
@@ -346,22 +344,6 @@ export const systemInfoRoutes = new Elysia({ prefix: "/systemInfo" })
 				depth: t.Optional(t.String()),
 			}),
 			response: { 200: t.Array(DirectorySize), 400: ApiError },
-		}
-	)
-
-	// === Qdrant Routes ===
-
-	.get(
-		"/qdrant",
-		async () => {
-			return await getQdrantInfo();
-		},
-		{
-			detail: {
-				tags: ["System Info", "Qdrant"],
-				summary: "Get Qdrant vector database info and collection stats",
-			},
-			response: { 200: QdrantInfo },
 		}
 	)
 

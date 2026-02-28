@@ -1,14 +1,12 @@
 import { chat, maxIterations, streamToText, toolDefinition } from "@tanstack/ai";
 import { createOpenRouterText } from "@tanstack/ai-openrouter";
 import logger from "@nexus/logger";
-import OpenAI from "openai";
 import { z } from "zod";
 import { generateConversationTitle } from "../../infra/ai";
 import { config } from "../../infra/config";
 import { notify } from "../../infra/discord";
 import { appEvents } from "../../infra/events";
-import { EMBEDDINGS_COLLECTION, qdrant } from "../../infra/qdrant";
-import { agentWakeQueue, embeddingsQueue } from "../../infra/queue";
+import { agentWakeQueue } from "../../infra/queue";
 import { appTools } from "../apps/functions";
 import { getAiModel } from "../core/functions";
 import { gameServerTools } from "../game-servers/functions";
@@ -19,7 +17,6 @@ import { agentRepository } from "./repository";
 import type { AgentThread } from "./schema";
 
 import type {
-	EmbeddingJobDataType,
 	ThreadSourceType,
 	WakeJobDataType,
 } from "./types";
@@ -62,14 +59,6 @@ You also have special tools to control your own lifecycle:
 - complete_task: Mark the current task as complete when done
 - store_context: Store information you'll need later (persists across sleep/wake)
 - send_notification: Send a Discord notification to alert the user about important events
-- search_history: Search your past conversations for relevant context
-
-## Using search_history
-Use search_history when:
-- User references something from the past ("like we did before", "remember when...")
-- You need context about recurring issues or patterns
-- Looking up how you solved a similar problem previously
-- The user asks about previous conversations or decisions
 
 ## Using schedule_wake
 When you take an action that needs follow-up, schedule yourself to wake later:
@@ -175,7 +164,7 @@ ALWAYS ASK before:
 
 // === Helper functions ===
 
-function generateId(): string {
+export function generateId(): string {
 	return crypto.randomUUID().slice(0, 8);
 }
 
@@ -192,126 +181,6 @@ function parseDelay(delay: string): number {
 		d: 86400_000,
 	};
 	return parseInt(amount, 10) * multipliers[unit];
-}
-
-/**
- * Queue a message for embedding generation.
- * Skips tool messages and empty content.
- */
-export async function queueEmbedding(
-	threadId: string,
-	messageId: string,
-	role: "user" | "assistant" | "system",
-	content: string
-): Promise<void> {
-	// Skip empty or very short content
-	if (!content || content.trim().length < 10) {
-		return;
-	}
-
-	try {
-		await embeddingsQueue.add("embedding", {
-			threadId,
-			messageId,
-			role,
-			content,
-			createdAt: new Date().toISOString(),
-		} satisfies EmbeddingJobDataType);
-		log.debug({ threadId, messageId, role }, "Queued embedding job");
-	} catch (err) {
-		// Don't fail the main flow if embedding queue fails
-		log.warn({ err, threadId, messageId }, "Failed to queue embedding job");
-	}
-}
-
-// === History Search ===
-
-interface HistorySearchResult {
-	threadId: string;
-	messageId: string;
-	role: string;
-	content: string;
-	createdAt: string;
-	score: number;
-}
-
-/**
- * Search conversation history using semantic similarity.
- * Returns the most relevant messages from past conversations.
- */
-export async function searchHistory(
-	query: string,
-	options?: {
-		limit?: number;
-		roleFilter?: "user" | "assistant" | "system";
-		excludeThreadId?: string;
-	}
-): Promise<HistorySearchResult[]> {
-	if (!config.OPENAI_API_KEY) {
-		log.warn("OPENAI_API_KEY not configured, history search unavailable");
-		return [];
-	}
-
-	const limit = options?.limit ?? 5;
-
-	try {
-		// Generate embedding for the query
-		const openai = new OpenAI({ apiKey: config.OPENAI_API_KEY });
-		const response = await openai.embeddings.create({
-			model: config.EMBEDDING_MODEL,
-			input: query,
-		});
-		const queryVector = response.data[0].embedding;
-
-		// Build filter conditions
-		const filterConditions: Array<{
-			key: string;
-			match?: { value: string };
-			range?: { gt?: string; gte?: string; lt?: string; lte?: string };
-		}> = [];
-
-		if (options?.roleFilter) {
-			filterConditions.push({
-				key: "role",
-				match: { value: options.roleFilter },
-			});
-		}
-
-		// Search Qdrant
-		const searchResult = await qdrant.search(EMBEDDINGS_COLLECTION, {
-			vector: queryVector,
-			limit: limit + (options?.excludeThreadId ? 10 : 0), // Get extra to filter
-			with_payload: true,
-			filter: filterConditions.length > 0 ? { must: filterConditions } : undefined,
-		});
-
-		// Filter and map results
-		const results = searchResult
-			.filter((hit) => {
-				if (options?.excludeThreadId && hit.payload?.threadId === options.excludeThreadId) {
-					return false;
-				}
-				return true;
-			})
-			.slice(0, limit)
-			.map((hit) => ({
-				threadId: hit.payload?.threadId as string,
-				messageId: hit.payload?.messageId as string,
-				role: hit.payload?.role as string,
-				content: hit.payload?.content as string,
-				createdAt: hit.payload?.createdAt as string,
-				score: hit.score,
-			}));
-
-		log.debug(
-			{ query: query.slice(0, 50), resultCount: results.length },
-			"History search completed"
-		);
-		return results;
-	} catch (err) {
-		log.error({ err, query: query.slice(0, 50) }, "History search failed");
-		return [];
-	}
 }
 
 // === Meta-tools (agent lifecycle control) ===
@@ -454,55 +323,12 @@ Example: send_notification({ message: "Server minecraft-smp is now online with 3
 		}
 	);
 
-	const searchHistoryTool = toolDefinition({
-			name: "search_history",
-			description: `Search your conversation history for relevant past interactions. Use this to recall what you've discussed before, find past decisions, or remember context from earlier conversations.
-- query: What to search for (natural language)
-- limit: Max results (default 5)
-
-Example: search_history({ query: "minecraft server issues", limit: 3 })`,
-			inputSchema: z.object({
-				query: z.string().describe("Natural language search query"),
-				limit: z
-					.number()
-					.min(1)
-					.max(10)
-					.optional()
-					.describe("Maximum number of results (1-10, default 5)"),
-			}),
-		}).server(async ({ query, limit }) => {
-			const results = await searchHistory(query, {
-				limit: limit ?? 5,
-				excludeThreadId: thread.id, // Don't include current conversation
-			});
-
-			if (results.length === 0) {
-				return {
-					found: false,
-					message: "No relevant past conversations found",
-				};
-			}
-
-			return {
-				found: true,
-				count: results.length,
-				results: results.map((r) => ({
-					role: r.role,
-					content: r.content.slice(0, 500) + (r.content.length > 500 ? "..." : ""),
-					date: r.createdAt,
-					relevance: `${Math.round(r.score * 100)}%`,
-				})),
-			};
-		}
-	);
-
 	return [
 		scheduleWakeTool,
 		completeTaskTool,
 		storeContextTool,
 		getContextTool,
 		sendNotificationTool,
-		searchHistoryTool,
 	];
 }
 
@@ -602,12 +428,10 @@ export async function runAgentLoop(
 	// Add trigger as new message
 	if (trigger.type === "message") {
 		messages.push({ role: "user" as const, content: trigger.content, toolCalls: undefined, toolCallId: undefined, name: undefined });
-		queueEmbedding(thread.id, generateId(), "user", trigger.content);
 	} else {
 		// Wake trigger - inject as user message with prefix
 		const wakeContent = `[SYSTEM WAKE] Scheduled wake: ${trigger.reason}`;
 		messages.push({ role: "user" as const, content: wakeContent, toolCalls: undefined, toolCallId: undefined, name: undefined });
-		queueEmbedding(thread.id, generateId(), "system", wakeContent);
 	}
 
 	// Clear wake state if this was a wake
@@ -621,20 +445,28 @@ export async function runAgentLoop(
 	const contextStr = getContextStr(thread);
 
 	// Run chat with built-in agent loop (non-streaming for workers)
-	const stream = chat({
-		adapter,
-		messages,
-		systemPrompts: [AGENT_SYSTEM_PROMPT + contextStr],
-		tools: allTools,
-		agentLoopStrategy: maxIterations(10),
-	});
-	const response = await streamToText(stream);
+	const abortController = new AbortController();
+	const timeout = setTimeout(() => abortController.abort(), 120_000);
+
+	let response: string;
+	try {
+		const stream = chat({
+			adapter,
+			messages,
+			systemPrompts: [AGENT_SYSTEM_PROMPT + contextStr],
+			tools: allTools,
+			agentLoopStrategy: maxIterations(10),
+			abortController,
+		});
+		response = await streamToText(stream);
+	} finally {
+		clearTimeout(timeout);
+	}
 
 	// Build new messages to persist: original messages + assistant response
 	const newMessages = [...messages];
 	if (response) {
 		newMessages.push({ role: "assistant" as const, content: response, toolCalls: undefined, toolCallId: undefined, name: undefined });
-		queueEmbedding(thread.id, generateId(), "assistant", response);
 	}
 
 	// Persist final state

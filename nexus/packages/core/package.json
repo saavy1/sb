@@ -24,14 +24,12 @@
 		"@nexus/k8s": "workspace:*",
 		"@nexus/logger": "workspace:*",
 		"@nexus/mc-monitor": "workspace:*",
-		"@qdrant/js-client-rest": "^1.16.2",
 		"@tanstack/ai": "^0.5.1",
 		"@tanstack/ai-openrouter": "^0.5.1",
 		"bullmq": "catalog:",
 		"drizzle-orm": "^0.45.1",
 		"elysia": "catalog:",
 		"ioredis": "catalog:",
-		"openai": "^6.13.0",
 		"zod": "catalog:"
 	},
 	"devDependencies": {

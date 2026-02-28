@@ -87,8 +87,10 @@ export const ApiError = t.Object({
 	error: t.String(),
 });
 
-// === TanStack AI chat request (UIMessage[] from useChat) ===
-// Messages are validated by the SDK's convertMessagesToModelMessages at conversion time
+// === TanStack AI chat request ===
+// Body typing is deliberately t.Any() — TanStack AI's useChat sends UIMessage[]
+// and convertMessagesToModelMessages handles validation. Elysia/Eden isn't used
+// for this endpoint (the client uses fetchServerSentEvents directly).
 
 export const ChatRequest = t.Object({
 	messages: t.Any(),
@@ -168,17 +170,6 @@ export const AlertmanagerPayload = t.Object({
 	alerts: t.Array(AlertmanagerAlert),
 });
 export type AlertmanagerPayloadType = typeof AlertmanagerPayload.static;
-
-// === Embeddings job data ===
-
-export const EmbeddingJobData = t.Object({
-	threadId: t.String(),
-	messageId: t.String(),
-	role: t.Union([t.Literal("user"), t.Literal("assistant"), t.Literal("system")]),
-	content: t.String(),
-	createdAt: t.String(), // ISO timestamp
-});
-export type EmbeddingJobDataType = typeof EmbeddingJobData.static;
 
 // === Discord ask job data ===
 

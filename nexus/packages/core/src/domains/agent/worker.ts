@@ -1,7 +1,4 @@
 import logger from "@nexus/logger";
-import OpenAI from "openai";
-import { config } from "../../infra/config";
-import { EMBEDDINGS_COLLECTION, qdrant } from "../../infra/qdrant";
 import { createWorker, QUEUES } from "../../infra/queue";
 import { tracedFetch } from "../../infra/telemetry";
 import { createThreadFromAlert, sendMessage, wakeThread } from "./functions";
@@ -9,7 +6,6 @@ import { agentRepository } from "./repository";
 import type {
 	AlertmanagerPayloadType,
 	DiscordAskJobDataType,
-	EmbeddingJobDataType,
 	GrafanaAlertPayloadType,
 	SystemEventJobType,
 	WakeJobDataType,
@@ -226,84 +222,6 @@ async function processAlertmanagerAlert(
 	}
 
 	return threadsCreated;
-}
-
-/**
- * Start the embeddings worker.
- * This generates embeddings for messages and stores them in Qdrant.
- */
-export function startEmbeddingsWorker() {
-	if (!config.OPENAI_API_KEY) {
-		log.warn("OPENAI_API_KEY not configured, embeddings worker disabled");
-		return null;
-	}
-
-	log.info("Starting embeddings worker");
-
-	const openai = new OpenAI({
-		apiKey: config.OPENAI_API_KEY,
-	});
-
-	const worker = createWorker<EmbeddingJobDataType>(
-		QUEUES.EMBEDDINGS,
-		async (job) => {
-			const { threadId, messageId, role, content, createdAt } = job.data;
-			const startTime = Date.now();
-
-			log.info(
-				{ jobId: job.id, threadId, messageId, role, contentLength: content.length },
-				"Processing embedding job"
-			);
-
-			try {
-				// Generate embedding via OpenAI
-				const response = await openai.embeddings.create({
-					model: config.EMBEDDING_MODEL,
-					input: content,
-				});
-
-				const embedding = response.data[0].embedding;
-
-				// Store in Qdrant (use full UUID for point ID since Qdrant requires UUID or uint)
-				const pointId = crypto.randomUUID();
-				await qdrant.upsert(EMBEDDINGS_COLLECTION, {
-					wait: true,
-					points: [
-						{
-							id: pointId,
-							vector: embedding,
-							payload: {
-								threadId,
-								messageId,
-								role,
-								content,
-								createdAt,
-							},
-						},
-					],
-				});
-
-				const durationMs = Date.now() - startTime;
-				log.info(
-					{
-						jobId: job.id,
-						threadId,
-						messageId,
-						durationMs,
-						tokenUsage: response.usage?.total_tokens,
-					},
-					"Embedding stored in Qdrant"
-				);
-			} catch (err) {
-				const durationMs = Date.now() - startTime;
-				log.error({ err, jobId: job.id, threadId, messageId, durationMs }, "Embedding job failed");
-				throw err;
-			}
-		},
-		{ concurrency: 5 } // Process multiple embeddings concurrently
-	);
-
-	return worker;
 }
 
 // Discord embed color for agent responses (purple)
