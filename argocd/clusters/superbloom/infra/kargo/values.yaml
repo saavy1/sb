@@ -8,6 +8,8 @@ api:
   tls:
     enabled: false
     terminatedUpstream: true
+  rollouts:
+    integrationEnabled: false
 
 externalWebhooksServer:
   enabled: false
@@ -22,3 +24,5 @@ controller:
   argocd:
     integrationEnabled: true
     namespace: argocd
+  rollouts:
+    integrationEnabled: false
