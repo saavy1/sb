@@ -4,20 +4,21 @@ metadata:
   name: nexus-images
   namespace: nexus
 spec:
+  freightCreationPolicy: Automatic
   subscriptions:
     - image:
-        repoURL: registry.saavylab.dev/saavy1/nexus
+        repoURL: zot.zot.svc.cluster.local:5000/saavy1/nexus
         imageSelectionStrategy: Digest
         constraint: latest
     - image:
-        repoURL: registry.saavylab.dev/saavy1/nexus-bot
+        repoURL: zot.zot.svc.cluster.local:5000/saavy1/nexus-bot
         imageSelectionStrategy: Digest
         constraint: latest
     - image:
-        repoURL: registry.saavylab.dev/saavy1/nexus-agent-worker
+        repoURL: zot.zot.svc.cluster.local:5000/saavy1/nexus-agent-worker
         imageSelectionStrategy: Digest
         constraint: latest
     - image:
-        repoURL: registry.saavylab.dev/saavy1/nexus-mc-monitor
+        repoURL: zot.zot.svc.cluster.local:5000/saavy1/nexus-mc-monitor
         imageSelectionStrategy: Digest
         constraint: latest

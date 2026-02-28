@@ -6,7 +6,7 @@ controllers:
     containers:
       main:
         image:
-          repository: ghcr.io/saavy1/nexus-agent-worker
+          repository: registry.saavylab.dev/saavy1/nexus-agent-worker
           tag: latest
           pullPolicy: Always
         env:

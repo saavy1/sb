@@ -4,7 +4,7 @@ controllers:
     containers:
       main:
         image:
-          repository: ghcr.io/saavy1/nexus-mc-monitor
+          repository: registry.saavylab.dev/saavy1/nexus-mc-monitor
           tag: latest
           pullPolicy: Always
         env:

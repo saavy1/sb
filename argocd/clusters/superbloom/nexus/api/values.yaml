@@ -5,7 +5,7 @@ controllers:
     initContainers:
       db-migrate:
         image:
-          repository: ghcr.io/saavy1/nexus
+          repository: registry.saavylab.dev/saavy1/nexus
           tag: latest
         command:
           - bun
@@ -19,7 +19,7 @@ controllers:
     containers:
       main:
         image:
-          repository: ghcr.io/saavy1/nexus
+          repository: registry.saavylab.dev/saavy1/nexus
           tag: latest
           pullPolicy: Always
         securityContext:
