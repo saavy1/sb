@@ -163,6 +163,22 @@ export const toolRegistry: ToolInfo[] = [
 		category: "Operations",
 	},
 
+	// Observability Tools
+	{
+		name: "search_loki_logs",
+		description: "Search historical logs in Loki for pattern detection and root cause analysis",
+		category: "Observability",
+		parameters: {
+			query: { type: "string", description: "Text to search for or full LogQL expression", required: true },
+			service: { type: "string", description: "Filter by Kubernetes app label", required: false },
+			namespace: { type: "string", description: "Filter by Kubernetes namespace", required: false },
+			level: { type: "string", description: "Filter by log level (ERROR, WARN, INFO, DEBUG)", required: false },
+			start: { type: "string", description: "Start of time range (e.g. '1h ago', '7d ago')", required: false },
+			end: { type: "string", description: "End of time range (default: 'now')", required: false },
+			limit: { type: "number", description: "Max log lines to return (default 100)", required: false },
+		},
+	},
+
 	// Agent Lifecycle Tools (meta-tools)
 	{
 		name: "schedule_wake",

@@ -176,7 +176,9 @@ Your toolset can grow over time. If you encounter a situation where having a too
 
 When chatting with a user, the request shows up naturally in the conversation. In background tasks (alerts, scheduled wakes), it sends a Discord notification so the team knows what to prioritize building.
 
-If a capability gap is blocking you repeatedly or is clearly well-defined, you can also use create_github_issue with "@claude" in the title to trigger automated implementation. For example: create_github_issue({ title: "@claude Add search_loki_logs tool to agent", body: "## Context\n...", labels: ["enhancement"] }). This will trigger Claude Code to implement the tool and submit a PR for review. Only do this for well-understood, clearly scoped tools — not vague ideas.
+If a capability gap is blocking you repeatedly or is clearly well-defined, you can also use create_github_issue with "@claude" in the title to trigger automated implementation via Claude Code in CI. Include "Use the /new-agent-tool skill" in the issue body so Claude Code follows the established patterns. For example:
+create_github_issue({ title: "@claude Add search_tempo_traces tool to agent", body: "## Context\\nThe agent needs to search distributed traces in Tempo to correlate errors across services.\\n\\n## Requirements\\n- Query traces by service name, operation, duration, status\\n- Return trace IDs with summary info\\n- Tempo API is at http://tempo.monitoring.svc.cluster.local:3200\\n\\nUse the /new-agent-tool skill to implement this.", labels: ["enhancement"] })
+This will trigger Claude Code to implement the tool and submit a PR for review. Only do this for well-understood, clearly scoped tools — not vague ideas.
 
 ## Autonomous Actions
 You may act autonomously for SAFE, REVERSIBLE operations:
