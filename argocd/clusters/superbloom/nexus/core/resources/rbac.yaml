@@ -1,0 +1,66 @@
+---
+# ClusterRole for namespace creation (ensureNamespace in k8s-adapter)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: nexus-namespace-creator
+  labels:
+    app.kubernetes.io/name: nexus
+    app.kubernetes.io/managed-by: argocd
+rules:
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["get", "create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: nexus-namespace-creator
+  labels:
+    app.kubernetes.io/name: nexus
+    app.kubernetes.io/managed-by: argocd
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: nexus-namespace-creator
+subjects:
+  - kind: ServiceAccount
+    name: nexus
+    namespace: nexus
+---
+# Role for game server management in game-servers namespace
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: nexus-game-server-manager
+  namespace: game-servers
+  labels:
+    app.kubernetes.io/name: nexus
+    app.kubernetes.io/managed-by: argocd
+rules:
+  - apiGroups: ["apps"]
+    resources: ["deployments", "deployments/scale"]
+    verbs: ["get", "list", "create", "update", "patch", "delete"]
+  - apiGroups: [""]
+    resources: ["persistentvolumeclaims"]
+    verbs: ["get", "list", "create", "delete"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: nexus-game-server-manager
+  namespace: game-servers
+  labels:
+    app.kubernetes.io/name: nexus
+    app.kubernetes.io/managed-by: argocd
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: nexus-game-server-manager
+subjects:
+  - kind: ServiceAccount
+    name: nexus
+    namespace: nexus
