@@ -16,6 +16,7 @@ import { appTools } from "../apps/functions";
 import { getAiModel } from "../core/functions";
 import { gameServerTools } from "../game-servers/functions";
 import { grafanaTools } from "../grafana/functions";
+import { infisicalTools } from "../infisical/functions";
 import { lokiTools } from "../loki/functions";
 import { mediaTools } from "../media/functions";
 import { opsTools } from "../ops/functions";
@@ -58,6 +59,11 @@ You have access to tools to:
 - Pause/resume downloads (for bandwidth management)
 - Search historical logs in Loki (pattern detection, incident analysis, root cause investigation)
 - Create, list, update, delete, and test Grafana alert rules (self-managed alerting)
+- List Infisical projects (discover available secret projects and their IDs)
+- Retrieve secrets from Infisical (source of truth for all secrets)
+- List secrets at a path in Infisical (discover configuration for a service)
+- Compare Infisical secrets with Kubernetes secrets (detect ESO sync failures)
+- Get secret version history from Infisical (track rotations and changes)
 
 ## Agent Lifecycle Tools
 You also have special tools to control your own lifecycle:
@@ -184,6 +190,45 @@ When an alert fires:
 2. If false positive → update_grafana_alert to increase threshold or adjust query
 3. If real issue → fix it, then update annotations with resolution details
 4. If alert is obsolete → delete_grafana_alert
+
+## Using Infisical Secret Tools
+
+Infisical is the **source of truth** for all secrets in Superbloom. Kubernetes secrets are downstream copies synced by External Secrets Operator (ESO).
+
+Secrets are organized into **projects** by domain:
+- **infra**: Infrastructure secrets (Authelia, DDNS, Argo, Kargo)
+- **nexus**: Application secrets (API keys, Discord tokens, DB URLs)
+- **data**: Data service secrets (Kargo git credentials)
+- **media**: Media service secrets
+
+### Step 1: Get the Project ID
+Always start with **list_infisical_projects** to get the project ID:
+→ list_infisical_projects()
+→ Returns projects with their IDs, names, and slugs
+
+### Checking a Secret
+Use **get_infisical_secret** to retrieve a specific secret:
+- "What's the SABnzbd API key?" → list_infisical_projects() → find nexus project ID → get_infisical_secret({ projectId: "<id>", secretName: "SABNZBD_API_KEY", showValue: true })
+
+By default, values are HIDDEN (showValue: false). Only set showValue: true when you actually need to see/compare the value.
+
+### Listing Secrets
+Use **list_infisical_secrets** to see all secrets in a project:
+- "What secrets does nexus have?" → list_infisical_secrets({ projectId: "<id>", environment: "dev", secretPath: "/" })
+- "Show me all infra secrets" → list_infisical_secrets({ projectId: "<infra-id>", environment: "dev", secretPath: "/", recursive: true })
+
+### Detecting Sync Issues
+Use **compare_secret_sync** to verify ESO synced correctly:
+- "Is the API key in sync?" → compare_secret_sync({ projectId: "<id>", secretName: "API_KEY", infisicalPath: "/", kubernetesSecret: "nexus-env", kubernetesKey: "API_KEY", namespace: "nexus" })
+
+This fetches from BOTH Infisical and K8s, compares the values, and tells you if they match.
+
+### Investigating Secret Changes
+Use **get_infisical_secret_history** to see version history:
+1. First get the secret: get_infisical_secret({ projectId: "<id>", secretName: "API_KEY", ... })
+2. Use the returned secret ID: get_infisical_secret_history({ secretId: "<secret-id>", limit: 5 })
+
+This shows when the secret was changed, by whom, and previous versions.
 
 ## Escalating to Code Changes (GitHub Issues)
 When you investigate a problem and determine it needs a CODE CHANGE (not just a restart or config tweak):
@@ -492,6 +537,7 @@ export function getAllDomainTools(thread: AgentThread) {
     ...mediaTools,
     ...lokiTools,
     ...grafanaTools,
+    ...infisicalTools,
     ...metaTools,
   ];
 }

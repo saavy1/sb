@@ -63,6 +63,13 @@ export const config = {
   // Loki (log aggregation)
   LOKI_URL:
     Bun.env.LOKI_URL || "http://loki-gateway.monitoring.svc.cluster.local:80",
+
+  // Infisical (secret management)
+  INFISICAL_URL:
+    Bun.env.INFISICAL_URL ||
+    "http://infisical.infisical.svc.cluster.local:8080",
+  INFISICAL_API_TOKEN: Bun.env.INFISICAL_API_TOKEN,
+  INFISICAL_PROJECT_ID: Bun.env.INFISICAL_PROJECT_ID,
 } as const;
 
 export const isDev = config.NODE_ENV === "development";
