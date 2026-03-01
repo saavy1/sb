@@ -35,6 +35,12 @@ export const config = {
   // Grafana webhook for alerts
   GRAFANA_WEBHOOK_TOKEN: Bun.env.GRAFANA_WEBHOOK_TOKEN,
 
+  // Grafana API (for alert management)
+  GRAFANA_URL:
+    Bun.env.GRAFANA_URL ||
+    "http://kube-prometheus-stack-grafana.monitoring.svc.cluster.local",
+  GRAFANA_API_KEY: Bun.env.GRAFANA_API_KEY,
+
   // AI / OpenRouter
   OPENROUTER_API_KEY: Bun.env.OPENROUTER_API_KEY,
   AI_MODEL: Bun.env.AI_MODEL || "deepseek/deepseek-v3.2",
