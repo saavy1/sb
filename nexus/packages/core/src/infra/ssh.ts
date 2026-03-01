@@ -144,6 +144,14 @@ export async function executeFlux(command: string): Promise<CommandResult> {
 }
 
 /**
+ * Execute an argocd command via SSH (using --core mode for direct K8s access).
+ */
+export async function executeArgocd(command: string): Promise<CommandResult> {
+	validateCommand(command);
+	return executeSSH(`argocd ${command} --core`);
+}
+
+/**
  * Execute a helm command via SSH.
  */
 export async function executeHelm(command: string): Promise<CommandResult> {

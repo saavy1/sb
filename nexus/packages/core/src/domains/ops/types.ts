@@ -2,7 +2,11 @@ import { t } from "elysia";
 
 // === Internal schemas ===
 
-export const OperationType = t.Union([t.Literal("nixos-rebuild"), t.Literal("flux-reconcile")]);
+export const OperationType = t.Union([
+	t.Literal("nixos-rebuild"),
+	t.Literal("flux-reconcile"),
+	t.Literal("argocd-sync"),
+]);
 export type OperationTypeValue = typeof OperationType.static;
 
 export const TriggerSource = t.Union([
@@ -44,7 +48,7 @@ export const Operation = t.Object({
 });
 
 export const TriggerOperationRequest = t.Object({
-	type: t.Union([t.Literal("nixos-rebuild"), t.Literal("flux-reconcile")]),
+	type: t.Union([t.Literal("nixos-rebuild"), t.Literal("flux-reconcile"), t.Literal("argocd-sync")]),
 	source: t.Optional(t.Union([t.Literal("webhook"), t.Literal("dashboard"), t.Literal("cli")])),
 	user: t.Optional(t.String()),
 });
@@ -64,7 +68,7 @@ export const OperationsQueryParams = t.Object({
 });
 
 export const LatestQueryParams = t.Object({
-	type: t.Optional(t.Union([t.Literal("nixos-rebuild"), t.Literal("flux-reconcile")])),
+	type: t.Optional(t.Union([t.Literal("nixos-rebuild"), t.Literal("flux-reconcile"), t.Literal("argocd-sync")])),
 });
 
 export const ApiError = t.Object({

@@ -137,12 +137,22 @@ export const webhookRoutes = new Elysia({ prefix: "/webhooks" })
 				return { message: "flux-reconcile triggered" };
 			}
 
+			if (trigger === "argocd-sync") {
+				await triggerOperation("argocd-sync", "webhook", actor);
+				logger.info({ trigger, actor }, "Webhook triggered argocd-sync");
+				return { message: "argocd-sync triggered" };
+			}
+
 			return { message: `Unknown trigger: ${trigger}` };
 		},
 		{
 			detail: { tags: ["Webhooks"], summary: "GitHub Actions webhook for deployments" },
 			body: t.Object({
-				trigger: t.Union([t.Literal("nixos-rebuild"), t.Literal("flux-reconcile")]),
+				trigger: t.Union([
+					t.Literal("nixos-rebuild"),
+					t.Literal("flux-reconcile"),
+					t.Literal("argocd-sync"),
+				]),
 				actor: t.Optional(t.String()),
 			}),
 			response: {

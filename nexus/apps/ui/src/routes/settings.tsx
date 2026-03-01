@@ -9,7 +9,7 @@ import { client } from "../lib/api";
 type ConnectionTestResult = {
 	ssh: { success: boolean; message: string };
 	kubectl: { success: boolean; message: string };
-	flux: { success: boolean; message: string };
+	argocd: { success: boolean; message: string };
 } | null;
 
 export const Route = createFileRoute("/settings")({
@@ -108,7 +108,7 @@ function SettingsPage() {
 			}
 			if (data) {
 				setConnectionTest(data);
-				const allSuccess = data.ssh.success && data.kubectl.success && data.flux.success;
+				const allSuccess = data.ssh.success && data.kubectl.success && data.argocd.success;
 				if (allSuccess) {
 					toast.success("All connections successful");
 				} else {
@@ -249,9 +249,9 @@ function SettingsPage() {
 										message={connectionTest.kubectl.message}
 									/>
 									<ConnectionRow
-										label="flux"
-										success={connectionTest.flux.success}
-										message={connectionTest.flux.message}
+										label="argocd"
+										success={connectionTest.argocd.success}
+										message={connectionTest.argocd.message}
 									/>
 								</div>
 							)}

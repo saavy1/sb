@@ -24,9 +24,7 @@ export const opsCommand = new ChatInputCommandBuilder()
 	.addSubcommands((sub) =>
 		sub.setName("status").setDescription("Check infrastructure connectivity")
 	)
-	.addSubcommands((sub) =>
-		sub.setName("reconcile").setDescription("Trigger Flux GitOps reconciliation")
-	)
+	.addSubcommands((sub) => sub.setName("reconcile").setDescription("Trigger ArgoCD sync"))
 	.addSubcommands((sub) => sub.setName("rebuild").setDescription("Trigger NixOS system rebuild"))
 	.addSubcommands((sub) => sub.setName("history").setDescription("Show recent operations"));
 
@@ -63,11 +61,11 @@ async function handleStatus(interaction: ChatInputCommandInteraction) {
 			return;
 		}
 
-		const { ssh, kubectl, flux } = data;
+		const { ssh, kubectl, argocd } = data;
 
 		// Determine overall status
-		const allSuccess = ssh.success && kubectl.success && flux.success;
-		const anyFailure = !ssh.success || !kubectl.success || !flux.success;
+		const allSuccess = ssh.success && kubectl.success && argocd.success;
+		const anyFailure = !ssh.success || !kubectl.success || !argocd.success;
 
 		const embed = new EmbedBuilder()
 			.setColor(allSuccess ? COLORS.SUCCESS : anyFailure ? COLORS.ERROR : COLORS.WARNING)
@@ -86,8 +84,8 @@ async function handleStatus(interaction: ChatInputCommandInteraction) {
 					inline: true,
 				},
 				{
-					name: `${statusEmoji(flux.success ? "healthy" : "error")} Flux`,
-					value: flux.message || (flux.success ? "Connected" : "Failed"),
+					name: `${statusEmoji(argocd.success ? "healthy" : "error")} ArgoCD`,
+					value: argocd.message || (argocd.success ? "Connected" : "Failed"),
 					inline: true,
 				}
 			);
@@ -111,11 +109,11 @@ async function handleReconcile(interaction: ChatInputCommandInteraction) {
 	// Use select menu for confirmation
 	const select = new StringSelectMenuBuilder()
 		.setCustomId("confirm-reconcile")
-		.setPlaceholder("Confirm Flux reconcile?")
+		.setPlaceholder("Confirm ArgoCD sync?")
 		.addOptions(
 			new StringSelectMenuOptionBuilder()
-				.setLabel("Yes, reconcile")
-				.setDescription("Trigger Flux GitOps reconciliation")
+				.setLabel("Yes, sync")
+				.setDescription("Trigger ArgoCD application sync")
 				.setValue("confirm"),
 			new StringSelectMenuOptionBuilder()
 				.setLabel("Cancel")
@@ -128,8 +126,8 @@ async function handleReconcile(interaction: ChatInputCommandInteraction) {
 		embeds: [
 			new EmbedBuilder()
 				.setColor(COLORS.WARNING)
-				.setTitle("⚠ Confirm Flux Reconcile")
-				.setDescription("This will trigger a Flux GitOps reconciliation."),
+				.setTitle("⚠ Confirm ArgoCD Sync")
+				.setDescription("This will trigger an ArgoCD application sync."),
 		],
 		components: [row],
 		flags: MessageFlags.Ephemeral,
@@ -150,14 +148,14 @@ async function handleReconcile(interaction: ChatInputCommandInteraction) {
 				embeds: [
 					new EmbedBuilder()
 						.setColor(COLORS.ACCENT)
-						.setTitle("Flux Reconcile")
-						.setDescription("⏳ Starting reconciliation..."),
+						.setTitle("ArgoCD Sync")
+						.setDescription("⏳ Starting sync..."),
 				],
 				components: [],
 			});
 
 			const { data, error } = await client.api.ops.trigger.post({
-				type: "flux-reconcile",
+				type: "argocd-sync",
 				source: "cli",
 				user: interaction.user.tag,
 			});
@@ -167,8 +165,8 @@ async function handleReconcile(interaction: ChatInputCommandInteraction) {
 					embeds: [
 						new EmbedBuilder()
 							.setColor(COLORS.ERROR)
-							.setTitle("✗ Reconcile Failed")
-							.setDescription("Could not trigger reconciliation"),
+							.setTitle("✗ Sync Failed")
+							.setDescription("Could not trigger ArgoCD sync"),
 					],
 				});
 				return;
@@ -178,7 +176,7 @@ async function handleReconcile(interaction: ChatInputCommandInteraction) {
 				embeds: [
 					new EmbedBuilder()
 						.setColor(COLORS.SUCCESS)
-						.setTitle("✓ Reconcile Started")
+						.setTitle("✓ Sync Started")
 						.setDescription(
 							`Operation ID: \`${data.id}\`\n\nUse \`/ops history\` to check status.`
 						),

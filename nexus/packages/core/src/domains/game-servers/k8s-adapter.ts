@@ -89,7 +89,7 @@ export function generateMinecraftManifests(spec: K8sDeploymentSpec) {
 		},
 	};
 
-	// Service is managed by Flux (shared LoadBalancer on port 25565)
+	// Service is managed by ArgoCD (shared LoadBalancer on port 25565)
 	// All deployments share the label app.kubernetes.io/component: minecraft
 	return { pvc, deployment };
 }
@@ -125,7 +125,7 @@ export const k8sAdapter = {
 				logger.info({ name: deployment.metadata.name }, "Created Deployment");
 			}
 
-			// Service is managed by Flux (shared LoadBalancer on port 25565)
+			// Service is managed by ArgoCD (shared LoadBalancer on port 25565)
 		} catch (error) {
 			logger.error({ error }, "Failed to apply K8s manifests");
 			throw error;
@@ -146,7 +146,7 @@ export const k8sAdapter = {
 	async deleteResources(name: string): Promise<void> {
 		const namespace = config.K8S_NAMESPACE;
 
-		// Delete deployment and PVC (service is shared and managed by Flux)
+		// Delete deployment and PVC (service is shared and managed by ArgoCD)
 		try {
 			await client.deleteDeployment(namespace, name);
 			logger.info({ name, namespace }, "Deleted Deployment");

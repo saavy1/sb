@@ -43,7 +43,7 @@ You have access to tools to:
 - Get system stats (CPU, memory, GPU, network)
 - Get drive/storage information
 - List apps/services and get their URLs
-- Trigger infrastructure operations (NixOS rebuild, Flux reconcile)
+- Trigger infrastructure operations (NixOS rebuild, ArgoCD sync)
 - Check operation status and history
 - Create GitHub issues when code changes are needed (use 'claude-fix' label to trigger automated fixing)
 - Search the media library (movies and TV shows)

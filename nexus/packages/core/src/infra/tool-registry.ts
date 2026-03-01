@@ -142,9 +142,12 @@ export const toolRegistry: ToolInfo[] = [
 		category: "Operations",
 	},
 	{
-		name: "trigger_flux_reconcile",
-		description: "Trigger Flux GitOps reconciliation for Kubernetes",
+		name: "trigger_argocd_sync",
+		description: "Trigger ArgoCD application sync for Kubernetes",
 		category: "Operations",
+		parameters: {
+			appName: { type: "string", description: "Specific app name to sync (optional)", required: false },
+		},
 	},
 	{
 		name: "get_operation_status",

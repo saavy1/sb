@@ -6,7 +6,6 @@ import { opsDb } from "../../infra/db";
 import {
 	executeSSH,
 	executeKubectl,
-	executeFlux,
 	executeHelm,
 	executeGhIssueCreate,
 	sshHost,
@@ -57,6 +56,37 @@ async function executeFluxReconcile(): Promise<CommandResultType> {
 	return executeSSH("flux reconcile kustomization flux-system --with-source --timeout=5m");
 }
 
+async function executeArgocdSync(appName?: string): Promise<CommandResultType> {
+	const cmd = appName
+		? `get applications.argoproj.io ${appName} -n argocd -o name`
+		: "get applications.argoproj.io -n argocd -o name";
+
+	// First get the app names, then annotate them to trigger a refresh
+	const listResult = await executeKubectl(cmd);
+	if (!listResult.success) {
+		return listResult;
+	}
+
+	const apps = listResult.output.trim().split("\n").filter(Boolean);
+	if (apps.length === 0) {
+		return { success: true, output: "No ArgoCD applications found", durationMs: listResult.durationMs };
+	}
+
+	// Annotate each app to trigger a hard refresh
+	let combinedOutput = "";
+	let totalDurationMs = listResult.durationMs;
+	for (const app of apps) {
+		const name = app.replace("application.argoproj.io/", "");
+		const result = await executeKubectl(
+			`annotate applications.argoproj.io ${name} -n argocd argocd.argoproj.io/refresh=hard --overwrite`
+		);
+		combinedOutput += `${name}: ${result.success ? "synced" : result.errorMessage}\n`;
+		totalDurationMs += result.durationMs;
+	}
+
+	return { success: true, output: combinedOutput, durationMs: totalDurationMs };
+}
+
 async function executeOperation(id: string, type: OperationTypeValue): Promise<void> {
 	let result: CommandResultType;
 
@@ -66,6 +96,9 @@ async function executeOperation(id: string, type: OperationTypeValue): Promise<v
 			break;
 		case "flux-reconcile":
 			result = await executeFluxReconcile();
+			break;
+		case "argocd-sync":
+			result = await executeArgocdSync();
 			break;
 		default:
 			result = {
@@ -181,6 +214,10 @@ export function shouldTriggerFluxReconcile(changedFiles: string[]): boolean {
 	return changedFiles.some((f) => f.startsWith("flux/"));
 }
 
+export function shouldTriggerArgocdSync(changedFiles: string[]): boolean {
+	return changedFiles.some((f) => f.startsWith("argocd/"));
+}
+
 // === AI Tool-exposed functions ===
 
 export const triggerNixosRebuildTool = toolDefinition({
@@ -199,16 +236,18 @@ export const triggerNixosRebuildTool = toolDefinition({
 	}
 );
 
-export const triggerFluxReconcileTool = toolDefinition({
-		name: "trigger_flux_reconcile",
+export const triggerArgocdSyncTool = toolDefinition({
+		name: "trigger_argocd_sync",
 		description:
-			"Trigger a Flux reconciliation to deploy Kubernetes changes. Use when user says things like 'reconcile flux', 'deploy k8s changes', 'sync the cluster'.",
-		inputSchema: z.object({}),
-	}).server(async () => {
-		const op = await triggerOperation("flux-reconcile", "ai", "the-machine");
+			"Trigger ArgoCD to sync all applications, deploying any pending Kubernetes changes. Use when user says things like 'sync argocd', 'deploy k8s changes', 'sync the cluster'.",
+		inputSchema: z.object({
+			appName: z.string().optional().describe("Specific app name to sync (default: all apps)"),
+		}),
+	}).server(async ({ appName }) => {
+		const op = await triggerOperation("argocd-sync", "ai", "the-machine");
 		return {
 			success: true,
-			message: "Flux reconciliation started",
+			message: appName ? `ArgoCD sync started for ${appName}` : "ArgoCD sync started for all apps",
 			operationId: op.id,
 			status: op.status,
 		};
@@ -263,12 +302,12 @@ export const listRecentOperationsTool = toolDefinition({
 export async function testConnection(): Promise<{
 	ssh: { success: boolean; message: string };
 	kubectl: { success: boolean; message: string };
-	flux: { success: boolean; message: string };
+	argocd: { success: boolean; message: string };
 }> {
 	const results = {
 		ssh: { success: false, message: "" },
 		kubectl: { success: false, message: "" },
-		flux: { success: false, message: "" },
+		argocd: { success: false, message: "" },
 	};
 
 	// Test SSH (via Tailscale)
@@ -289,19 +328,19 @@ export async function testConnection(): Promise<{
 			: kubectlTest.errorMessage || "kubectl failed",
 	};
 
-	// Test flux
-	const fluxTest = await executeFlux("version --client");
-	results.flux = {
-		success: fluxTest.success,
-		message: fluxTest.success
-			? "flux CLI available"
-			: fluxTest.errorMessage || "flux CLI not found",
+	// Test ArgoCD
+	const argocdTest = await executeKubectl("get applications.argoproj.io -n argocd --request-timeout=5s -o name");
+	results.argocd = {
+		success: argocdTest.success,
+		message: argocdTest.success
+			? "ArgoCD applications accessible"
+			: argocdTest.errorMessage || "ArgoCD check failed",
 	};
 
 	return results;
 }
 
-// === Kubectl/Flux query tools ===
+// === Kubectl/ArgoCD query tools ===
 
 export const getPodsTool = toolDefinition({
 		name: "get_pods",
@@ -399,33 +438,18 @@ export const getEventsTool = toolDefinition({
 	}
 );
 
-export const getFluxStatusTool = toolDefinition({
-		name: "get_flux_status",
+export const getArgocdStatusTool = toolDefinition({
+		name: "get_argocd_status",
 		description:
-			"Get Flux GitOps status including Kustomizations and HelmReleases. Use when user asks 'is flux healthy', 'what's the deployment status', 'show GitOps status'.",
+			"Get ArgoCD application sync and health status. Shows all managed applications with their sync state and health. Use when user asks 'is argocd healthy', 'what's the deployment status', 'show GitOps status', 'are all apps in sync'.",
 		inputSchema: z.object({
-			type: z
-				.enum(["all", "kustomizations", "helmreleases", "sources"])
-				.optional()
-				.describe("Type of Flux resources to show (default: all)"),
+			appName: z.string().optional().describe("Specific app name (default: all apps)"),
 		}),
-	}).server(async ({ type = "all" }) => {
-		let cmd: string;
-		switch (type) {
-			case "kustomizations":
-				cmd = "get kustomizations -A";
-				break;
-			case "helmreleases":
-				cmd = "get helmreleases -A";
-				break;
-			case "sources":
-				cmd = "get sources all -A";
-				break;
-			default:
-				cmd = "get all -A";
-		}
-
-		const result = await executeFlux(cmd);
+	}).server(async ({ appName }) => {
+		const cmd = appName
+			? `get applications.argoproj.io ${validateK8sName(appName, "app")} -n argocd -o wide`
+			: "get applications.argoproj.io -n argocd -o wide";
+		const result = await executeKubectl(cmd);
 		if (!result.success) {
 			return { error: result.errorMessage, output: result.output };
 		}
@@ -773,13 +797,13 @@ export const createGithubIssueTool = toolDefinition({
 
 export const opsTools = [
 	triggerNixosRebuildTool,
-	triggerFluxReconcileTool,
+	triggerArgocdSyncTool,
 	getOperationStatusTool,
 	listRecentOperationsTool,
 	getPodsTool,
 	getPodLogsTool,
 	getEventsTool,
-	getFluxStatusTool,
+	getArgocdStatusTool,
 	describeResourceTool,
 	rolloutRestartTool,
 	helmRollbackTool,
