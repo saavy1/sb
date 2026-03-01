@@ -28,9 +28,9 @@ clusterMetrics:
   kepler:
     enabled: false
   node-exporter:
-    enabled: false
+    enabled: true
   kube-state-metrics:
-    enabled: false
+    enabled: true
 
 annotationAutodiscovery:
   enabled: false

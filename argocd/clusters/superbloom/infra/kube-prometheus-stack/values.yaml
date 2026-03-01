@@ -102,15 +102,15 @@ alertmanager:
           - url: http://nexus.nexus.svc.cluster.local:3000/api/webhooks/alertmanager
             send_resolved: true
 
-# Node exporter for host metrics
+# Alloy owns all metric collection — kube-prometheus-stack is storage + UI + alerting only
 nodeExporter:
-  enabled: true
-
-# kube-state-metrics for k8s object metrics
+  enabled: false
 kubeStateMetrics:
-  enabled: true
-
-# Disable components we don't need
+  enabled: false
+kubelet:
+  enabled: false
+kubeApiServer:
+  enabled: false
 kubeEtcd:
   enabled: false
 kubeScheduler:
@@ -118,4 +118,6 @@ kubeScheduler:
 kubeControllerManager:
   enabled: false
 kubeProxy:
+  enabled: false
+coreDns:
   enabled: false
