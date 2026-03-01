@@ -69,7 +69,6 @@ export const config = {
     Bun.env.INFISICAL_URL ||
     "http://infisical.infisical.svc.cluster.local:8080",
   INFISICAL_API_TOKEN: Bun.env.INFISICAL_API_TOKEN,
-  INFISICAL_PROJECT_ID: Bun.env.INFISICAL_PROJECT_ID,
 } as const;
 
 export const isDev = config.NODE_ENV === "development";

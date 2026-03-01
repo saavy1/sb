@@ -3,8 +3,20 @@ import { z } from "zod";
 import { config } from "../../infra/config";
 import { executeKubectl } from "../../infra/ssh";
 import { toolDefinition } from "@tanstack/ai";
+import type {
+	InfisicalGetResponse,
+	InfisicalListResponse,
+	InfisicalProjectListResponse,
+	InfisicalSecretVersion,
+	InfisicalVersionsResponse,
+} from "./types";
 
 const log = logger.child({ module: "infisical" });
+
+// === Input validation for kubectl parameters ===
+
+const SAFE_K8S_NAME = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/;
+const SAFE_K8S_KEY = /^[a-zA-Z0-9._-]+$/;
 
 // === Infisical API Client ===
 
@@ -43,63 +55,6 @@ async function infisicalFetch<T>(
 	return (await response.json()) as T;
 }
 
-// === Infisical API response types ===
-
-interface InfisicalSecret {
-	id: string;
-	workspace: string;
-	environment: string;
-	version: number;
-	type: string;
-	secretKey: string;
-	secretValue?: string;
-	secretComment?: string;
-	secretValueHidden?: boolean;
-	secretPath?: string;
-	createdAt?: string;
-	updatedAt?: string;
-	actor?: {
-		actorId: string;
-		actorType: string;
-		name: string;
-	};
-	isRotatedSecret?: boolean;
-	tags?: { id: string; slug: string; name: string; color: string }[];
-}
-
-interface InfisicalListResponse {
-	secrets: InfisicalSecret[];
-	imports?: {
-		secretPath: string;
-		environment: string;
-		secrets: InfisicalSecret[];
-		folderId?: string;
-	}[];
-}
-
-interface InfisicalGetResponse {
-	secret: InfisicalSecret;
-}
-
-interface InfisicalSecretVersion {
-	id: string;
-	secretId: string;
-	version: number;
-	secretKey: string;
-	secretValue?: string;
-	secretValueHidden?: boolean;
-	createdAt: string;
-	actor?: {
-		actorId: string;
-		actorType: string;
-		name: string;
-	};
-}
-
-interface InfisicalVersionsResponse {
-	secretVersions: InfisicalSecretVersion[];
-}
-
 // === Helper to mask secret values ===
 
 function maskValue(value: string | undefined): string {
@@ -110,17 +65,17 @@ function maskValue(value: string | undefined): string {
 
 // === Exported functions ===
 
+export async function listProjects() {
+	return infisicalFetch<InfisicalProjectListResponse>("/v1/projects");
+}
+
 export async function getSecret(
 	secretName: string,
+	projectId: string,
 	environment: string,
 	secretPath: string,
 	showValue: boolean,
-): Promise<InfisicalSecret> {
-	const projectId = config.INFISICAL_PROJECT_ID;
-	if (!projectId) {
-		throw new Error("INFISICAL_PROJECT_ID not configured");
-	}
-
+) {
 	const params: Record<string, string> = {
 		projectId,
 		environment,
@@ -140,16 +95,12 @@ export async function getSecret(
 }
 
 export async function listSecrets(
+	projectId: string,
 	environment: string,
 	secretPath: string,
 	showValues: boolean,
 	recursive: boolean,
-): Promise<InfisicalListResponse> {
-	const projectId = config.INFISICAL_PROJECT_ID;
-	if (!projectId) {
-		throw new Error("INFISICAL_PROJECT_ID not configured");
-	}
-
+) {
 	const params: Record<string, string> = {
 		projectId,
 		environment,
@@ -167,11 +118,6 @@ export async function getSecretVersions(
 	secretId: string,
 	limit: number,
 ): Promise<InfisicalSecretVersion[]> {
-	const projectId = config.INFISICAL_PROJECT_ID;
-	if (!projectId) {
-		throw new Error("INFISICAL_PROJECT_ID not configured");
-	}
-
 	const params: Record<string, string> = {
 		offset: "0",
 		limit: String(limit),
@@ -187,9 +133,55 @@ export async function getSecretVersions(
 
 // === Tool definitions ===
 
+export const listInfisicalProjectsTool = toolDefinition({
+	name: "list_infisical_projects",
+	description: `List all Infisical projects accessible to the agent.
+
+Use this FIRST to discover available projects and get their IDs. All other Infisical tools require a projectId.
+
+Projects are scoped by domain:
+- infra: infrastructure secrets (Authelia, DDNS, Argo, Kargo)
+- nexus: application secrets (API keys, Discord tokens, DB URLs)
+- data: data service secrets (Kargo git credentials)
+- media: media service secrets
+
+Example: list_infisical_projects()`,
+	inputSchema: z.object({}),
+}).server(async () => {
+	log.info("Listing Infisical projects");
+
+	try {
+		const response = await listProjects();
+
+		const projects = response.projects.map((p) => ({
+			id: p.id,
+			name: p.name,
+			slug: p.slug,
+			environments: p.environments.map((e) => e.slug),
+		}));
+
+		return {
+			success: true,
+			count: projects.length,
+			projects,
+		};
+	} catch (error) {
+		log.error({ error }, "Failed to list Infisical projects");
+		return {
+			success: false,
+			error:
+				error instanceof Error
+					? error.message
+					: "Failed to list projects",
+		};
+	}
+});
+
 export const getInfisicalSecretTool = toolDefinition({
 	name: "get_infisical_secret",
 	description: `Retrieve a specific secret from Infisical (the source of truth for all secrets in Superbloom).
+
+Use list_infisical_projects first to get the projectId.
 
 Use this to:
 - Check the actual value of a secret in Infisical
@@ -199,13 +191,17 @@ Use this to:
 By default, secret values are HIDDEN (only metadata shown). Set showValue=true to see the actual value.
 
 Parameters:
+- projectId: Infisical project ID (from list_infisical_projects)
 - secretName: The secret key name (e.g., "API_KEY", "SABNZBD_API_KEY")
-- environment: Environment slug (e.g., "prod", "dev", "staging")
+- environment: Environment slug (e.g., "dev")
 - secretPath: The folder path in Infisical (e.g., "/", "/sabnzbd", "/media")
 - showValue: Whether to reveal the actual secret value (default: false)
 
-Example: get_infisical_secret({ secretName: "API_KEY", environment: "prod", secretPath: "/sabnzbd" })`,
+Example: get_infisical_secret({ projectId: "abc123", secretName: "API_KEY", environment: "dev", secretPath: "/" })`,
 	inputSchema: z.object({
+		projectId: z
+			.string()
+			.describe("Infisical project ID (from list_infisical_projects)"),
 		secretName: z
 			.string()
 			.describe(
@@ -213,10 +209,8 @@ Example: get_infisical_secret({ secretName: "API_KEY", environment: "prod", secr
 			),
 		environment: z
 			.string()
-			.default("prod")
-			.describe(
-				'Environment slug (e.g., "prod", "dev", "staging"). Default: "prod"',
-			),
+			.default("dev")
+			.describe('Environment slug (e.g., "dev"). Default: "dev"'),
 		secretPath: z
 			.string()
 			.default("/")
@@ -230,75 +224,90 @@ Example: get_infisical_secret({ secretName: "API_KEY", environment: "prod", secr
 				"Whether to reveal the actual secret value. Default: false (only metadata)",
 			),
 	}),
-}).server(async ({ secretName, environment, secretPath, showValue }) => {
-	log.info(
-		{ secretName, environment, secretPath, showValue },
-		"Getting Infisical secret",
-	);
+}).server(
+	async ({ projectId, secretName, environment, secretPath, showValue }) => {
+		const env = environment ?? "dev";
+		const path = secretPath ?? "/";
+		const reveal = showValue ?? false;
 
-	try {
-		const secret = await getSecret(
-			secretName,
-			environment,
-			secretPath,
-			showValue,
+		log.info(
+			{ secretName, projectId, environment: env, secretPath: path, showValue: reveal },
+			"Getting Infisical secret",
 		);
 
-		return {
-			success: true,
-			secret: {
-				key: secret.secretKey,
-				value: showValue
-					? secret.secretValue
-					: maskValue(secret.secretValue),
-				version: secret.version,
-				environment: secret.environment,
-				path: secret.secretPath || secretPath,
-				comment: secret.secretComment || undefined,
-				createdAt: secret.createdAt,
-				updatedAt: secret.updatedAt,
-				isRotated: secret.isRotatedSecret || false,
-				tags:
-					secret.tags?.map((t) => t.name) ||
-					[],
-				lastModifiedBy: secret.actor?.name || undefined,
-			},
-		};
-	} catch (error) {
-		log.error({ error, secretName, environment, secretPath }, "Failed to get Infisical secret");
-		return {
-			success: false,
-			error:
-				error instanceof Error
-					? error.message
-					: "Failed to get secret from Infisical",
-		};
-	}
-});
+		try {
+			const secret = await getSecret(
+				secretName,
+				projectId,
+				env,
+				path,
+				reveal,
+			);
+
+			return {
+				success: true,
+				secret: {
+					id: secret.id,
+					key: secret.secretKey,
+					value: reveal
+						? secret.secretValue
+						: maskValue(secret.secretValue),
+					version: secret.version,
+					environment: secret.environment,
+					path: secret.secretPath || path,
+					comment: secret.secretComment || undefined,
+					createdAt: secret.createdAt,
+					updatedAt: secret.updatedAt,
+					isRotated: secret.isRotatedSecret || false,
+					tags: secret.tags?.map((t) => t.name) || [],
+					lastModifiedBy: secret.actor?.name || undefined,
+				},
+			};
+		} catch (error) {
+			log.error(
+				{ error, secretName, projectId, environment: env, secretPath: path },
+				"Failed to get Infisical secret",
+			);
+			return {
+				success: false,
+				error:
+					error instanceof Error
+						? error.message
+						: "Failed to get secret from Infisical",
+			};
+		}
+	},
+);
 
 export const listInfisicalSecretsTool = toolDefinition({
 	name: "list_infisical_secrets",
 	description: `List all secrets at a given path in Infisical.
 
+Use list_infisical_projects first to get the projectId.
+
 Use this to:
-- See all secrets in a folder (e.g., "/media", "/sabnzbd")
+- See all secrets in a project (e.g., all infra secrets, all nexus secrets)
 - Discover what secrets exist for a service
 - Get an overview of all configuration for an environment
 
 By default, secret values are HIDDEN. Only key names and metadata are shown.
 
 Parameters:
-- environment: Environment slug (e.g., "prod", "dev")
+- projectId: Infisical project ID (from list_infisical_projects)
+- environment: Environment slug (e.g., "dev")
 - secretPath: The folder path (e.g., "/", "/media")
 - showValues: Whether to reveal actual secret values (default: false)
 - recursive: Traverse subdirectories (default: false)
 
-Example: list_infisical_secrets({ environment: "prod", secretPath: "/media" })`,
+Example: list_infisical_secrets({ projectId: "abc123", environment: "dev", secretPath: "/" })`,
 	inputSchema: z.object({
+		projectId: z
+			.string()
+			.describe("Infisical project ID (from list_infisical_projects)"),
 		environment: z
 			.string()
-			.default("prod")
-			.describe('Environment slug (e.g., "prod", "dev"). Default: "prod"'),
+			.default("dev")
+			.describe('Environment slug (e.g., "dev"). Default: "dev"'),
 		secretPath: z
 			.string()
 			.default("/")
@@ -314,72 +323,85 @@ Example: list_infisical_secrets({ environment: "prod", secretPath: "/media" })`,
 			.default(false)
 			.describe("Traverse subdirectories. Default: false"),
 	}),
-}).server(async ({ environment, secretPath, showValues, recursive }) => {
-	log.info(
-		{ environment, secretPath, showValues, recursive },
-		"Listing Infisical secrets",
-	);
+}).server(
+	async ({ projectId, environment, secretPath, showValues, recursive }) => {
+		const env = environment ?? "dev";
+		const path = secretPath ?? "/";
+		const reveal = showValues ?? false;
+		const recurse = recursive ?? false;
 
-	try {
-		const response = await listSecrets(
-			environment,
-			secretPath,
-			showValues,
-			recursive,
+		log.info(
+			{ projectId, environment: env, secretPath: path, showValues: reveal, recursive: recurse },
+			"Listing Infisical secrets",
 		);
 
-		const secrets = response.secrets.map((s) => ({
-			key: s.secretKey,
-			value: showValues ? s.secretValue : maskValue(s.secretValue),
-			version: s.version,
-			path: s.secretPath || secretPath,
-			updatedAt: s.updatedAt,
-			isRotated: s.isRotatedSecret || false,
-			tags: s.tags?.map((t) => t.name) || [],
-		}));
+		try {
+			const response = await listSecrets(
+				projectId,
+				env,
+				path,
+				reveal,
+				recurse,
+			);
 
-		// Include imported secrets if present
-		const imports =
-			response.imports?.map((imp) => ({
-				sourcePath: imp.secretPath,
-				sourceEnvironment: imp.environment,
-				secretCount: imp.secrets.length,
-				secrets: imp.secrets.map((s) => ({
-					key: s.secretKey,
-					value: showValues
-						? s.secretValue
-						: maskValue(s.secretValue),
-					version: s.version,
-				})),
-			})) || [];
+			const secrets = response.secrets.map((s) => ({
+				key: s.secretKey,
+				value: reveal
+					? s.secretValue
+					: maskValue(s.secretValue),
+				version: s.version,
+				path: s.secretPath || path,
+				updatedAt: s.updatedAt,
+				isRotated: s.isRotatedSecret || false,
+				tags: s.tags?.map((t) => t.name) || [],
+			}));
 
-		return {
-			success: true,
-			environment,
-			path: secretPath,
-			secretCount: secrets.length,
-			secrets,
-			importCount: imports.length,
-			imports: imports.length > 0 ? imports : undefined,
-		};
-	} catch (error) {
-		log.error(
-			{ error, environment, secretPath },
-			"Failed to list Infisical secrets",
-		);
-		return {
-			success: false,
-			error:
-				error instanceof Error
-					? error.message
-					: "Failed to list secrets from Infisical",
-		};
-	}
-});
+			// Include imported secrets if present
+			const imports =
+				response.imports?.map((imp) => ({
+					sourcePath: imp.secretPath,
+					sourceEnvironment: imp.environment,
+					secretCount: imp.secrets.length,
+					secrets: imp.secrets.map((s) => ({
+						key: s.secretKey,
+						value: reveal
+							? s.secretValue
+							: maskValue(s.secretValue),
+						version: s.version,
+					})),
+				})) || [];
+
+			return {
+				success: true,
+				projectId,
+				environment: env,
+				path,
+				secretCount: secrets.length,
+				secrets,
+				importCount: imports.length,
+				imports: imports.length > 0 ? imports : undefined,
+			};
+		} catch (error) {
+			log.error(
+				{ error, projectId, environment: env, secretPath: path },
+				"Failed to list Infisical secrets",
+			);
+			return {
+				success: false,
+				error:
+					error instanceof Error
+						? error.message
+						: "Failed to list secrets from Infisical",
+			};
+		}
+	},
+);
 
 export const compareSecretSyncTool = toolDefinition({
 	name: "compare_secret_sync",
 	description: `Compare an Infisical secret with its Kubernetes counterpart to detect sync issues with External Secrets Operator (ESO).
+
+Use list_infisical_projects first to get the projectId.
 
 Use this to:
 - Verify if ESO synced a secret correctly from Infisical to K8s
@@ -389,21 +411,25 @@ Use this to:
 This tool fetches the secret from both Infisical AND Kubernetes, compares them, and reports if they match.
 
 Parameters:
+- projectId: Infisical project ID (from list_infisical_projects)
 - secretName: The secret key name in Infisical (e.g., "API_KEY")
-- infisicalPath: Path in Infisical (e.g., "/sabnzbd")
+- infisicalPath: Path in Infisical (e.g., "/")
 - kubernetesSecret: K8s secret name (e.g., "sabnzbd-config")
 - kubernetesKey: Key within the K8s secret (e.g., "api-key")
 - namespace: K8s namespace (e.g., "sabnzbd")
-- environment: Infisical environment (default: "prod")
+- environment: Infisical environment (default: "dev")
 
-Example: compare_secret_sync({ secretName: "API_KEY", infisicalPath: "/sabnzbd", kubernetesSecret: "sabnzbd-config", kubernetesKey: "api-key", namespace: "sabnzbd" })`,
+Example: compare_secret_sync({ projectId: "abc123", secretName: "API_KEY", infisicalPath: "/", kubernetesSecret: "sabnzbd-config", kubernetesKey: "api-key", namespace: "sabnzbd" })`,
 	inputSchema: z.object({
+		projectId: z
+			.string()
+			.describe("Infisical project ID (from list_infisical_projects)"),
 		secretName: z
 			.string()
 			.describe("The secret key name in Infisical"),
 		infisicalPath: z
 			.string()
-			.describe('Path in Infisical (e.g., "/sabnzbd")'),
+			.describe('Path in Infisical (e.g., "/")'),
 		kubernetesSecret: z
 			.string()
 			.describe('K8s secret name (e.g., "sabnzbd-config")'),
@@ -415,11 +441,12 @@ Example: compare_secret_sync({ secretName: "API_KEY", infisicalPath: "/sabnzbd",
 			.describe('K8s namespace (e.g., "sabnzbd")'),
 		environment: z
 			.string()
-			.default("prod")
-			.describe('Infisical environment. Default: "prod"'),
+			.default("dev")
+			.describe('Infisical environment. Default: "dev"'),
 	}),
 }).server(
 	async ({
+		projectId,
 		secretName,
 		infisicalPath,
 		kubernetesSecret,
@@ -427,9 +454,12 @@ Example: compare_secret_sync({ secretName: "API_KEY", infisicalPath: "/sabnzbd",
 		namespace,
 		environment,
 	}) => {
+		const env = environment ?? "dev";
+
 		log.info(
 			{
 				secretName,
+				projectId,
 				infisicalPath,
 				kubernetesSecret,
 				kubernetesKey,
@@ -438,80 +468,113 @@ Example: compare_secret_sync({ secretName: "API_KEY", infisicalPath: "/sabnzbd",
 			"Comparing Infisical secret with K8s",
 		);
 
+		// Validate K8s parameters to prevent command injection
+		if (
+			!SAFE_K8S_NAME.test(namespace) ||
+			!SAFE_K8S_NAME.test(kubernetesSecret) ||
+			!SAFE_K8S_KEY.test(kubernetesKey)
+		) {
+			return {
+				success: false,
+				error: "Invalid characters in Kubernetes resource name or key",
+			};
+		}
+
 		try {
-			// Fetch from Infisical (with value)
-			let infisicalValue: string | undefined;
-			let infisicalVersion: number | undefined;
-			let infisicalUpdatedAt: string | undefined;
-			try {
-				const infisicalSecret = await getSecret(
+			// Fetch from both sources in parallel
+			const [infisicalResult, k8sResult] = await Promise.all([
+				getSecret(
 					secretName,
-					environment,
+					projectId,
+					env,
 					infisicalPath,
 					true,
-				);
-				infisicalValue = infisicalSecret.secretValue;
-				infisicalVersion = infisicalSecret.version;
-				infisicalUpdatedAt = infisicalSecret.updatedAt;
-			} catch (err) {
+				)
+					.then((secret) => ({
+						ok: true as const,
+						value: secret.secretValue,
+						version: secret.version,
+						updatedAt: secret.updatedAt,
+					}))
+					.catch((err) => ({
+						ok: false as const,
+						error:
+							err instanceof Error
+								? err.message
+								: String(err),
+					})),
+				executeKubectl(
+					`get secret ${kubernetesSecret} -n ${namespace} -o jsonpath='{.data.${kubernetesKey.replace(/\./g, "\\.")}}'`,
+				)
+					.then((result) => {
+						if (result.success && result.output.trim()) {
+							const b64 = result.output.trim();
+							return {
+								ok: true as const,
+								value: Buffer.from(
+									b64,
+									"base64",
+								).toString("utf-8"),
+							};
+						}
+						return { ok: false as const, error: "Secret or key not found" };
+					})
+					.catch((err) => ({
+						ok: false as const,
+						error:
+							err instanceof Error
+								? err.message
+								: String(err),
+					})),
+			]);
+
+			if (!infisicalResult.ok) {
 				return {
 					success: false,
-					error: `Failed to fetch from Infisical: ${err instanceof Error ? err.message : String(err)}`,
+					error: `Failed to fetch from Infisical: ${infisicalResult.error}`,
 					infisical: { available: false },
-					kubernetes: { available: false },
+					kubernetes: { available: k8sResult.ok },
 				};
 			}
 
-			// Fetch from Kubernetes using kubectl
-			let k8sValue: string | undefined;
-			try {
-				const result = await executeKubectl(
-					`get secret ${kubernetesSecret} -n ${namespace} -o jsonpath='{.data.${kubernetesKey.replace(/\./g, "\\.")}}'`,
-				);
-				if (result.success && result.output.trim()) {
-					// K8s secrets are base64-encoded; decode
-					const b64 = result.output.trim().replace(/^'|'$/g, "");
-					k8sValue = Buffer.from(b64, "base64").toString("utf-8");
-				}
-			} catch (err) {
+			if (!k8sResult.ok) {
 				return {
 					success: false,
-					error: `Failed to fetch from Kubernetes: ${err instanceof Error ? err.message : String(err)}`,
+					error: `Failed to fetch from Kubernetes: ${k8sResult.error}`,
 					infisical: {
 						available: true,
-						version: infisicalVersion,
+						version: infisicalResult.version,
 					},
 					kubernetes: { available: false },
 				};
 			}
 
-			// Compare
 			const inSync =
-				infisicalValue !== undefined &&
-				k8sValue !== undefined &&
-				infisicalValue === k8sValue;
+				infisicalResult.value !== undefined &&
+				k8sResult.value !== undefined &&
+				infisicalResult.value === k8sResult.value;
 
 			return {
 				success: true,
 				inSync,
 				infisical: {
-					available: infisicalValue !== undefined,
-					version: infisicalVersion,
-					updatedAt: infisicalUpdatedAt,
-					valueMasked: maskValue(infisicalValue),
+					available: infisicalResult.value !== undefined,
+					version: infisicalResult.version,
+					updatedAt: infisicalResult.updatedAt,
+					valueMasked: maskValue(infisicalResult.value),
 				},
 				kubernetes: {
-					available: k8sValue !== undefined,
+					available: k8sResult.value !== undefined,
 					secret: kubernetesSecret,
 					key: kubernetesKey,
 					namespace,
-					valueMasked: maskValue(k8sValue),
+					valueMasked: maskValue(k8sResult.value),
 				},
 				message: inSync
 					? "Secrets are in sync — Infisical and K8s values match"
-					: infisicalValue === undefined
+					: infisicalResult.value === undefined
 						? "Infisical secret value is empty or not found"
-						: k8sValue === undefined
+						: k8sResult.value === undefined
 							? "Kubernetes secret not found or key missing"
 							: "MISMATCH — Infisical and K8s values differ. ESO may have failed to sync, or the secret was recently rotated.",
 			};
@@ -562,10 +625,12 @@ Example: get_infisical_secret_history({ secretId: "abc123", limit: 5 })`,
 			.describe("Number of versions to return (default: 10, max: 100)"),
 	}),
 }).server(async ({ secretId, limit }) => {
-	log.info({ secretId, limit }, "Getting Infisical secret history");
+	const maxVersions = limit ?? 10;
+
+	log.info({ secretId, limit: maxVersions }, "Getting Infisical secret history");
 
 	try {
-		const versions = await getSecretVersions(secretId, limit);
+		const versions = await getSecretVersions(secretId, maxVersions);
 
 		const history = versions.map((v) => ({
 			version: v.version,
@@ -594,6 +659,7 @@ Example: get_infisical_secret_history({ secretId: "abc123", limit: 5 })`,
 
 // Export tools array for agent
 export const infisicalTools = [
+	listInfisicalProjectsTool,
 	getInfisicalSecretTool,
 	listInfisicalSecretsTool,
 	compareSecretSyncTool,
