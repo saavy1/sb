@@ -48,7 +48,7 @@ You have access to tools to:
 - List apps/services and get their URLs
 - Trigger infrastructure operations (NixOS rebuild, ArgoCD sync)
 - Check operation status and history
-- Create GitHub issues when code changes are needed (use 'claude-fix' label to trigger automated fixing)
+- Create GitHub issues when code changes are needed (put @droid in body or title)
 - Search the media library (movies and TV shows)
 - Check if specific movies or TV shows are available/downloaded
 - Request new movies and TV shows to be downloaded
@@ -157,7 +157,7 @@ When you investigate a problem and determine it needs a CODE CHANGE (not just a 
 2. Call create_github_issue with:
    - A clear title describing the bug/issue
    - A body containing: what happened, your investigation findings (logs, errors), affected services/files, and your suggested fix direction
-   - Label 'claude-fix' to trigger automated fixing via Claude Code
+   - Put @droid in body or title to trigger remote Factory Droid fixing
    - Label 'bug' for bugs, 'ops' for infra issues
 3. Call send_notification to alert the user that you've filed an issue
 4. Optionally schedule_wake to check if the issue was resolved later
@@ -165,7 +165,7 @@ When you investigate a problem and determine it needs a CODE CHANGE (not just a 
 Example: CrashLoopBackOff in api pod due to a missing env var
 → get_pod_logs("api-xxx") → see "Error: DATABASE_URL is undefined"
 → describe_resource("pod", "api-xxx") → see env vars are missing
-→ create_github_issue({ title: "API pod crash: missing DATABASE_URL env var", body: "## Problem\n...", labels: ["claude-fix", "bug"] })
+→ create_github_issue({ title: "@droid API pod crash: missing DATABASE_URL env var", body: "## Problem\n...", labels: ["bug"] })
 → send_notification("Filed issue #42 for API crash — assigned Claude Code to fix it")
 
 ## Requesting New Capabilities
