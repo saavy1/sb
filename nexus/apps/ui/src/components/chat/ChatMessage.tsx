@@ -1,5 +1,6 @@
 import type { UIMessage } from "@tanstack/ai-react";
-import { Bell } from "lucide-react";
+import { Bell, Check, Copy } from "lucide-react";
+import { useCallback, useState } from "react";
 import Markdown from "react-markdown";
 import { ToolCallIndicator } from "./ToolCallIndicator";
 import { ToolErrorBlock } from "./ToolErrorBlock";
@@ -19,19 +20,47 @@ export function ChatMessage({ message }: { message: UIMessage }) {
 
 	if (message.role === "user") {
 		return (
-			<div className="border-l-2 border-accent bg-accent/5 px-3 py-2">
-				<div className="text-sm text-text-primary whitespace-pre-wrap">
-					{getTextContent(message)}
+			<div className="flex justify-end px-4 py-1">
+				<div className="max-w-[70%] rounded-2xl rounded-br-md bg-accent/15 px-4 py-2.5">
+					<div className="text-sm text-text-primary whitespace-pre-wrap">
+						{getTextContent(message)}
+					</div>
 				</div>
 			</div>
 		);
 	}
 
-	// Assistant - render parts
+	// Assistant - render parts with copy button
 	return (
-		<div className="px-3 py-2">
-			<MessageParts message={message} />
+		<div className="group flex justify-start px-4 py-1">
+			<div className="relative max-w-[85%]">
+				<MessageParts message={message} />
+				<CopyButton text={getTextContent(message)} />
+			</div>
 		</div>
+	);
+}
+
+function CopyButton({ text }: { text: string }) {
+	const [copied, setCopied] = useState(false);
+
+	const handleCopy = useCallback(async () => {
+		if (!text.trim()) return;
+		await navigator.clipboard.writeText(text);
+		setCopied(true);
+		setTimeout(() => setCopied(false), 2000);
+	}, [text]);
+
+	if (!text.trim()) return null;
+
+	return (
+		<button
+			type="button"
+			onClick={handleCopy}
+			className="absolute -bottom-5 right-0 flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-text-tertiary opacity-0 transition-opacity group-hover:opacity-100 hover:text-text-secondary"
+		>
+			{copied ? <Check className="h-3 w-3 text-success" /> : <Copy className="h-3 w-3" />}
+		</button>
 	);
 }
 

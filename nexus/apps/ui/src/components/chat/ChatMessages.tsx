@@ -1,6 +1,6 @@
 import type { UIMessage } from "@tanstack/ai-react";
-import { Check, Copy, Loader2 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Loader2 } from "lucide-react";
+import { useEffect, useRef } from "react";
 import { ScrollArea } from "../ui/scroll-area";
 import { ChatMessage } from "./ChatMessage";
 
@@ -14,30 +14,11 @@ export function ChatMessages({
 	error: string | null;
 }) {
 	const messagesEndRef = useRef<HTMLDivElement>(null);
-	const [copied, setCopied] = useState(false);
 
 	// Scroll to bottom on new messages
 	// biome-ignore lint/correctness/useExhaustiveDependencies: intentional trigger on messages change
 	useEffect(() => {
 		messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-	}, [messages]);
-
-	const handleCopyAll = useCallback(async () => {
-		const formatted = messages
-			.filter((m) => m.role !== "system")
-			.map((m) => {
-				const role = m.role === "user" ? "User" : "Assistant";
-				const content = m.parts
-					.filter((p) => p.type === "text")
-					.map((p) => (p as { type: "text"; content: string }).content)
-					.join("");
-				return `${role}: ${content}`;
-			})
-			.join("\n\n");
-
-		await navigator.clipboard.writeText(formatted);
-		setCopied(true);
-		setTimeout(() => setCopied(false), 2000);
 	}, [messages]);
 
 	// Empty state
@@ -50,55 +31,27 @@ export function ChatMessages({
 	}
 
 	return (
-		<div className="flex h-full flex-col">
-			{/* Copy button */}
-			{messages.length > 0 && (
-				<div className="flex items-center justify-end px-3 py-1.5 border-b border-border">
-					<button
-						type="button"
-						onClick={handleCopyAll}
-						className="flex items-center gap-1.5 rounded px-2 py-1 text-xs text-text-tertiary transition-colors hover:bg-surface-elevated hover:text-text-secondary"
-					>
-						{copied ? (
-							<>
-								<Check className="h-3 w-3 text-success" />
-								<span className="text-success">Copied</span>
-							</>
-						) : (
-							<>
-								<Copy className="h-3 w-3" />
-								<span className="hidden sm:inline">Copy all</span>
-							</>
-						)}
-					</button>
-				</div>
-			)}
+		<ScrollArea className="h-full">
+			<div className="space-y-1 py-4">
+				{messages.map((message) => (
+					<ChatMessage key={message.id} message={message} />
+				))}
 
-			{/* Messages */}
-			<ScrollArea className="flex-1">
-				<div className="space-y-1 py-2">
-					{messages.map((message) => (
-						<ChatMessage key={message.id} message={message} />
-					))}
+				{isLoading && (messages.length === 0 || messages[messages.length - 1]?.role === "user") && (
+					<div className="flex items-center gap-2 px-4 py-2 text-sm text-text-tertiary">
+						<Loader2 className="h-3 w-3 animate-spin" />
+						<span>thinking...</span>
+					</div>
+				)}
 
-					{isLoading &&
-						(messages.length === 0 || messages[messages.length - 1]?.role === "user") && (
-							<div className="flex items-center gap-2 px-3 py-2 text-sm text-text-tertiary">
-								<span>$</span>
-								<Loader2 className="h-3 w-3 animate-spin" />
-								<span>thinking...</span>
-							</div>
-						)}
+				{error && (
+					<div className="mx-4 rounded border border-error/30 bg-error-bg px-3 py-2 text-sm text-error">
+						{error}
+					</div>
+				)}
 
-					{error && (
-						<div className="mx-3 rounded border border-error/30 bg-error-bg px-3 py-2 text-sm text-error">
-							{error}
-						</div>
-					)}
-
-					<div ref={messagesEndRef} />
-				</div>
-			</ScrollArea>
-		</div>
+				<div ref={messagesEndRef} />
+			</div>
+		</ScrollArea>
 	);
 }

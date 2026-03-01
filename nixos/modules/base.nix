@@ -34,6 +34,7 @@
     vim
     wget
     git
+    gh
     htop
     kubectl
     k9s

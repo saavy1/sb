@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Menu, MessageSquarePlus, X } from "lucide-react";
+import { Menu, MessageSquarePlus, Wrench, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { ChatView } from "../components/chat";
 import { ScrollArea } from "../components/ui/scroll-area";
@@ -14,10 +14,18 @@ type AgentThread = NonNullable<
 	Awaited<ReturnType<typeof client.api.agent.threads.get>>["data"]
 >[number];
 
+type ToolEntry = {
+	name: string;
+	description: string;
+	category: string;
+};
+
 function ChatPage() {
 	const [threads, setThreads] = useState<AgentThread[]>([]);
 	const [activeId, setActiveId] = useState<string | null>(null);
 	const [drawerOpen, setDrawerOpen] = useState(false);
+	const [toolsOpen, setToolsOpen] = useState(false);
+	const [toolsByCategory, setToolsByCategory] = useState<Record<string, ToolEntry[]>>({});
 
 	const fetchThreads = useCallback(async () => {
 		const { data } = await client.api.agent.threads.get({
@@ -53,6 +61,16 @@ function ChatPage() {
 	const handleThreadSelect = (id: string) => {
 		setActiveId(id);
 		setDrawerOpen(false);
+	};
+
+	const handleToolsToggle = async () => {
+		if (!toolsOpen && Object.keys(toolsByCategory).length === 0) {
+			const { data } = await client.api.agent.tools.grouped.get();
+			if (data) {
+				setToolsByCategory(data as Record<string, ToolEntry[]>);
+			}
+		}
+		setToolsOpen(!toolsOpen);
 	};
 
 	const getThreadTitle = (thread: AgentThread) => {
@@ -155,11 +173,66 @@ function ChatPage() {
 					>
 						<Menu size={20} />
 					</button>
-					<h1 className="text-sm font-medium text-text-secondary">the-machine</h1>
+					<h1 className="flex-1 text-sm font-medium text-text-secondary">the-machine</h1>
+					<button
+						type="button"
+						onClick={handleToolsToggle}
+						className={`rounded p-1.5 transition-colors ${
+							toolsOpen
+								? "bg-accent/15 text-accent"
+								: "text-text-tertiary hover:bg-surface-elevated hover:text-text-primary"
+						}`}
+						title="Available tools"
+					>
+						<Wrench size={16} />
+					</button>
 				</header>
 
-				<div className="flex-1 overflow-hidden">
-					<ChatView threadId={activeId ?? undefined} onThreadChange={handleThreadChange} />
+				{/* Content area with optional tools panel */}
+				<div className="flex flex-1 overflow-hidden">
+					<div className="flex-1 overflow-hidden">
+						<ChatView threadId={activeId ?? undefined} onThreadChange={handleThreadChange} />
+					</div>
+
+					{/* Tools panel */}
+					{toolsOpen && (
+						<aside className="w-72 shrink-0 overflow-hidden border-l border-border bg-surface">
+							<div className="flex items-center justify-between border-b border-border px-3 py-2">
+								<span className="text-xs font-medium text-text-secondary">
+									Available Tools ({Object.values(toolsByCategory).flat().length})
+								</span>
+								<button
+									type="button"
+									onClick={() => setToolsOpen(false)}
+									className="rounded p-1 text-text-tertiary hover:text-text-primary"
+								>
+									<X size={14} />
+								</button>
+							</div>
+							<ScrollArea className="h-[calc(100%-37px)]">
+								<div className="space-y-3 p-3">
+									{Object.entries(toolsByCategory).map(([category, tools]) => (
+										<div key={category}>
+											<h3 className="mb-1.5 text-xs font-medium text-accent">{category}</h3>
+											<div className="space-y-1">
+												{tools.map((tool) => (
+													<div
+														key={tool.name}
+														className="rounded border border-border/50 px-2.5 py-1.5"
+													>
+														<div className="text-xs font-medium text-text-primary">{tool.name}</div>
+														<div className="mt-0.5 text-xs text-text-tertiary line-clamp-2">
+															{tool.description}
+														</div>
+													</div>
+												))}
+											</div>
+										</div>
+									))}
+								</div>
+							</ScrollArea>
+						</aside>
+					)}
 				</div>
 			</div>
 		</div>

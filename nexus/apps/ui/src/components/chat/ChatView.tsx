@@ -6,6 +6,97 @@ import { API_URL, client } from "../../lib/api";
 import { ChatInput } from "./ChatInput";
 import { ChatMessages } from "./ChatMessages";
 
+type ModelMessage = {
+	role: string;
+	content?: string | null;
+	toolCalls?: Array<{
+		id: string;
+		type: string;
+		function: { name: string; arguments: string };
+	}>;
+	toolCallId?: string;
+};
+
+/** Convert DB ModelMessages to UIMessages, preserving tool-call/result parts */
+function convertModelToUIMessages(messages: ModelMessage[]): UIMessage[] {
+	const uiMessages: UIMessage[] = [];
+
+	for (let i = 0; i < messages.length; i++) {
+		const m = messages[i];
+
+		// Wake messages → system role
+		if (
+			m.role === "user" &&
+			typeof m.content === "string" &&
+			m.content.startsWith("[SYSTEM WAKE]")
+		) {
+			uiMessages.push({
+				id: `loaded-${i}`,
+				role: "system",
+				parts: [{ type: "text" as const, content: m.content.replace("[SYSTEM WAKE]", "").trim() }],
+			});
+			continue;
+		}
+
+		// Skip tool-role messages — they're attached to assistant messages below
+		if (m.role === "tool") continue;
+
+		// User messages
+		if (m.role === "user") {
+			uiMessages.push({
+				id: `loaded-${i}`,
+				role: "user",
+				parts: [{ type: "text" as const, content: typeof m.content === "string" ? m.content : "" }],
+			});
+			continue;
+		}
+
+		// Assistant messages — include tool-call and tool-result parts
+		if (m.role === "assistant") {
+			const parts: UIMessage["parts"] = [];
+
+			if (m.content) {
+				parts.push({
+					type: "text" as const,
+					content: typeof m.content === "string" ? m.content : "",
+				});
+			}
+
+			if (m.toolCalls) {
+				for (const tc of m.toolCalls) {
+					parts.push({
+						type: "tool-call" as const,
+						id: tc.id,
+						name: tc.function.name,
+						arguments: tc.function.arguments || "{}",
+						state: "input-complete",
+					});
+
+					// Find matching tool result in subsequent messages
+					const toolResult = messages.find((r) => r.role === "tool" && r.toolCallId === tc.id);
+					if (toolResult) {
+						parts.push({
+							type: "tool-result" as const,
+							toolCallId: tc.id,
+							content:
+								typeof toolResult.content === "string"
+									? toolResult.content
+									: JSON.stringify(toolResult.content),
+							state: "complete",
+						});
+					}
+				}
+			}
+
+			if (parts.length > 0) {
+				uiMessages.push({ id: `loaded-${i}`, role: "assistant", parts });
+			}
+		}
+	}
+
+	return uiMessages;
+}
+
 type Props = {
 	threadId?: string;
 	onThreadChange?: (id: string | null) => void;
@@ -16,6 +107,7 @@ export function ChatView({ threadId: propThreadId, onThreadChange }: Props) {
 	const [input, setInput] = useState("");
 	const [submitError, setSubmitError] = useState<string | null>(null);
 	const activeThreadIdRef = useRef<string | null>(activeThreadId);
+	const skipNextLoadRef = useRef(false);
 
 	useEffect(() => {
 		activeThreadIdRef.current = activeThreadId;
@@ -41,18 +133,16 @@ export function ChatView({ threadId: propThreadId, onThreadChange }: Props) {
 			return;
 		}
 
+		// Skip loading when we just created a new thread (prevents wiping in-flight stream)
+		if (skipNextLoadRef.current) {
+			skipNextLoadRef.current = false;
+			return;
+		}
+
 		const loadThread = async () => {
 			const { data } = await client.api.agent.threads({ id: activeThreadId }).get();
 			if (data && "messages" in data && Array.isArray(data.messages)) {
-				// Convert ModelMessages from DB to UIMessages for display
-				const uiMessages: UIMessage[] = data.messages
-					.filter((m: { role: string; content?: string | null }) => m.content)
-					.map((m: { role: string; content?: string | null }, i: number) => ({
-						id: `loaded-${i}`,
-						role: m.role as "user" | "assistant",
-						parts: [{ type: "text" as const, content: m.content || "" }],
-					}));
-				setMessages(uiMessages);
+				setMessages(convertModelToUIMessages(data.messages as ModelMessage[]));
 			}
 		};
 
@@ -76,6 +166,7 @@ export function ChatView({ threadId: propThreadId, onThreadChange }: Props) {
 				if (data && "id" in data) {
 					threadId = data.id;
 					activeThreadIdRef.current = threadId;
+					skipNextLoadRef.current = true;
 					setActiveThreadId(threadId);
 					onThreadChange?.(threadId);
 				} else {
