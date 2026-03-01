@@ -181,10 +181,17 @@ export const toolRegistry: ToolInfo[] = [
 
 	// Infisical Tools (secret management)
 	{
+		name: "list_infisical_projects",
+		description: "List all Infisical projects accessible to the agent",
+		category: "Secrets",
+		parameters: {},
+	},
+	{
 		name: "get_infisical_secret",
 		description: "Retrieve a specific secret from Infisical (source of truth for all secrets)",
 		category: "Secrets",
 		parameters: {
+			projectId: { type: "string", description: "Infisical project ID (use list_infisical_projects to discover)", required: true },
 			secretName: { type: "string", description: "The secret key name", required: true },
 			environment: { type: "string", description: "Environment slug (e.g., prod, dev)", required: false },
 			secretPath: { type: "string", description: "Folder path in Infisical", required: false },
@@ -196,6 +203,7 @@ export const toolRegistry: ToolInfo[] = [
 		description: "List all secrets at a given path in Infisical",
 		category: "Secrets",
 		parameters: {
+			projectId: { type: "string", description: "Infisical project ID (use list_infisical_projects to discover)", required: true },
 			environment: { type: "string", description: "Environment slug (e.g., prod, dev)", required: false },
 			secretPath: { type: "string", description: "Folder path in Infisical", required: false },
 			showValues: { type: "boolean", description: "Whether to reveal actual values", required: false },
@@ -207,6 +215,7 @@ export const toolRegistry: ToolInfo[] = [
 		description: "Compare an Infisical secret with its Kubernetes counterpart to detect ESO sync issues",
 		category: "Secrets",
 		parameters: {
+			projectId: { type: "string", description: "Infisical project ID (use list_infisical_projects to discover)", required: true },
 			secretName: { type: "string", description: "Secret key name in Infisical", required: true },
 			infisicalPath: { type: "string", description: "Path in Infisical", required: true },
 			kubernetesSecret: { type: "string", description: "K8s secret name", required: true },
@@ -220,7 +229,7 @@ export const toolRegistry: ToolInfo[] = [
 		description: "Get version history for a secret in Infisical",
 		category: "Secrets",
 		parameters: {
-			secretId: { type: "string", description: "The Infisical secret ID", required: true },
+			secretId: { type: "string", description: "The Infisical secret ID (from get_infisical_secret result)", required: true },
 			limit: { type: "number", description: "Number of versions to return", required: false },
 		},
 	},
