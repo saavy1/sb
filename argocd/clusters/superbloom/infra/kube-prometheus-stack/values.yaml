@@ -6,6 +6,9 @@ grafana:
     enabled: true
     storageClassName: local-path
     size: 2Gi
+  # Skip init-chown-data (fails with local-path provisioner)
+  initChownData:
+    enabled: false
   # Datasources auto-configured for local Loki + Tempo
   additionalDataSources:
     - name: Loki
