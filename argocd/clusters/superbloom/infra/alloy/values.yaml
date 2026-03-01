@@ -14,6 +14,8 @@ destinations:
     type: otlp
     url: http://tempo.monitoring.svc.cluster.local:4317
     protocol: grpc
+    tls:
+      insecure: true
     metrics:
       enabled: false
     logs:
