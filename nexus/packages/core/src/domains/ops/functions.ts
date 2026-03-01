@@ -4,20 +4,24 @@ import { z } from "zod";
 import { config } from "../../infra/config";
 import { opsDb } from "../../infra/db";
 import {
-	executeSSH,
-	executeKubectl,
-	executeHelm,
-	executeGhIssueCreate,
-	sshHost,
-	sshUser,
-	validateK8sName,
-	validateNamespace,
-	validatePositiveInt,
+  executeSSH,
+  executeKubectl,
+  executeHelm,
+  executeGhIssueCreate,
+  sshHost,
+  sshUser,
+  validateK8sName,
+  validateNamespace,
+  validatePositiveInt,
 } from "../../infra/ssh";
 import { toolDefinition } from "@tanstack/ai";
 import type { NewOperationRecord, OperationRecord } from "./schema";
 import { operations } from "./schema";
-import type { CommandResultType, OperationTypeValue, TriggerSourceValue } from "./types";
+import type {
+  CommandResultType,
+  OperationTypeValue,
+  TriggerSourceValue,
+} from "./types";
 
 // === Config ===
 
@@ -27,792 +31,854 @@ const flakeTarget = config.OPS_FLAKE_TARGET;
 // === Internal helpers ===
 
 async function executeNixosRebuild(): Promise<CommandResultType> {
-	const commands = [
-		`cd ${flakePath} && git pull`,
-		`nixos-rebuild switch --flake ${flakePath}#${flakeTarget}`,
-	];
+  const commands = [
+    `cd ${flakePath} && git pull`,
+    `nixos-rebuild switch --flake ${flakePath}#${flakeTarget}`,
+  ];
 
-	let combinedOutput = "";
-	let totalDurationMs = 0;
-	for (const cmd of commands) {
-		logger.info({ cmd }, "Executing SSH command");
-		const result = await executeSSH(cmd);
-		combinedOutput += `$ ${cmd}\n${result.output}\n\n`;
-		totalDurationMs += result.durationMs;
-		if (!result.success) {
-			return {
-				success: false,
-				output: combinedOutput,
-				errorMessage: result.errorMessage,
-				durationMs: totalDurationMs,
-			};
-		}
-	}
+  let combinedOutput = "";
+  let totalDurationMs = 0;
+  for (const cmd of commands) {
+    logger.info({ cmd }, "Executing SSH command");
+    const result = await executeSSH(cmd);
+    combinedOutput += `$ ${cmd}\n${result.output}\n\n`;
+    totalDurationMs += result.durationMs;
+    if (!result.success) {
+      return {
+        success: false,
+        output: combinedOutput,
+        errorMessage: result.errorMessage,
+        durationMs: totalDurationMs,
+      };
+    }
+  }
 
-	return { success: true, output: combinedOutput, durationMs: totalDurationMs };
+  return { success: true, output: combinedOutput, durationMs: totalDurationMs };
 }
 
 async function executeFluxReconcile(): Promise<CommandResultType> {
-	return executeSSH("flux reconcile kustomization flux-system --with-source --timeout=5m");
+  return executeSSH(
+    "flux reconcile kustomization flux-system --with-source --timeout=5m",
+  );
 }
 
 async function executeArgocdSync(appName?: string): Promise<CommandResultType> {
-	const cmd = appName
-		? `get applications.argoproj.io ${appName} -n argocd -o name`
-		: "get applications.argoproj.io -n argocd -o name";
+  const cmd = appName
+    ? `get applications.argoproj.io ${appName} -n argocd -o name`
+    : "get applications.argoproj.io -n argocd -o name";
 
-	// First get the app names, then annotate them to trigger a refresh
-	const listResult = await executeKubectl(cmd);
-	if (!listResult.success) {
-		return listResult;
-	}
+  // First get the app names, then annotate them to trigger a refresh
+  const listResult = await executeKubectl(cmd);
+  if (!listResult.success) {
+    return listResult;
+  }
 
-	const apps = listResult.output.trim().split("\n").filter(Boolean);
-	if (apps.length === 0) {
-		return { success: true, output: "No ArgoCD applications found", durationMs: listResult.durationMs };
-	}
+  const apps = listResult.output.trim().split("\n").filter(Boolean);
+  if (apps.length === 0) {
+    return {
+      success: true,
+      output: "No ArgoCD applications found",
+      durationMs: listResult.durationMs,
+    };
+  }
 
-	// Annotate each app to trigger a hard refresh
-	let combinedOutput = "";
-	let totalDurationMs = listResult.durationMs;
-	for (const app of apps) {
-		const name = app.replace("application.argoproj.io/", "");
-		const result = await executeKubectl(
-			`annotate applications.argoproj.io ${name} -n argocd argocd.argoproj.io/refresh=hard --overwrite`
-		);
-		combinedOutput += `${name}: ${result.success ? "synced" : result.errorMessage}\n`;
-		totalDurationMs += result.durationMs;
-	}
+  // Annotate each app to trigger a hard refresh
+  let combinedOutput = "";
+  let totalDurationMs = listResult.durationMs;
+  for (const app of apps) {
+    const name = app.replace("application.argoproj.io/", "");
+    const result = await executeKubectl(
+      `annotate applications.argoproj.io ${name} -n argocd argocd.argoproj.io/refresh=hard --overwrite`,
+    );
+    combinedOutput += `${name}: ${result.success ? "synced" : result.errorMessage}\n`;
+    totalDurationMs += result.durationMs;
+  }
 
-	return { success: true, output: combinedOutput, durationMs: totalDurationMs };
+  return { success: true, output: combinedOutput, durationMs: totalDurationMs };
 }
 
-async function executeOperation(id: string, type: OperationTypeValue): Promise<void> {
-	let result: CommandResultType;
+async function executeOperation(
+  id: string,
+  type: OperationTypeValue,
+): Promise<void> {
+  let result: CommandResultType;
 
-	switch (type) {
-		case "nixos-rebuild":
-			result = await executeNixosRebuild();
-			break;
-		case "flux-reconcile":
-			result = await executeFluxReconcile();
-			break;
-		case "argocd-sync":
-			result = await executeArgocdSync();
-			break;
-		default:
-			result = {
-				success: false,
-				output: "",
-				errorMessage: `Unknown operation type: ${type}`,
-				durationMs: 0,
-			};
-	}
+  switch (type) {
+    case "nixos-rebuild":
+      result = await executeNixosRebuild();
+      break;
+    case "flux-reconcile":
+      result = await executeFluxReconcile();
+      break;
+    case "argocd-sync":
+      result = await executeArgocdSync();
+      break;
+    default:
+      result = {
+        success: false,
+        output: "",
+        errorMessage: `Unknown operation type: ${type}`,
+        durationMs: 0,
+      };
+  }
 
-	const completedAt = new Date();
-	await opsDb
-		.update(operations)
-		.set({
-			status: result.success ? "success" : "failed",
-			output: result.output.slice(0, 50000),
-			errorMessage: result.errorMessage || null,
-			completedAt,
-			durationMs: result.durationMs,
-		})
-		.where(eq(operations.id, id));
+  const completedAt = new Date();
+  await opsDb
+    .update(operations)
+    .set({
+      status: result.success ? "success" : "failed",
+      output: result.output.slice(0, 50000),
+      errorMessage: result.errorMessage || null,
+      completedAt,
+      durationMs: result.durationMs,
+    })
+    .where(eq(operations.id, id));
 
-	logger.info(
-		{ id, success: result.success, durationMs: result.durationMs },
-		"Operation completed"
-	);
+  logger.info(
+    { id, success: result.success, durationMs: result.durationMs },
+    "Operation completed",
+  );
 }
 
 // === Exported functions ===
 
 export async function triggerOperation(
-	type: OperationTypeValue,
-	source: TriggerSourceValue,
-	user?: string
+  type: OperationTypeValue,
+  source: TriggerSourceValue,
+  user?: string,
 ): Promise<OperationRecord> {
-	const id = crypto.randomUUID().slice(0, 8);
-	const now = new Date();
+  const id = crypto.randomUUID().slice(0, 8);
+  const now = new Date();
 
-	const newOp: NewOperationRecord = {
-		id,
-		type,
-		status: "running",
-		triggeredBy: source,
-		triggeredByUser: user || null,
-		startedAt: now,
-	};
+  const newOp: NewOperationRecord = {
+    id,
+    type,
+    status: "running",
+    triggeredBy: source,
+    triggeredByUser: user || null,
+    startedAt: now,
+  };
 
-	await opsDb.insert(operations).values(newOp);
-	logger.info({ id, type, source, user }, "Operation started");
+  await opsDb.insert(operations).values(newOp);
+  logger.info({ id, type, source, user }, "Operation started");
 
-	// Execute async - don't block the response
-	executeOperation(id, type).catch(async (err) => {
-		logger.error({ err, id }, "Operation execution error");
-		try {
-			await opsDb
-				.update(operations)
-				.set({
-					status: "failed",
-					errorMessage: err?.message || "Unexpected error",
-					completedAt: new Date(),
-				})
-				.where(eq(operations.id, id));
-		} catch (dbErr) {
-			logger.error({ dbErr, id }, "Failed to update operation status after error");
-		}
-	});
+  // Execute async - don't block the response
+  executeOperation(id, type).catch(async (err) => {
+    logger.error({ err, id }, "Operation execution error");
+    try {
+      await opsDb
+        .update(operations)
+        .set({
+          status: "failed",
+          errorMessage: err?.message || "Unexpected error",
+          completedAt: new Date(),
+        })
+        .where(eq(operations.id, id));
+    } catch (dbErr) {
+      logger.error(
+        { dbErr, id },
+        "Failed to update operation status after error",
+      );
+    }
+  });
 
-	return {
-		id,
-		type,
-		status: "running",
-		triggeredBy: source,
-		triggeredByUser: user || null,
-		startedAt: now,
-		output: null,
-		errorMessage: null,
-		completedAt: null,
-		durationMs: null,
-	};
+  return {
+    id,
+    type,
+    status: "running",
+    triggeredBy: source,
+    triggeredByUser: user || null,
+    startedAt: now,
+    output: null,
+    errorMessage: null,
+    completedAt: null,
+    durationMs: null,
+  };
 }
 
-export async function getOperation(id: string): Promise<OperationRecord | null> {
-	const result = await opsDb.select().from(operations).where(eq(operations.id, id));
-	return result[0] || null;
+export async function getOperation(
+  id: string,
+): Promise<OperationRecord | null> {
+  const result = await opsDb
+    .select()
+    .from(operations)
+    .where(eq(operations.id, id));
+  return result[0] || null;
 }
 
 export async function listOperations(limit = 50): Promise<OperationRecord[]> {
-	return opsDb.select().from(operations).orderBy(desc(operations.startedAt)).limit(limit);
+  return opsDb
+    .select()
+    .from(operations)
+    .orderBy(desc(operations.startedAt))
+    .limit(limit);
 }
 
 export async function getLatestOperation(
-	type?: OperationTypeValue
+  type?: OperationTypeValue,
 ): Promise<OperationRecord | null> {
-	if (type) {
-		const result = await opsDb
-			.select()
-			.from(operations)
-			.where(eq(operations.type, type))
-			.orderBy(desc(operations.startedAt))
-			.limit(1);
-		return result[0] || null;
-	}
+  if (type) {
+    const result = await opsDb
+      .select()
+      .from(operations)
+      .where(eq(operations.type, type))
+      .orderBy(desc(operations.startedAt))
+      .limit(1);
+    return result[0] || null;
+  }
 
-	const result = await opsDb.select().from(operations).orderBy(desc(operations.startedAt)).limit(1);
-	return result[0] || null;
+  const result = await opsDb
+    .select()
+    .from(operations)
+    .orderBy(desc(operations.startedAt))
+    .limit(1);
+  return result[0] || null;
 }
 
 export function shouldTriggerNixosRebuild(changedFiles: string[]): boolean {
-	return changedFiles.some((f) => f.startsWith("nixos/"));
+  return changedFiles.some((f) => f.startsWith("nixos/"));
 }
 
 export function shouldTriggerFluxReconcile(changedFiles: string[]): boolean {
-	return changedFiles.some((f) => f.startsWith("flux/"));
+  return changedFiles.some((f) => f.startsWith("flux/"));
 }
 
 export function shouldTriggerArgocdSync(changedFiles: string[]): boolean {
-	return changedFiles.some((f) => f.startsWith("argocd/"));
+  return changedFiles.some((f) => f.startsWith("argocd/"));
 }
 
 // === AI Tool-exposed functions ===
 
 export const triggerNixosRebuildTool = toolDefinition({
-		name: "trigger_nixos_rebuild",
-		description:
-			"Trigger a NixOS rebuild on the server. This will git pull the latest config and run nixos-rebuild switch. Use when user says things like 'rebuild the server', 'apply my nixos changes', 'update the system config'.",
-		inputSchema: z.object({}),
-	}).server(async () => {
-		const op = await triggerOperation("nixos-rebuild", "ai", "the-machine");
-		return {
-			success: true,
-			message: "NixOS rebuild started",
-			operationId: op.id,
-			status: op.status,
-		};
-	}
-);
+  name: "trigger_nixos_rebuild",
+  description:
+    "Trigger a NixOS rebuild on the server. This will git pull the latest config and run nixos-rebuild switch. Use when user says things like 'rebuild the server', 'apply my nixos changes', 'update the system config'.",
+  inputSchema: z.object({}),
+}).server(async () => {
+  const op = await triggerOperation("nixos-rebuild", "ai", "the-machine");
+  return {
+    success: true,
+    message: "NixOS rebuild started",
+    operationId: op.id,
+    status: op.status,
+  };
+});
 
 export const triggerArgocdSyncTool = toolDefinition({
-		name: "trigger_argocd_sync",
-		description:
-			"Trigger ArgoCD to sync all applications, deploying any pending Kubernetes changes. Use when user says things like 'sync argocd', 'deploy k8s changes', 'sync the cluster'.",
-		inputSchema: z.object({
-			appName: z.string().optional().describe("Specific app name to sync (default: all apps)"),
-		}),
-	}).server(async ({ appName }) => {
-		const op = await triggerOperation("argocd-sync", "ai", "the-machine");
-		return {
-			success: true,
-			message: appName ? `ArgoCD sync started for ${appName}` : "ArgoCD sync started for all apps",
-			operationId: op.id,
-			status: op.status,
-		};
-	}
-);
+  name: "trigger_argocd_sync",
+  description:
+    "Trigger ArgoCD to sync all applications, deploying any pending Kubernetes changes. Use when user says things like 'sync argocd', 'deploy k8s changes', 'sync the cluster'.",
+  inputSchema: z.object({
+    appName: z
+      .string()
+      .optional()
+      .describe("Specific app name to sync (default: all apps)"),
+  }),
+}).server(async ({ appName }) => {
+  const op = await triggerOperation("argocd-sync", "ai", "the-machine");
+  return {
+    success: true,
+    message: appName
+      ? `ArgoCD sync started for ${appName}`
+      : "ArgoCD sync started for all apps",
+    operationId: op.id,
+    status: op.status,
+  };
+});
 
 export const getOperationStatusTool = toolDefinition({
-		name: "get_operation_status",
-		description:
-			"Get the status of an infrastructure operation by ID. Use when user asks about the status of a rebuild or deployment.",
-		inputSchema: z.object({
-			id: z.string().describe("The operation ID"),
-		}),
-	}).server(async ({ id }) => {
-		const op = await getOperation(id);
-		if (!op) {
-			return { error: `Operation '${id}' not found` };
-		}
-		return {
-			id: op.id,
-			type: op.type,
-			status: op.status,
-			startedAt: op.startedAt,
-			completedAt: op.completedAt,
-			durationMs: op.durationMs,
-			errorMessage: op.errorMessage,
-		};
-	}
-);
+  name: "get_operation_status",
+  description:
+    "Get the status of an infrastructure operation by ID. Use when user asks about the status of a rebuild or deployment.",
+  inputSchema: z.object({
+    id: z.string().describe("The operation ID"),
+  }),
+}).server(async ({ id }) => {
+  const op = await getOperation(id);
+  if (!op) {
+    return { error: `Operation '${id}' not found` };
+  }
+  return {
+    id: op.id,
+    type: op.type,
+    status: op.status,
+    startedAt: op.startedAt,
+    completedAt: op.completedAt,
+    durationMs: op.durationMs,
+    errorMessage: op.errorMessage,
+  };
+});
 
 export const listRecentOperationsTool = toolDefinition({
-		name: "list_recent_operations",
-		description:
-			"List recent infrastructure operations (rebuilds, deployments). Use when user asks 'what operations ran recently' or 'show me recent deploys'.",
-		inputSchema: z.object({
-			limit: z.number().optional().describe("Number of operations to return (default 10)"),
-		}),
-	}).server(async ({ limit }) => {
-		const ops = await listOperations(limit ?? 10);
-		return ops.map((op) => ({
-			id: op.id,
-			type: op.type,
-			status: op.status,
-			startedAt: op.startedAt,
-			durationMs: op.durationMs,
-		}));
-	}
-);
+  name: "list_recent_operations",
+  description:
+    "List recent infrastructure operations (rebuilds, deployments). Use when user asks 'what operations ran recently' or 'show me recent deploys'.",
+  inputSchema: z.object({
+    limit: z
+      .number()
+      .optional()
+      .describe("Number of operations to return (default 10)"),
+  }),
+}).server(async ({ limit }) => {
+  const ops = await listOperations(limit ?? 10);
+  return ops.map((op) => ({
+    id: op.id,
+    type: op.type,
+    status: op.status,
+    startedAt: op.startedAt,
+    durationMs: op.durationMs,
+  }));
+});
 
 // === Connection test ===
 
 export async function testConnection(): Promise<{
-	ssh: { success: boolean; message: string };
-	kubectl: { success: boolean; message: string };
-	argocd: { success: boolean; message: string };
+  ssh: { success: boolean; message: string };
+  kubectl: { success: boolean; message: string };
+  argocd: { success: boolean; message: string };
 }> {
-	const results = {
-		ssh: { success: false, message: "" },
-		kubectl: { success: false, message: "" },
-		argocd: { success: false, message: "" },
-	};
+  const results = {
+    ssh: { success: false, message: "" },
+    kubectl: { success: false, message: "" },
+    argocd: { success: false, message: "" },
+  };
 
-	// Test SSH (via Tailscale)
-	const sshTest = await executeSSH("echo 'SSH connection successful'");
-	results.ssh = {
-		success: sshTest.success,
-		message: sshTest.success
-			? `Connected to ${sshUser}@${sshHost}`
-			: sshTest.errorMessage || "SSH connection failed",
-	};
+  // Test SSH (via Tailscale)
+  const sshTest = await executeSSH("echo 'SSH connection successful'");
+  results.ssh = {
+    success: sshTest.success,
+    message: sshTest.success
+      ? `Connected to ${sshUser}@${sshHost}`
+      : sshTest.errorMessage || "SSH connection failed",
+  };
 
-	// Test kubectl
-	const kubectlTest = await executeKubectl("cluster-info --request-timeout=5s");
-	results.kubectl = {
-		success: kubectlTest.success,
-		message: kubectlTest.success
-			? "kubectl connected to cluster"
-			: kubectlTest.errorMessage || "kubectl failed",
-	};
+  // Test kubectl
+  const kubectlTest = await executeKubectl("cluster-info --request-timeout=5s");
+  results.kubectl = {
+    success: kubectlTest.success,
+    message: kubectlTest.success
+      ? "kubectl connected to cluster"
+      : kubectlTest.errorMessage || "kubectl failed",
+  };
 
-	// Test ArgoCD
-	const argocdTest = await executeKubectl("get applications.argoproj.io -n argocd --request-timeout=5s -o name");
-	results.argocd = {
-		success: argocdTest.success,
-		message: argocdTest.success
-			? "ArgoCD applications accessible"
-			: argocdTest.errorMessage || "ArgoCD check failed",
-	};
+  // Test ArgoCD
+  const argocdTest = await executeKubectl(
+    "get applications.argoproj.io -n argocd --request-timeout=5s -o name",
+  );
+  results.argocd = {
+    success: argocdTest.success,
+    message: argocdTest.success
+      ? "ArgoCD applications accessible"
+      : argocdTest.errorMessage || "ArgoCD check failed",
+  };
 
-	return results;
+  return results;
 }
 
 // === Kubectl/ArgoCD query tools ===
 
 export const getPodsTool = toolDefinition({
-		name: "get_pods",
-		description:
-			"List Kubernetes pods with their status, restarts, and age. Use when user asks 'what pods are running', 'show me pod status', 'are all pods healthy', or to investigate cluster issues.",
-		inputSchema: z.object({
-			namespace: z
-				.string()
-				.optional()
-				.describe("Namespace to list pods from (default: all namespaces)"),
-			allNamespaces: z
-				.boolean()
-				.optional()
-				.describe("List pods from all namespaces (default: true)"),
-		}),
-	}).server(async ({ namespace, allNamespaces = true }) => {
-		let cmd = "get pods -o wide";
-		if (namespace) {
-			cmd += ` -n ${validateNamespace(namespace)}`;
-		} else if (allNamespaces) {
-			cmd += " -A";
-		}
+  name: "get_pods",
+  description:
+    "List Kubernetes pods with their status, restarts, and age. Use when user asks 'what pods are running', 'show me pod status', 'are all pods healthy', or to investigate cluster issues.",
+  inputSchema: z.object({
+    namespace: z
+      .string()
+      .optional()
+      .describe("Namespace to list pods from (default: all namespaces)"),
+    allNamespaces: z
+      .boolean()
+      .optional()
+      .describe("List pods from all namespaces (default: true)"),
+  }),
+}).server(async ({ namespace, allNamespaces = true }) => {
+  let cmd = "get pods -o wide";
+  if (namespace) {
+    cmd += ` -n ${validateNamespace(namespace)}`;
+  } else if (allNamespaces) {
+    cmd += " -A";
+  }
 
-		const result = await executeKubectl(cmd);
-		if (!result.success) {
-			return { error: result.errorMessage, output: result.output };
-		}
-		return { success: true, output: result.output };
-	}
-);
+  const result = await executeKubectl(cmd);
+  if (!result.success) {
+    return { error: result.errorMessage, output: result.output };
+  }
+  return { success: true, output: result.output };
+});
 
 export const getPodLogsTool = toolDefinition({
-		name: "get_pod_logs",
-		description:
-			"Get logs from a Kubernetes pod. Use when user asks to 'show logs for X', 'what's happening in pod Y', or to debug pod issues.",
-		inputSchema: z.object({
-			pod: z.string().describe("Name of the pod"),
-			namespace: z.string().describe("Namespace the pod is in"),
-			container: z.string().optional().describe("Container name (if pod has multiple containers)"),
-			tail: z.number().optional().describe("Number of lines to show (default: 100)"),
-			previous: z
-				.boolean()
-				.optional()
-				.describe("Show logs from previous container instance (for crash debugging)"),
-		}),
-	}).server(async ({ pod, namespace, container, tail, previous = false }) => {
-		const validPod = validateK8sName(pod, "pod");
-		const validNamespace = validateNamespace(namespace);
-		const validTail = validatePositiveInt(tail, 100, 10000);
+  name: "get_pod_logs",
+  description:
+    "Get logs from a Kubernetes pod. Use when user asks to 'show logs for X', 'what's happening in pod Y', or to debug pod issues.",
+  inputSchema: z.object({
+    pod: z.string().describe("Name of the pod"),
+    namespace: z.string().describe("Namespace the pod is in"),
+    container: z
+      .string()
+      .optional()
+      .describe("Container name (if pod has multiple containers)"),
+    tail: z
+      .number()
+      .optional()
+      .describe("Number of lines to show (default: 100)"),
+    previous: z
+      .boolean()
+      .optional()
+      .describe(
+        "Show logs from previous container instance (for crash debugging)",
+      ),
+  }),
+}).server(async ({ pod, namespace, container, tail, previous = false }) => {
+  const validPod = validateK8sName(pod, "pod");
+  const validNamespace = validateNamespace(namespace);
+  const validTail = validatePositiveInt(tail, 100, 10000);
 
-		let cmd = `logs ${validPod} -n ${validNamespace} --tail=${validTail}`;
-		if (container) {
-			cmd += ` -c ${validateK8sName(container, "container")}`;
-		}
-		if (previous) {
-			cmd += " --previous";
-		}
+  let cmd = `logs ${validPod} -n ${validNamespace} --tail=${validTail}`;
+  if (container) {
+    cmd += ` -c ${validateK8sName(container, "container")}`;
+  }
+  if (previous) {
+    cmd += " --previous";
+  }
 
-		const result = await executeKubectl(cmd);
-		if (!result.success) {
-			return { error: result.errorMessage, output: result.output };
-		}
-		return { success: true, output: result.output };
-	}
-);
+  const result = await executeKubectl(cmd);
+  if (!result.success) {
+    return { error: result.errorMessage, output: result.output };
+  }
+  return { success: true, output: result.output };
+});
 
 export const getEventsTool = toolDefinition({
-		name: "get_events",
-		description:
-			"Get recent Kubernetes cluster events. Use when debugging issues, user asks 'what events happened', 'why did pod X fail', or 'show cluster activity'.",
-		inputSchema: z.object({
-			namespace: z.string().optional().describe("Namespace to filter events (default: all)"),
-			limit: z.number().optional().describe("Number of events to show (default: 50)"),
-		}),
-	}).server(async ({ namespace, limit }) => {
-		const validLimit = validatePositiveInt(limit, 50, 500);
+  name: "get_events",
+  description:
+    "Get recent Kubernetes cluster events. Use when debugging issues, user asks 'what events happened', 'why did pod X fail', or 'show cluster activity'.",
+  inputSchema: z.object({
+    namespace: z
+      .string()
+      .optional()
+      .describe("Namespace to filter events (default: all)"),
+    limit: z
+      .number()
+      .optional()
+      .describe("Number of events to show (default: 50)"),
+  }),
+}).server(async ({ namespace, limit }) => {
+  const validLimit = validatePositiveInt(limit, 50, 500);
 
-		let cmd = `get events --sort-by='.lastTimestamp'`;
-		if (namespace) {
-			cmd += ` -n ${validateNamespace(namespace)}`;
-		} else {
-			cmd += " -A";
-		}
-		// kubectl doesn't have a --tail for events, we'll pipe through tail
-		const result = await executeKubectl(cmd);
-		if (!result.success) {
-			return { error: result.errorMessage, output: result.output };
-		}
+  let cmd = `get events --sort-by='.lastTimestamp'`;
+  if (namespace) {
+    cmd += ` -n ${validateNamespace(namespace)}`;
+  } else {
+    cmd += " -A";
+  }
+  // kubectl doesn't have a --tail for events, we'll pipe through tail
+  const result = await executeKubectl(cmd);
+  if (!result.success) {
+    return { error: result.errorMessage, output: result.output };
+  }
 
-		// Limit output to most recent events
-		const lines = result.output.split("\n");
-		const header = lines[0];
-		const events = lines.slice(1, validLimit + 1);
-		return { success: true, output: [header, ...events].join("\n") };
-	}
-);
+  // Limit output to most recent events
+  const lines = result.output.split("\n");
+  const header = lines[0];
+  const events = lines.slice(1, validLimit + 1);
+  return { success: true, output: [header, ...events].join("\n") };
+});
 
 export const getArgocdStatusTool = toolDefinition({
-		name: "get_argocd_status",
-		description:
-			"Get ArgoCD application sync and health status. Shows all managed applications with their sync state and health. Use when user asks 'is argocd healthy', 'what's the deployment status', 'show GitOps status', 'are all apps in sync'.",
-		inputSchema: z.object({
-			appName: z.string().optional().describe("Specific app name (default: all apps)"),
-		}),
-	}).server(async ({ appName }) => {
-		const cmd = appName
-			? `get applications.argoproj.io ${validateK8sName(appName, "app")} -n argocd -o wide`
-			: "get applications.argoproj.io -n argocd -o wide";
-		const result = await executeKubectl(cmd);
-		if (!result.success) {
-			return { error: result.errorMessage, output: result.output };
-		}
-		return { success: true, output: result.output };
-	}
-);
+  name: "get_argocd_status",
+  description:
+    "Get ArgoCD application sync and health status. Shows all managed applications with their sync state and health. Use when user asks 'is argocd healthy', 'what's the deployment status', 'show GitOps status', 'are all apps in sync'.",
+  inputSchema: z.object({
+    appName: z
+      .string()
+      .optional()
+      .describe("Specific app name (default: all apps)"),
+  }),
+}).server(async ({ appName }) => {
+  const cmd = appName
+    ? `get applications.argoproj.io ${validateK8sName(appName, "app")} -n argocd -o wide`
+    : "get applications.argoproj.io -n argocd -o wide";
+  const result = await executeKubectl(cmd);
+  if (!result.success) {
+    return { error: result.errorMessage, output: result.output };
+  }
+  return { success: true, output: result.output };
+});
 
 export const describeResourceTool = toolDefinition({
-		name: "describe_resource",
-		description:
-			"Get detailed information about a Kubernetes resource including events, conditions, and status. Use when debugging issues like CrashLoopBackOff, ImagePullBackOff, or when user asks 'why is X failing', 'describe pod Y', 'what's wrong with Z'.",
-		inputSchema: z.object({
-			kind: z
-				.enum(["pod", "deployment", "service", "statefulset", "configmap", "secret", "pvc", "node"])
-				.describe("Type of resource to describe"),
-			name: z.string().describe("Name of the resource"),
-			namespace: z.string().optional().describe("Namespace (not needed for nodes)"),
-		}),
-	}).server(async ({ kind, name, namespace }) => {
-		const validName = validateK8sName(name, "name");
+  name: "describe_resource",
+  description:
+    "Get detailed information about a Kubernetes resource including events, conditions, and status. Use when debugging issues like CrashLoopBackOff, ImagePullBackOff, or when user asks 'why is X failing', 'describe pod Y', 'what's wrong with Z'.",
+  inputSchema: z.object({
+    kind: z
+      .enum([
+        "pod",
+        "deployment",
+        "service",
+        "statefulset",
+        "configmap",
+        "secret",
+        "pvc",
+        "node",
+      ])
+      .describe("Type of resource to describe"),
+    name: z.string().describe("Name of the resource"),
+    namespace: z
+      .string()
+      .optional()
+      .describe("Namespace (not needed for nodes)"),
+  }),
+}).server(async ({ kind, name, namespace }) => {
+  const validName = validateK8sName(name, "name");
 
-		let cmd = `describe ${kind} ${validName}`;
-		if (namespace && kind !== "node") {
-			cmd += ` -n ${validateNamespace(namespace)}`;
-		}
+  let cmd = `describe ${kind} ${validName}`;
+  if (namespace && kind !== "node") {
+    cmd += ` -n ${validateNamespace(namespace)}`;
+  }
 
-		const result = await executeKubectl(cmd);
-		if (!result.success) {
-			return { error: result.errorMessage, output: result.output };
-		}
-		return { success: true, output: result.output };
-	}
-);
+  const result = await executeKubectl(cmd);
+  if (!result.success) {
+    return { error: result.errorMessage, output: result.output };
+  }
+  return { success: true, output: result.output };
+});
 
 export const rolloutRestartTool = toolDefinition({
-		name: "rollout_restart",
-		description:
-			"Restart a Kubernetes deployment or statefulset by triggering a rolling restart. Use when user asks to 'restart X', 'bounce the pods', or to apply config changes that require a restart.",
-		inputSchema: z.object({
-			name: z.string().describe("Name of the deployment or statefulset"),
-			namespace: z.string().describe("Namespace the resource is in"),
-			kind: z
-				.enum(["deployment", "statefulset"])
-				.optional()
-				.describe("Resource kind (default: deployment)"),
-		}),
-	}).server(async ({ name, namespace, kind = "deployment" }) => {
-		const validName = validateK8sName(name, "name");
-		const validNamespace = validateNamespace(namespace);
+  name: "rollout_restart",
+  description:
+    "Restart a Kubernetes deployment or statefulset by triggering a rolling restart. Use when user asks to 'restart X', 'bounce the pods', or to apply config changes that require a restart.",
+  inputSchema: z.object({
+    name: z.string().describe("Name of the deployment or statefulset"),
+    namespace: z.string().describe("Namespace the resource is in"),
+    kind: z
+      .enum(["deployment", "statefulset"])
+      .optional()
+      .describe("Resource kind (default: deployment)"),
+  }),
+}).server(async ({ name, namespace, kind = "deployment" }) => {
+  const validName = validateK8sName(name, "name");
+  const validNamespace = validateNamespace(namespace);
 
-		const cmd = `rollout restart ${kind}/${validName} -n ${validNamespace}`;
-		const result = await executeKubectl(cmd);
-		if (!result.success) {
-			return { error: result.errorMessage, output: result.output };
-		}
-		return {
-			success: true,
-			message: `Rolling restart initiated for ${kind}/${name} in ${namespace}`,
-			output: result.output,
-		};
-	}
-);
+  const cmd = `rollout restart ${kind}/${validName} -n ${validNamespace}`;
+  const result = await executeKubectl(cmd);
+  if (!result.success) {
+    return { error: result.errorMessage, output: result.output };
+  }
+  return {
+    success: true,
+    message: `Rolling restart initiated for ${kind}/${name} in ${namespace}`,
+    output: result.output,
+  };
+});
 
 export const helmRollbackTool = toolDefinition({
-		name: "helm_rollback",
-		description:
-			"Rollback a Helm release to a previous revision. Use when user asks to 'rollback X', 'revert the deploy', or to undo a failed deployment.",
-		inputSchema: z.object({
-			release: z.string().describe("Name of the Helm release"),
-			namespace: z.string().describe("Namespace the release is in"),
-			revision: z
-				.number()
-				.optional()
-				.describe("Revision number to rollback to (default: previous revision)"),
-		}),
-	}).server(async ({ release, namespace, revision }) => {
-		const validRelease = validateK8sName(release, "release");
-		const validNamespace = validateNamespace(namespace);
-		const validRevision =
-			revision !== undefined ? validatePositiveInt(revision, 0, 10000) : undefined;
+  name: "helm_rollback",
+  description:
+    "Rollback a Helm release to a previous revision. Use when user asks to 'rollback X', 'revert the deploy', or to undo a failed deployment.",
+  inputSchema: z.object({
+    release: z.string().describe("Name of the Helm release"),
+    namespace: z.string().describe("Namespace the release is in"),
+    revision: z
+      .number()
+      .optional()
+      .describe("Revision number to rollback to (default: previous revision)"),
+  }),
+}).server(async ({ release, namespace, revision }) => {
+  const validRelease = validateK8sName(release, "release");
+  const validNamespace = validateNamespace(namespace);
+  const validRevision =
+    revision !== undefined
+      ? validatePositiveInt(revision, 0, 10000)
+      : undefined;
 
-		let cmd = `rollback ${validRelease} -n ${validNamespace}`;
-		if (validRevision !== undefined) {
-			cmd = `rollback ${validRelease} ${validRevision} -n ${validNamespace}`;
-		}
+  let cmd = `rollback ${validRelease} -n ${validNamespace}`;
+  if (validRevision !== undefined) {
+    cmd = `rollback ${validRelease} ${validRevision} -n ${validNamespace}`;
+  }
 
-		const result = await executeHelm(cmd);
-		if (!result.success) {
-			return { error: result.errorMessage, output: result.output };
-		}
-		return {
-			success: true,
-			message: `Helm rollback initiated for ${release} in ${namespace}`,
-			output: result.output,
-		};
-	}
-);
+  const result = await executeHelm(cmd);
+  if (!result.success) {
+    return { error: result.errorMessage, output: result.output };
+  }
+  return {
+    success: true,
+    message: `Helm rollback initiated for ${release} in ${namespace}`,
+    output: result.output,
+  };
+});
 
 export const listNamespacesTool = toolDefinition({
-		name: "list_namespaces",
-		description:
-			"List all Kubernetes namespaces in the cluster. Use when user asks 'what namespaces exist', 'show me the cluster structure', or when you need to discover where resources are located.",
-		inputSchema: z.object({}),
-	}).server(async () => {
-		const result = await executeKubectl("get namespaces -o wide");
-		if (!result.success) {
-			return { error: result.errorMessage, output: result.output };
-		}
-		return { success: true, output: result.output };
-	}
-);
+  name: "list_namespaces",
+  description:
+    "List all Kubernetes namespaces in the cluster. Use when user asks 'what namespaces exist', 'show me the cluster structure', or when you need to discover where resources are located.",
+  inputSchema: z.object({}),
+}).server(async () => {
+  const result = await executeKubectl("get namespaces -o wide");
+  if (!result.success) {
+    return { error: result.errorMessage, output: result.output };
+  }
+  return { success: true, output: result.output };
+});
 
 export const listResourcesTool = toolDefinition({
-		name: "list_resources",
-		description:
-			"List Kubernetes resources of a specific type. Use when user asks 'what deployments are running', 'show me all PVCs', 'list services', etc. Supports deployments, statefulsets, daemonsets, services, configmaps, secrets, pvcs, and nodes.",
-		inputSchema: z.object({
-			kind: z
-				.enum([
-					"deployments",
-					"statefulsets",
-					"daemonsets",
-					"services",
-					"configmaps",
-					"secrets",
-					"pvcs",
-					"pvs",
-					"nodes",
-					"ingresses",
-				])
-				.describe("Type of resource to list"),
-			namespace: z
-				.string()
-				.optional()
-				.describe(
-					"Namespace to list from (default: all namespaces, except for cluster-scoped resources)"
-				),
-			allNamespaces: z
-				.boolean()
-				.optional()
-				.describe("List from all namespaces (default: true for namespaced resources)"),
-		}),
-	}).server(async ({ kind, namespace, allNamespaces = true }) => {
-		// Cluster-scoped resources don't use namespace
-		const clusterScoped = ["nodes", "pvs"];
-		const isClusterScoped = clusterScoped.includes(kind);
+  name: "list_resources",
+  description:
+    "List Kubernetes resources of a specific type. Use when user asks 'what deployments are running', 'show me all PVCs', 'list services', etc. Supports deployments, statefulsets, daemonsets, services, configmaps, secrets, pvcs, and nodes.",
+  inputSchema: z.object({
+    kind: z
+      .enum([
+        "deployments",
+        "statefulsets",
+        "daemonsets",
+        "services",
+        "configmaps",
+        "secrets",
+        "pvcs",
+        "pvs",
+        "nodes",
+        "ingresses",
+      ])
+      .describe("Type of resource to list"),
+    namespace: z
+      .string()
+      .optional()
+      .describe(
+        "Namespace to list from (default: all namespaces, except for cluster-scoped resources)",
+      ),
+    allNamespaces: z
+      .boolean()
+      .optional()
+      .describe(
+        "List from all namespaces (default: true for namespaced resources)",
+      ),
+  }),
+}).server(async ({ kind, namespace, allNamespaces = true }) => {
+  // Cluster-scoped resources don't use namespace
+  const clusterScoped = ["nodes", "pvs"];
+  const isClusterScoped = clusterScoped.includes(kind);
 
-		let cmd = `get ${kind} -o wide`;
-		if (!isClusterScoped) {
-			if (namespace) {
-				cmd += ` -n ${validateNamespace(namespace)}`;
-			} else if (allNamespaces) {
-				cmd += " -A";
-			}
-		}
+  let cmd = `get ${kind} -o wide`;
+  if (!isClusterScoped) {
+    if (namespace) {
+      cmd += ` -n ${validateNamespace(namespace)}`;
+    } else if (allNamespaces) {
+      cmd += " -A";
+    }
+  }
 
-		const result = await executeKubectl(cmd);
-		if (!result.success) {
-			return { error: result.errorMessage, output: result.output };
-		}
-		return { success: true, output: result.output };
-	}
-);
+  const result = await executeKubectl(cmd);
+  if (!result.success) {
+    return { error: result.errorMessage, output: result.output };
+  }
+  return { success: true, output: result.output };
+});
 
 export const getNodeStatusTool = toolDefinition({
-		name: "get_node_status",
-		description:
-			"Get detailed status of Kubernetes nodes including conditions, resources, taints, and capacity. Use when checking cluster health, investigating node issues, or understanding resource availability.",
-		inputSchema: z.object({
-			nodeName: z.string().optional().describe("Specific node name (default: all nodes)"),
-		}),
-	}).server(async ({ nodeName }) => {
-		let cmd = "get nodes -o wide";
-		if (nodeName) {
-			cmd = `describe node ${validateK8sName(nodeName, "node")}`;
-		}
+  name: "get_node_status",
+  description:
+    "Get detailed status of Kubernetes nodes including conditions, resources, taints, and capacity. Use when checking cluster health, investigating node issues, or understanding resource availability.",
+  inputSchema: z.object({
+    nodeName: z
+      .string()
+      .optional()
+      .describe("Specific node name (default: all nodes)"),
+  }),
+}).server(async ({ nodeName }) => {
+  let cmd = "get nodes -o wide";
+  if (nodeName) {
+    cmd = `describe node ${validateK8sName(nodeName, "node")}`;
+  }
 
-		const result = await executeKubectl(cmd);
-		if (!result.success) {
-			return { error: result.errorMessage, output: result.output };
-		}
-		return { success: true, output: result.output };
-	}
-);
+  const result = await executeKubectl(cmd);
+  if (!result.success) {
+    return { error: result.errorMessage, output: result.output };
+  }
+  return { success: true, output: result.output };
+});
 
 export const getResourceUsageTool = toolDefinition({
-		name: "get_resource_usage",
-		description:
-			"Get CPU and memory usage for pods or nodes using kubectl top. Use when investigating resource consumption, identifying resource hogs, or checking if pods need more resources.",
-		inputSchema: z.object({
-			type: z.enum(["pods", "nodes"]).describe("Type of resource to check usage for"),
-			namespace: z.string().optional().describe("Namespace for pods (default: all namespaces)"),
-			sortBy: z
-				.enum(["cpu", "memory"])
-				.optional()
-				.describe("Sort by resource type (default: memory)"),
-		}),
-	}).server(async ({ type, namespace, sortBy = "memory" }) => {
-		let cmd = `top ${type} --sort-by=${sortBy}`;
-		if (type === "pods") {
-			if (namespace) {
-				cmd += ` -n ${validateNamespace(namespace)}`;
-			} else {
-				cmd += " -A";
-			}
-		}
+  name: "get_resource_usage",
+  description:
+    "Get CPU and memory usage for pods or nodes using kubectl top. Use when investigating resource consumption, identifying resource hogs, or checking if pods need more resources.",
+  inputSchema: z.object({
+    type: z
+      .enum(["pods", "nodes"])
+      .describe("Type of resource to check usage for"),
+    namespace: z
+      .string()
+      .optional()
+      .describe("Namespace for pods (default: all namespaces)"),
+    sortBy: z
+      .enum(["cpu", "memory"])
+      .optional()
+      .describe("Sort by resource type (default: memory)"),
+  }),
+}).server(async ({ type, namespace, sortBy = "memory" }) => {
+  let cmd = `top ${type} --sort-by=${sortBy}`;
+  if (type === "pods") {
+    if (namespace) {
+      cmd += ` -n ${validateNamespace(namespace)}`;
+    } else {
+      cmd += " -A";
+    }
+  }
 
-		const result = await executeKubectl(cmd);
-		if (!result.success) {
-			return { error: result.errorMessage, output: result.output };
-		}
-		return { success: true, output: result.output };
-	}
-);
+  const result = await executeKubectl(cmd);
+  if (!result.success) {
+    return { error: result.errorMessage, output: result.output };
+  }
+  return { success: true, output: result.output };
+});
 
 export const getJobsTool = toolDefinition({
-		name: "get_jobs",
-		description:
-			"List Kubernetes Jobs and CronJobs. Use when checking scheduled tasks, investigating failed jobs, or understanding batch workloads.",
-		inputSchema: z.object({
-			type: z
-				.enum(["jobs", "cronjobs", "both"])
-				.optional()
-				.describe("Type of job resource (default: both)"),
-			namespace: z.string().optional().describe("Namespace (default: all namespaces)"),
-		}),
-	}).server(async ({ type = "both", namespace }) => {
-		const nsFlag = namespace ? `-n ${validateNamespace(namespace)}` : "-A";
-		const results: string[] = [];
+  name: "get_jobs",
+  description:
+    "List Kubernetes Jobs and CronJobs. Use when checking scheduled tasks, investigating failed jobs, or understanding batch workloads.",
+  inputSchema: z.object({
+    type: z
+      .enum(["jobs", "cronjobs", "both"])
+      .optional()
+      .describe("Type of job resource (default: both)"),
+    namespace: z
+      .string()
+      .optional()
+      .describe("Namespace (default: all namespaces)"),
+  }),
+}).server(async ({ type = "both", namespace }) => {
+  const nsFlag = namespace ? `-n ${validateNamespace(namespace)}` : "-A";
+  const results: string[] = [];
 
-		if (type === "jobs" || type === "both") {
-			const jobResult = await executeKubectl(`get jobs ${nsFlag} -o wide`);
-			if (jobResult.success) {
-				results.push("=== Jobs ===", jobResult.output);
-			}
-		}
+  if (type === "jobs" || type === "both") {
+    const jobResult = await executeKubectl(`get jobs ${nsFlag} -o wide`);
+    if (jobResult.success) {
+      results.push("=== Jobs ===", jobResult.output);
+    }
+  }
 
-		if (type === "cronjobs" || type === "both") {
-			const cronResult = await executeKubectl(`get cronjobs ${nsFlag} -o wide`);
-			if (cronResult.success) {
-				results.push("=== CronJobs ===", cronResult.output);
-			}
-		}
+  if (type === "cronjobs" || type === "both") {
+    const cronResult = await executeKubectl(`get cronjobs ${nsFlag} -o wide`);
+    if (cronResult.success) {
+      results.push("=== CronJobs ===", cronResult.output);
+    }
+  }
 
-		return { success: true, output: results.join("\n") };
-	}
-);
+  return { success: true, output: results.join("\n") };
+});
 
 export const getStorageClassesTool = toolDefinition({
-		name: "get_storage_classes",
-		description:
-			"List available Kubernetes storage classes and their configurations. Use when understanding storage options, debugging PVC issues, or setting up new persistent storage.",
-		inputSchema: z.object({}),
-	}).server(async () => {
-		const result = await executeKubectl("get storageclasses -o wide");
-		if (!result.success) {
-			return { error: result.errorMessage, output: result.output };
-		}
-		return { success: true, output: result.output };
-	}
-);
+  name: "get_storage_classes",
+  description:
+    "List available Kubernetes storage classes and their configurations. Use when understanding storage options, debugging PVC issues, or setting up new persistent storage.",
+  inputSchema: z.object({}),
+}).server(async () => {
+  const result = await executeKubectl("get storageclasses -o wide");
+  if (!result.success) {
+    return { error: result.errorMessage, output: result.output };
+  }
+  return { success: true, output: result.output };
+});
 
 export const getEndpointsTool = toolDefinition({
-		name: "get_endpoints",
-		description:
-			"Get service endpoints showing which pods back each service. Use when debugging connectivity issues, verifying service discovery, or checking if services are properly routing traffic.",
-		inputSchema: z.object({
-			serviceName: z.string().optional().describe("Specific service name (default: all services)"),
-			namespace: z.string().optional().describe("Namespace (default: all namespaces)"),
-		}),
-	}).server(async ({ serviceName, namespace }) => {
-		let cmd = "get endpoints -o wide";
-		if (serviceName) {
-			cmd = `get endpoints ${validateK8sName(serviceName, "service")}`;
-			if (namespace) {
-				cmd += ` -n ${validateNamespace(namespace)}`;
-			}
-		} else if (namespace) {
-			cmd += ` -n ${validateNamespace(namespace)}`;
-		} else {
-			cmd += " -A";
-		}
+  name: "get_endpoints",
+  description:
+    "Get service endpoints showing which pods back each service. Use when debugging connectivity issues, verifying service discovery, or checking if services are properly routing traffic.",
+  inputSchema: z.object({
+    serviceName: z
+      .string()
+      .optional()
+      .describe("Specific service name (default: all services)"),
+    namespace: z
+      .string()
+      .optional()
+      .describe("Namespace (default: all namespaces)"),
+  }),
+}).server(async ({ serviceName, namespace }) => {
+  let cmd = "get endpoints -o wide";
+  if (serviceName) {
+    cmd = `get endpoints ${validateK8sName(serviceName, "service")}`;
+    if (namespace) {
+      cmd += ` -n ${validateNamespace(namespace)}`;
+    }
+  } else if (namespace) {
+    cmd += ` -n ${validateNamespace(namespace)}`;
+  } else {
+    cmd += " -A";
+  }
 
-		const result = await executeKubectl(cmd);
-		if (!result.success) {
-			return { error: result.errorMessage, output: result.output };
-		}
-		return { success: true, output: result.output };
-	}
-);
+  const result = await executeKubectl(cmd);
+  if (!result.success) {
+    return { error: result.errorMessage, output: result.output };
+  }
+  return { success: true, output: result.output };
+});
 
 export const createGithubIssueTool = toolDefinition({
-		name: "create_github_issue",
-		description:
-			"Create a GitHub issue in the Superbloom repo. Use this when you've investigated a problem (e.g. CrashLoopBackOff, failed deployment) and determined it needs a code change to fix. Include your investigation findings, relevant logs, and what you think needs to change. Adding the 'claude-fix' label will trigger automated code fixing via Claude Code.",
-		inputSchema: z.object({
-			title: z.string().describe("Short, descriptive issue title"),
-			body: z
-				.string()
-				.describe(
-					"Markdown body with: problem summary, investigation findings (logs, errors), affected files/services, and suggested fix direction"
-				),
-			labels: z
-				.array(z.string())
-				.optional()
-				.describe(
-					"Labels to add. Use 'claude-fix' to trigger automated fixing, 'bug' for bugs, 'ops' for infra issues"
-				),
-			assignees: z.array(z.string()).optional().describe("GitHub usernames to assign"),
-		}),
-	}).server(async ({ title, body, labels, assignees }) => {
-		const repo = config.GITHUB_REPO;
-		if (!repo) {
-			return { success: false, error: "GITHUB_REPO not configured" };
-		}
+  name: "create_github_issue",
+  description:
+    "Create a GitHub issue in the Superbloom repo. Use this when you've investigated a problem (e.g. CrashLoopBackOff, failed deployment) and determined it needs a code change to fix. Include your investigation findings, relevant logs, and what you think needs to change. Putting @droid in the title will cause it to be fixed.",
+  inputSchema: z.object({
+    title: z.string().describe("Short, descriptive issue title"),
+    body: z
+      .string()
+      .describe(
+        "Markdown body with: problem summary, investigation findings (logs, errors), affected files/services, and suggested fix direction",
+      ),
+    assignees: z
+      .array(z.string())
+      .optional()
+      .describe("GitHub usernames to assign"),
+  }),
+}).server(async ({ title, body, assignees }) => {
+  const repo = config.GITHUB_REPO;
+  if (!repo) {
+    return { success: false, error: "GITHUB_REPO not configured" };
+  }
 
-		const result = await executeGhIssueCreate({
-			repo,
-			title,
-			body,
-			labels,
-			assignees,
-		});
+  const result = await executeGhIssueCreate({
+    repo,
+    title,
+    body,
+    assignees,
+  });
 
-		if (!result.success) {
-			return {
-				success: false,
-				error: result.errorMessage || "Failed to create issue",
-				output: result.output,
-			};
-		}
+  if (!result.success) {
+    return {
+      success: false,
+      error: result.errorMessage || "Failed to create issue",
+      output: result.output,
+    };
+  }
 
-		// gh outputs the issue URL on success (e.g. https://github.com/owner/repo/issues/42)
-		const issueUrl = result.output.trim();
-		const issueNumber = issueUrl.match(/\/issues\/(\d+)/)?.[1];
+  // gh outputs the issue URL on success (e.g. https://github.com/owner/repo/issues/42)
+  const issueUrl = result.output.trim();
+  const issueNumber = issueUrl.match(/\/issues\/(\d+)/)?.[1];
 
-		return {
-			success: true,
-			issueUrl,
-			issueNumber: issueNumber ? Number(issueNumber) : null,
-			message: `Created issue #${issueNumber}: ${title}`,
-		};
-	}
-);
+  return {
+    success: true,
+    issueUrl,
+    issueNumber: issueNumber ? Number(issueNumber) : null,
+    message: `Created issue #${issueNumber}: ${title}`,
+  };
+});
 
 export const opsTools = [
-	triggerNixosRebuildTool,
-	triggerArgocdSyncTool,
-	getOperationStatusTool,
-	listRecentOperationsTool,
-	getPodsTool,
-	getPodLogsTool,
-	getEventsTool,
-	getArgocdStatusTool,
-	describeResourceTool,
-	rolloutRestartTool,
-	helmRollbackTool,
-	listNamespacesTool,
-	listResourcesTool,
-	getNodeStatusTool,
-	getResourceUsageTool,
-	getJobsTool,
-	getStorageClassesTool,
-	getEndpointsTool,
-	createGithubIssueTool,
+  triggerNixosRebuildTool,
+  triggerArgocdSyncTool,
+  getOperationStatusTool,
+  listRecentOperationsTool,
+  getPodsTool,
+  getPodLogsTool,
+  getEventsTool,
+  getArgocdStatusTool,
+  describeResourceTool,
+  rolloutRestartTool,
+  helmRollbackTool,
+  listNamespacesTool,
+  listResourcesTool,
+  getNodeStatusTool,
+  getResourceUsageTool,
+  getJobsTool,
+  getStorageClassesTool,
+  getEndpointsTool,
+  createGithubIssueTool,
 ];

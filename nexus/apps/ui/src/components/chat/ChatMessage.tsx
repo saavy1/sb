@@ -6,11 +6,19 @@ import { ToolCallIndicator } from "./ToolCallIndicator";
 import { ToolErrorBlock } from "./ToolErrorBlock";
 import { ToolResultBlock } from "./ToolResultBlock";
 
+function MachineAvatar() {
+	return (
+		<div className="mt-0.5 h-6 w-6 shrink-0 rounded bg-accent/20 flex items-center justify-center">
+			<div className="h-2 w-2 rounded-sm bg-accent" />
+		</div>
+	);
+}
+
 export function ChatMessage({ message }: { message: UIMessage }) {
 	if (message.role === "system") {
 		return (
 			<div className="flex justify-center py-1">
-				<div className="flex items-center gap-2 rounded-full bg-accent/10 px-4 py-1.5 text-xs text-accent">
+				<div className="flex items-center gap-2 rounded-full bg-accent/10 px-4 py-1.5 text-xs font-display text-accent">
 					<Bell className="h-3 w-3" />
 					<span>{getTextContent(message)}</span>
 				</div>
@@ -30,10 +38,11 @@ export function ChatMessage({ message }: { message: UIMessage }) {
 		);
 	}
 
-	// Assistant - render parts with copy button
+	// Assistant - render parts with avatar and copy button
 	return (
-		<div className="group flex justify-start px-4 py-1">
-			<div className="relative max-w-[85%]">
+		<div className="group flex justify-start gap-2.5 px-4 py-1">
+			<MachineAvatar />
+			<div className="relative max-w-[85%] min-w-0">
 				<MessageParts message={message} />
 				<CopyButton text={getTextContent(message)} />
 			</div>

@@ -270,7 +270,7 @@ function HomePage() {
 	return (
 		<div className="container mx-auto space-y-4 px-4 py-4">
 			{/* System Stats Strip */}
-			<div className="bg-surface border border-border rounded text-xs">
+			<div className="bg-surface border border-border rounded text-xs surface-glow animate-panel stagger-1">
 				<div className="flex items-center justify-between px-3 py-2">
 					<div className="flex items-center gap-4 md:gap-6 flex-wrap">
 						{stats ? (
@@ -354,6 +354,7 @@ function HomePage() {
 			<div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 				{/* Storage Panel - New Unified Tree */}
 				<Panel
+					className="animate-panel stagger-2"
 					title="Storage"
 					actions={
 						<button
@@ -387,6 +388,7 @@ function HomePage() {
 
 				{/* ZFS Health Panel */}
 				<Panel
+					className="animate-panel stagger-3"
 					title="ZFS Health"
 					actions={
 						<button
@@ -498,6 +500,7 @@ function HomePage() {
 
 				{/* Game Servers Panel */}
 				<Panel
+					className="animate-panel stagger-4"
 					title={`Game Servers${servers.length > 0 ? ` (${runningServers}/${servers.length})` : ""}`}
 					actions={
 						<>
@@ -597,6 +600,7 @@ function HomePage() {
 
 				{/* Data Stores Panel */}
 				<Panel
+					className="animate-panel stagger-5"
 					title="Data Stores"
 					actions={
 						<button
@@ -646,6 +650,7 @@ function HomePage() {
 
 				{/* Queues Panel */}
 				<Panel
+					className="animate-panel stagger-6"
 					title={`Queues${queues.length > 0 ? ` (${totalQueueJobs} jobs${failedJobs > 0 ? `, ${failedJobs} failed` : ""})` : ""}`}
 					actions={
 						<button

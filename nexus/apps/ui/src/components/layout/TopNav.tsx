@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "@tanstack/react-router";
-import { Menu, Wifi, WifiOff, X } from "lucide-react";
+import { Menu, WifiOff, X } from "lucide-react";
 import { useState } from "react";
 import { useConnection } from "../../lib/ConnectionContext";
 import { useHotkeys } from "../../lib/useHotkeys";
@@ -24,15 +24,20 @@ export function TopNav() {
 	});
 
 	return (
-		<header className="bg-surface border-b border-border sticky top-0 z-50">
+		<header className="bg-surface/80 backdrop-blur-md border-b border-border sticky top-0 z-50">
 			<div className="container mx-auto px-4">
 				<div className="flex justify-between items-center h-12">
 					<div className="flex items-center gap-6">
 						<Link
 							to="/"
-							className="text-sm font-semibold text-text-primary hover:text-accent transition-colors"
+							className="group flex items-center gap-2 hover:opacity-90 transition-opacity"
 						>
-							the-machine
+							<div className="h-5 w-5 rounded bg-accent/20 flex items-center justify-center">
+								<div className="h-2 w-2 rounded-sm bg-accent" />
+							</div>
+							<span className="font-display text-sm font-semibold tracking-tight text-text-primary">
+								the machine
+							</span>
 						</Link>
 
 						<nav className="hidden md:flex items-center">
@@ -46,14 +51,14 @@ export function TopNav() {
 									{({ isActive }) => (
 										<>
 											<span
-												className={`text-sm transition-colors ${
+												className={`font-display text-[13px] font-medium transition-colors ${
 													isActive ? "text-accent" : "text-text-secondary hover:text-text-primary"
 												}`}
 											>
 												{label}
 											</span>
 											{isActive && (
-												<span className="absolute bottom-0 left-2 right-2 h-px bg-accent" />
+												<span className="absolute bottom-0 left-2 right-2 h-0.5 rounded-full bg-accent" />
 											)}
 										</>
 									)}
@@ -63,16 +68,19 @@ export function TopNav() {
 					</div>
 
 					<div className="flex items-center gap-4 text-xs text-text-tertiary">
-						<div className="flex items-center gap-1">
+						<div className="flex items-center gap-1.5">
 							{connected ? (
 								<>
-									<Wifi size={12} className="text-success" />
-									<span className="hidden sm:inline text-success">live</span>
+									<span className="relative flex h-1.5 w-1.5">
+										<span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-75" />
+										<span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-success" />
+									</span>
+									<span className="hidden sm:inline text-success font-display text-xs">live</span>
 								</>
 							) : (
 								<>
 									<WifiOff size={12} />
-									<span className="hidden sm:inline">offline</span>
+									<span className="hidden sm:inline font-display text-xs">offline</span>
 								</>
 							)}
 						</div>
@@ -99,7 +107,9 @@ export function TopNav() {
 							onClick={() => setMenuOpen(false)}
 						>
 							{({ isActive }) => (
-								<span className={`text-sm ${isActive ? "text-accent" : "text-text-secondary"}`}>
+								<span
+									className={`font-display text-sm ${isActive ? "text-accent" : "text-text-secondary"}`}
+								>
 									{label}
 								</span>
 							)}
