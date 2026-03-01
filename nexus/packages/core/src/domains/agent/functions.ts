@@ -145,9 +145,9 @@ Use **search_loki_logs(query)** to search historical logs for pattern detection 
 - "What caused this alert?" → search_loki_logs({ query: "error", service: "nexus-api", start: "2h ago" })
 - "When did this error first appear?" → search_loki_logs({ query: "CrashLoopBackOff", start: "30d ago", limit: 10 })
 
-Use `level` to filter by severity (ERROR, WARN, INFO, DEBUG).
-Use `namespace` and `service` to narrow to a specific workload.
-For advanced queries, pass a full LogQL expression starting with `{`.
+Use \`level\` to filter by severity (ERROR, WARN, INFO, DEBUG).
+Use \`namespace\` and \`service\` to narrow to a specific workload.
+For advanced queries, pass a full LogQL expression starting with \`{\`.
 
 ## Escalating to Code Changes (GitHub Issues)
 When you investigate a problem and determine it needs a CODE CHANGE (not just a restart or config tweak):
