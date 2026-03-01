@@ -28,38 +28,28 @@ spec:
           config:
             path: ./work/argocd/clusters/superbloom/nexus/api/values.yaml
             updates:
-              - key: controllers.main.initContainers.db-migrate.image.repository
-                value: registry.saavylab.dev/saavy1/nexus
-              - key: controllers.main.containers.main.image.repository
-                value: registry.saavylab.dev/saavy1/nexus
-              - key: controllers.main.initContainers.db-migrate.image.digest
-                value: ${{ imageFrom("zot.zot.svc.cluster.local:5000/saavy1/nexus").Digest }}
-              - key: controllers.main.containers.main.image.digest
-                value: ${{ imageFrom("zot.zot.svc.cluster.local:5000/saavy1/nexus").Digest }}
+              - key: controllers.main.initContainers.db-migrate.image.tag
+                value: ${{ imageFrom("zot.zot.svc.cluster.local:5000/saavy1/nexus").Tag }}
+              - key: controllers.main.containers.main.image.tag
+                value: ${{ imageFrom("zot.zot.svc.cluster.local:5000/saavy1/nexus").Tag }}
         - uses: yaml-update
           config:
             path: ./work/argocd/clusters/superbloom/nexus/bot/values.yaml
             updates:
-              - key: controllers.main.containers.main.image.repository
-                value: registry.saavylab.dev/saavy1/nexus-bot
-              - key: controllers.main.containers.main.image.digest
-                value: ${{ imageFrom("zot.zot.svc.cluster.local:5000/saavy1/nexus-bot").Digest }}
+              - key: controllers.main.containers.main.image.tag
+                value: ${{ imageFrom("zot.zot.svc.cluster.local:5000/saavy1/nexus-bot").Tag }}
         - uses: yaml-update
           config:
             path: ./work/argocd/clusters/superbloom/nexus/agent-worker/values.yaml
             updates:
-              - key: controllers.main.containers.main.image.repository
-                value: registry.saavylab.dev/saavy1/nexus-agent-worker
-              - key: controllers.main.containers.main.image.digest
-                value: ${{ imageFrom("zot.zot.svc.cluster.local:5000/saavy1/nexus-agent-worker").Digest }}
+              - key: controllers.main.containers.main.image.tag
+                value: ${{ imageFrom("zot.zot.svc.cluster.local:5000/saavy1/nexus-agent-worker").Tag }}
         - uses: yaml-update
           config:
             path: ./work/argocd/clusters/superbloom/nexus/mc-monitor/values.yaml
             updates:
-              - key: controllers.main.containers.main.image.repository
-                value: registry.saavylab.dev/saavy1/nexus-mc-monitor
-              - key: controllers.main.containers.main.image.digest
-                value: ${{ imageFrom("zot.zot.svc.cluster.local:5000/saavy1/nexus-mc-monitor").Digest }}
+              - key: controllers.main.containers.main.image.tag
+                value: ${{ imageFrom("zot.zot.svc.cluster.local:5000/saavy1/nexus-mc-monitor").Tag }}
         - uses: git-commit
           config:
             path: ./work

@@ -8,17 +8,17 @@ spec:
   subscriptions:
     - image:
         repoURL: zot.zot.svc.cluster.local:5000/saavy1/nexus
-        imageSelectionStrategy: Digest
-        constraint: latest
+        imageSelectionStrategy: Lexicographic
+        allowTags: ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$
     - image:
         repoURL: zot.zot.svc.cluster.local:5000/saavy1/nexus-bot
-        imageSelectionStrategy: Digest
-        constraint: latest
+        imageSelectionStrategy: Lexicographic
+        allowTags: ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$
     - image:
         repoURL: zot.zot.svc.cluster.local:5000/saavy1/nexus-agent-worker
-        imageSelectionStrategy: Digest
-        constraint: latest
+        imageSelectionStrategy: Lexicographic
+        allowTags: ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$
     - image:
         repoURL: zot.zot.svc.cluster.local:5000/saavy1/nexus-mc-monitor
-        imageSelectionStrategy: Digest
-        constraint: latest
+        imageSelectionStrategy: Lexicographic
+        allowTags: ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$
