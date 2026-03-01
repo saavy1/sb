@@ -13,11 +13,7 @@ pod:
         secretName: authelia-users
 
 ingress:
-  enabled: true
-  className: caddy
-  subdomain: auth
-  tls:
-    enabled: false
+  enabled: false
 
 configMap:
   authentication_backend:
