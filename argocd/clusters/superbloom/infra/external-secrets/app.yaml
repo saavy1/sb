@@ -21,6 +21,9 @@ spec:
     - repoURL: https://github.com/saavy1/sb.git
       targetRevision: main
       ref: values
+    - repoURL: https://github.com/saavy1/sb.git
+      targetRevision: main
+      path: argocd/clusters/superbloom/infra/external-secrets/resources
   syncPolicy:
     automated:
       prune: false
