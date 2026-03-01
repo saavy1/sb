@@ -16,7 +16,7 @@ nexus/
 │   ├── logger/        # Structured JSON logging (Pino)
 │   └── mc-monitor/    # Minecraft server protocol library
 └── workers/
-    ├── agent/         # AI agent with K8s/Flux tools
+    ├── agent/         # AI agent with K8s/ArgoCD tools
     ├── embeddings/    # Document embeddings generation
     └── mc-monitor/    # Game server status polling
 ```
@@ -24,13 +24,10 @@ nexus/
 ## Quick Start
 
 ```bash
-# Install dependencies
 bun install
+bun run dev:all        # All services with Turbo TUI
 
-# Run all services with Turbo TUI
-bun run dev:all
-
-# Or run individual services
+# Or individual services
 bun run dev:api        # API on :3000
 bun run dev:ui         # Dashboard on :3001
 bun run dev:bot        # Discord bot
@@ -52,23 +49,11 @@ bun run dev:workers    # All background workers
 | `db:generate` | Generate Drizzle migrations |
 | `db:migrate` | Run Drizzle migrations |
 
-## Container Images
-
-Images are automatically built and pushed to GHCR on push to main.
-
-```bash
-docker pull ghcr.io/saavy1/nexus:latest
-docker pull ghcr.io/saavy1/the-machine:latest
-docker pull ghcr.io/saavy1/nexus-agent-worker:latest
-docker pull ghcr.io/saavy1/nexus-embeddings-worker:latest
-docker pull ghcr.io/saavy1/nexus-mc-monitor:latest
-```
-
 ## Architecture
 
 ```
 Bot (Discord) ──────┐
-                    ├──► API ──► K8s API
+                    ├──► API ──► K8s API (in-cluster + SSH)
 UI (Web) ───────────┘     │
                           ├──► SQLite DBs (ops, game-servers, apps)
                           ├──► PostgreSQL (agent state)
@@ -79,8 +64,35 @@ UI (Web) ───────────┘     │
      worker-agent          worker-embeddings        worker-mc-monitor
 ```
 
-**API** is the core Elysia control plane providing multi-domain APIs via `@nexus/core`.
+**API** is the core Elysia control plane. All business logic lives in `@nexus/core` organized by domain.
 
-**Bot** and **UI** are thin clients consuming API via Eden Treaty (type-safe RPC).
+**Bot** and **UI** are thin clients consuming the API via Eden Treaty (type-safe RPC).
 
-**Workers** process background jobs from BullMQ queues.
+**Workers** process background jobs from BullMQ queues (Valkey-backed).
+
+## Type System
+
+All types flow from schema-first definitions using Elysia `t.*` schemas:
+
+```
+types.ts (schema) → functions.ts (logic) → routes.ts (API) → Eden Treaty (clients)
+```
+
+Bot and UI never define their own types for API data — they import from the API via Eden Treaty.
+
+## Container Images
+
+Built via GitHub Actions, pushed to self-hosted Zot registry (`registry.saavylab.dev`). Kargo handles image promotion to the cluster.
+
+## Ops Architecture
+
+All infrastructure operations (kubectl, SSH, ArgoCD) execute via **Tailscale SSH** to the `superbloom` host. Pods have Tailscale sidecars for connectivity.
+
+## AI Agent
+
+The agent worker uses Claude with tool-use to autonomously manage infrastructure:
+- Game server CRUD (create, start, stop, delete Minecraft servers)
+- ArgoCD sync and status checks
+- NixOS rebuild triggers
+- System stats and monitoring
+- Alert response (via Alertmanager/Grafana webhooks)

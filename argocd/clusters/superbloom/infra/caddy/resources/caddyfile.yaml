@@ -133,6 +133,11 @@ data:
         reverse_proxy bazarr.bazarr.svc.cluster.local:6767
     }
 
+    # Grafana - uses built-in auth
+    grafana.saavylab.dev {
+        reverse_proxy kube-prometheus-stack-grafana.monitoring.svc.cluster.local:80
+    }
+
     # Health endpoint (optional - for k8s probes on the caddy service itself)
     :80 {
         respond /health 200

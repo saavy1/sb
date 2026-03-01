@@ -1,183 +1,111 @@
 # Superbloom Monorepo
 
-A complete homelab infrastructure stack combining NixOS system configuration, Kubernetes GitOps, and custom applications for server management and automation.
+Homelab infrastructure stack: NixOS system configuration, Kubernetes GitOps (ArgoCD + Flux bootstrap), and custom applications for server management and automation.
 
 ## Overview
 
-This monorepo manages the entire **Superbloom** homelab infrastructure, from bare metal OS configuration to application deployment. It includes three main components that work together to provide a declarative, version-controlled infrastructure.
+This monorepo manages the entire **Superbloom** homelab infrastructure, from bare metal OS configuration to application deployment. Everything is declarative and version-controlled.
 
 ### Naming
 
 - **Superbloom**: The physical server and infrastructure
-- **Nexus**: The Elysia API control plane - a multi-domain backend providing APIs for homelab automation
-- **The Machine**: Discord bot for game server management
+- **Nexus**: The application platform — API control plane, web dashboard, Discord bot, AI agent
+- **The Machine**: Discord bot personality for infrastructure and game server management
 
 ## Repository Structure
 
 ```
 sb/
-├── .github/workflows/  # CI/CD for building container images
-├── nixos/              # NixOS system configuration
-├── flux/               # Kubernetes GitOps with Flux CD
+├── .github/workflows/  # CI/CD — build container images, push to Zot registry
+├── nixos/              # NixOS system configuration (K3s, networking, users)
+├── argocd/             # Primary GitOps — ArgoCD application definitions
+├── flux/               # Bootstrap-only — ArgoCD, Infisical, CNPG operator
 └── nexus/              # Application services (Turborepo + Bun workspace)
     ├── apps/
     │   ├── api/        # Elysia API control plane
     │   ├── bot/        # Discord bot (The Machine)
     │   └── ui/         # React web dashboard
     ├── packages/
-    │   ├── core/       # Shared business logic, schemas, Drizzle
+    │   ├── core/       # Shared business logic, schemas, Drizzle ORM
     │   ├── k8s/        # Kubernetes client wrapper
     │   ├── logger/     # Structured JSON logging (Pino)
     │   └── mc-monitor/ # Minecraft server protocol library
     └── workers/
         ├── agent/      # AI agent background worker
-        ├── embeddings/ # Embeddings generation worker
+        ├── embeddings/ # Document embeddings generation
         └── mc-monitor/ # Game server status polling
 ```
-
-### nixos/ - NixOS Configuration
-
-Declarative NixOS configuration for the Superbloom server using Nix Flakes.
-
-**Key Technologies:**
-- NixOS 25.11
-- Home Manager
-- K3s (Kubernetes)
-- Docker
-- Tailscale VPN
-
-**What it manages:**
-- Operating system configuration
-- K3s cluster setup
-- Container runtime (Docker)
-- Networking and firewall rules
-- User environments and shell configuration
-
-### flux/ - Kubernetes GitOps
-
-Flux CD GitOps repository managing all Kubernetes deployments on the Superbloom K3s cluster.
-
-**Key Technologies:**
-- Flux CD v2.7.3
-- Helm
-- Kustomize
-- SOPS (secrets encryption)
-
-**What it deploys:**
-- Caddy Ingress Controller
-- Authelia (SSO/authentication)
-- Cloudflare DDNS
-- Custom applications from sb-apps
-
-### nexus/ - Application Services
-
-Turborepo + Bun workspace monorepo containing custom applications for homelab automation.
-
-**Key Technologies:**
-- Turborepo for task orchestration and caching
-- Bun runtime and package manager
-- TypeScript
-- Elysia (backend framework)
-- discord.js (Discord bot)
-- React 19 (web dashboard)
-- SQLite + PostgreSQL + Drizzle ORM
-- BullMQ (job queues)
-
-**Apps:**
-
-| Package | Description |
-|---------|-------------|
-| `@nexus/api` | Elysia API control plane with multi-domain backend |
-| `@nexus/bot` | Discord bot for game server management (The Machine) |
-| `@nexus/ui` | React web dashboard with TanStack Router |
-
-**Packages:**
-
-| Package | Description |
-|---------|-------------|
-| `@nexus/core` | Shared business logic, Drizzle schemas, domain services |
-| `@nexus/k8s` | Kubernetes client wrapper |
-| `@nexus/logger` | Structured JSON logging via Pino |
-| `@nexus/mc-monitor` | Minecraft server protocol library |
-
-**Workers:**
-
-| Package | Description |
-|---------|-------------|
-| `@nexus/worker-agent` | AI agent background worker with K8s/Flux tools |
-| `@nexus/worker-embeddings` | Document embeddings generation |
-| `@nexus/worker-mc-monitor` | Game server status polling service |
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│ nixos/ (NixOS Configuration)                            │
-│ ├─ Provisions the base OS                              │
-│ ├─ Installs and configures K3s cluster                 │
-│ └─ Sets up Docker, networking, users                   │
-└────────────────────┬────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│ nixos/ — Base OS                                            │
+│ ├─ NixOS + K3s cluster                                     │
+│ ├─ Docker, Tailscale VPN, networking                       │
+│ └─ User environments and shell config                      │
+└────────────────────┬────────────────────────────────────────┘
                      │
-┌────────────────────▼────────────────────────────────────┐
-│ flux/ (Flux GitOps)                                     │
-│ ├─ Deploys infrastructure (Caddy, Authelia, DDNS)      │
-│ ├─ Deploys applications from nexus/                    │
-│ ├─ Manages Kubernetes manifests declaratively          │
-│ └─ Watches Git repo, auto-reconciles cluster state     │
-└────────────────────┬────────────────────────────────────┘
+┌────────────────────▼────────────────────────────────────────┐
+│ flux/ — Bootstrap Layer                                     │
+│ ├─ ArgoCD (installs the GitOps engine itself)              │
+│ ├─ Infisical (secrets management)                          │
+│ └─ CNPG Operator (PostgreSQL)                              │
+└────────────────────┬────────────────────────────────────────┘
                      │
-┌────────────────────▼────────────────────────────────────┐
-│ nexus/ (Applications)                                   │
-│                                                         │
-│ ┌─────────────────────────────────────────────┐        │
-│ │ @nexus/api (Elysia Control Plane)           │        │
-│ │ └─ @nexus/core (domains, schemas, services) │        │
-│ └────────────┬────────────────────────────────┘        │
-│              │                                          │
-│     ┌────────┼─────────┐                               │
-│     ▼        ▼         ▼                                │
-│ ┌───────┐ ┌─────┐ ┌─────────────────┐                  │
-│ │ @bot  │ │ @ui │ │ @workers/*      │                  │
-│ │Discord│ │React│ │agent,embeddings │                  │
-│ └───────┘ └─────┘ └─────────────────┘                  │
-└─────────────────────────────────────────────────────────┘
+┌────────────────────▼────────────────────────────────────────┐
+│ argocd/ — Primary GitOps                                    │
+│ ├─ Infrastructure: Caddy, Authelia, DDNS, Monitoring,      │
+│ │   Zot Registry, Kargo, External Secrets, Argo Workflows  │
+│ ├─ Nexus: API, Bot, Agent Worker, MC Monitor               │
+│ ├─ Media: Jellyfin, Sonarr, Radarr, SABnzbd, etc.         │
+│ ├─ Games: Minecraft server infrastructure                   │
+│ └─ Data: Valkey (Redis-compatible)                          │
+└────────────────────┬────────────────────────────────────────┘
+                     │
+┌────────────────────▼────────────────────────────────────────┐
+│ nexus/ — Applications                                       │
+│ ┌─────────────────────────────────────────────┐             │
+│ │ @nexus/api (Elysia Control Plane)           │             │
+│ │ └─ @nexus/core (domains, schemas, services) │             │
+│ └────────────┬────────────────────────────────┘             │
+│     ┌────────┼─────────┐                                    │
+│     ▼        ▼         ▼                                    │
+│  @bot      @ui     @workers/*                               │
+│  Discord   React   agent, embeddings, mc-monitor            │
+└─────────────────────────────────────────────────────────────┘
 ```
+
+## Key Technologies
+
+| Layer | Technologies |
+|-------|-------------|
+| OS | NixOS, K3s, Tailscale |
+| GitOps | ArgoCD, Flux (bootstrap), Kargo (promotions) |
+| Secrets | Infisical, External Secrets Operator |
+| Ingress | Caddy, Authelia (SSO), Cloudflare DDNS |
+| Monitoring | Prometheus, Grafana, Loki, Tempo, Alloy |
+| Registry | Zot (self-hosted OCI registry) |
+| Runtime | Bun, TypeScript, Turborepo |
+| Backend | Elysia, Drizzle ORM, BullMQ |
+| Frontend | React 19, TanStack Router |
+| AI | Claude API, tool-use agent with K8s/ArgoCD tools |
+| Databases | SQLite, PostgreSQL (CNPG), Valkey |
 
 ## Development
 
-Each subdirectory has its own development workflow:
-
-**NixOS:**
 ```bash
-cd nixos
-nixos-rebuild build --flake .#superbloom
-```
+# NixOS
+cd nixos && nixos-rebuild build --flake .#superbloom
 
-**Flux:**
-```bash
-flux check
-flux reconcile kustomization flux-system
-```
-
-**Applications (from nexus/):**
-```bash
+# Applications (from nexus/)
+cd nexus
 bun install
-bun run dev:all        # All services with Turbo TUI
-bun run dev:api        # API only on :3000
-bun run dev:ui         # Dashboard on :3001
-bun run dev:bot        # Discord bot
-bun run dev:workers    # All background workers
-
-# Quality checks (parallel via Turborepo)
+bun run dev:all        # All services
 bun run typecheck      # Type check all packages
 bun run check          # Lint all packages
-bun run docker:build:all  # Build all Docker images
 ```
 
-## Contributing
+## Domain
 
-This is a personal homelab infrastructure repository. If you're interested in the architecture or want to use it as inspiration for your own setup, feel free to explore!
-
-## License
-
-Private - All Rights Reserved
+All services are exposed at `*.saavylab.dev` via Caddy reverse proxy with Authelia SSO.
