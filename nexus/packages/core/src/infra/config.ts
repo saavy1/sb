@@ -50,6 +50,9 @@ export const config = {
 	// Media services (SABnzbd)
 	SABNZBD_URL: Bun.env.SABNZBD_URL || "http://sabnzbd.sabnzbd.svc.cluster.local:8080",
 	SABNZBD_API_KEY: Bun.env.SABNZBD_API_KEY,
+
+	// Loki (log aggregation)
+	LOKI_URL: Bun.env.LOKI_URL || "http://loki-gateway.monitoring.svc.cluster.local:3100",
 } as const;
 
 export const isDev = config.NODE_ENV === "development";

@@ -10,6 +10,7 @@ import { agentWakeQueue } from "../../infra/queue";
 import { appTools } from "../apps/functions";
 import { getAiModel } from "../core/functions";
 import { gameServerTools } from "../game-servers/functions";
+import { lokiTools } from "../loki/functions";
 import { mediaTools } from "../media/functions";
 import { opsTools } from "../ops/functions";
 import { systemInfoTools } from "../system-info/functions";
@@ -52,6 +53,7 @@ You have access to tools to:
 - Get download queue status (what's downloading, progress, ETA)
 - Get download history (what completed recently)
 - Pause/resume downloads (for bandwidth management)
+- Search historical logs in Loki (pattern detection, incident analysis, root cause investigation)
 
 ## Agent Lifecycle Tools
 You also have special tools to control your own lifecycle:
@@ -134,6 +136,18 @@ Use **pause_downloads()** / **resume_downloads()** for bandwidth management:
 - "Pause downloads, I'm gaming" → pause_downloads()
 - "Resume downloads" → resume_downloads()
 - You can autonomously pause if the user starts a game server, then schedule_wake to resume later
+
+## Using Loki Log Search
+
+Use **search_loki_logs(query)** to search historical logs for pattern detection and root cause analysis:
+
+- "Has the API key error happened before?" → search_loki_logs({ query: "API key incorrect", namespace: "sabnzbd", start: "7d ago" })
+- "What caused this alert?" → search_loki_logs({ query: "error", service: "nexus-api", start: "2h ago" })
+- "When did this error first appear?" → search_loki_logs({ query: "CrashLoopBackOff", start: "30d ago", limit: 10 })
+
+Use `level` to filter by severity (ERROR, WARN, INFO, DEBUG).
+Use `namespace` and `service` to narrow to a specific workload.
+For advanced queries, pass a full LogQL expression starting with `{`.
 
 ## Escalating to Code Changes (GitHub Issues)
 When you investigate a problem and determine it needs a CODE CHANGE (not just a restart or config tweak):
@@ -425,7 +439,7 @@ export async function createAdapter() {
 
 export function getAllDomainTools(thread: AgentThread) {
 	const metaTools = createMetaTools(thread);
-	return [...gameServerTools, ...systemInfoTools, ...appTools, ...opsTools, ...mediaTools, ...metaTools];
+	return [...gameServerTools, ...systemInfoTools, ...appTools, ...opsTools, ...mediaTools, ...lokiTools, ...metaTools];
 }
 
 // === Core agent functions ===
