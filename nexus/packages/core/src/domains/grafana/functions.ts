@@ -2,6 +2,13 @@ import logger from "@nexus/logger";
 import { z } from "zod";
 import { config } from "../../infra/config";
 import { toolDefinition } from "@tanstack/ai";
+import type {
+	AlertRuleResponse,
+	GrafanaDatasource,
+	GrafanaFolder,
+	GrafanaRequestOptions,
+	PrometheusRulesResponse,
+} from "./types";
 
 const log = logger.child({ module: "grafana" });
 
@@ -29,11 +36,6 @@ function parseTimeRangeToSeconds(timeRange: string): number {
 }
 
 // === Grafana API client ===
-
-interface GrafanaRequestOptions {
-	method?: string;
-	body?: unknown;
-}
 
 async function grafanaFetch<T>(
 	path: string,
@@ -75,11 +77,6 @@ async function grafanaFetch<T>(
 
 // === Folder management ===
 
-interface GrafanaFolder {
-	uid: string;
-	title: string;
-}
-
 /**
  * Ensure a Grafana folder exists, creating it if necessary.
  * Returns the folder UID.
@@ -103,12 +100,6 @@ async function ensureFolder(folderTitle: string): Promise<string> {
 
 // === Datasource resolution ===
 
-interface GrafanaDatasource {
-	uid: string;
-	name: string;
-	type: string;
-}
-
 /**
  * Resolve a datasource name (e.g. "Prometheus", "Loki") to its UID.
  */
@@ -128,39 +119,13 @@ async function resolveDatasourceUid(name: string): Promise<string> {
 	return ds.uid;
 }
 
-// === Operator mapping ===
-
-function mapOperator(op: string): string {
-	const mapping: Record<string, string> = {
-		gt: "gt",
-		lt: "lt",
-		eq: "eq",
-		ne: "ne",
-	};
-	return mapping[op] || "gt";
-}
-
-// === Alert rule types ===
-
-interface AlertRuleResponse {
-	uid: string;
-	title: string;
-	ruleGroup: string;
-	folderUID: string;
-	condition: string;
-	for: string;
-	annotations: Record<string, string>;
-	labels: Record<string, string>;
-	data: unknown[];
-	noDataState: string;
-	execErrState: string;
-}
-
 // === Tool definitions ===
 
 export const createGrafanaAlertTool = toolDefinition({
 	name: "create_grafana_alert",
 	description: `Create a new Grafana alert rule for self-managed monitoring.
+
+IMPORTANT: Before creating, use list_grafana_alerts to check for existing similar alerts and avoid duplicates.
 
 Use this to set up alerts for patterns you've detected during investigations:
 - After finding repeated API auth failures → alert for future occurrences
@@ -313,7 +278,7 @@ create_grafana_alert({
 							conditions: [
 								{
 									evaluator: {
-										type: mapOperator(condition.operator),
+										type: condition.operator,
 										params: [condition.threshold],
 									},
 								},
@@ -375,9 +340,9 @@ Example: list_grafana_alerts({ labels: { auto_created: "true" } })`,
 			.optional()
 			.describe('Filter by folder name (e.g. "nexus-auto")'),
 		state: z
-			.enum(["firing", "pending", "normal", "inactive"])
+			.enum(["firing", "pending", "inactive"])
 			.optional()
-			.describe("Filter by current state"),
+			.describe("Filter by current alert state"),
 		labels: z
 			.record(z.string(), z.string())
 			.optional()
@@ -385,11 +350,29 @@ Example: list_grafana_alerts({ labels: { auto_created: "true" } })`,
 				'Filter by labels (e.g. { auto_created: "true" })',
 			),
 	}),
-}).server(async ({ folder, state: _state, labels }) => {
+}).server(async ({ folder, state, labels }) => {
 	try {
 		const rules = await grafanaFetch<AlertRuleResponse[]>(
 			"/api/v1/provisioning/alert-rules",
 		);
+
+		// Fetch live alert states from prometheus-compatible API
+		const stateMap = new Map<string, string>();
+		try {
+			const promRules = await grafanaFetch<PrometheusRulesResponse>(
+				"/api/prometheus/grafana/api/v1/rules",
+			);
+			for (const group of promRules.data.groups) {
+				for (const rule of group.rules) {
+					stateMap.set(`${group.file}:${rule.name}`, rule.state);
+				}
+			}
+		} catch (err) {
+			log.warn(
+				{ err },
+				"Failed to fetch alert states, continuing without state info",
+			);
+		}
 
 		let filtered = rules;
 
@@ -415,11 +398,19 @@ Example: list_grafana_alerts({ labels: { auto_created: "true" } })`,
 			});
 		}
 
+		// Filter by state
+		if (state) {
+			filtered = filtered.filter((r) => {
+				return stateMap.get(`${r.folderUID}:${r.title}`) === state;
+			});
+		}
+
 		const results = filtered.map((r) => ({
 			uid: r.uid,
 			name: r.title,
 			folder: r.folderUID,
 			ruleGroup: r.ruleGroup,
+			state: stateMap.get(`${r.folderUID}:${r.title}`) ?? "unknown",
 			for: r.for,
 			labels: r.labels,
 			annotations: r.annotations,
@@ -515,35 +506,40 @@ Example: update_grafana_alert({
 			updated.for = updates.forDuration;
 		}
 
-		// Update threshold in the condition data
-		if (updates.threshold !== undefined) {
+		// Update data array (threshold and/or timeRange) in a single pass
+		if (updates.threshold !== undefined || updates.timeRange) {
 			const data = [...(existing.data as Record<string, unknown>[])];
-			for (const node of data) {
-				const model = node.model as Record<string, unknown> | undefined;
-				if (model?.type === "threshold") {
-					const conditions = model.conditions as Array<{
-						evaluator: { params: number[] };
-					}>;
-					if (conditions?.[0]?.evaluator) {
-						conditions[0].evaluator.params = [updates.threshold];
+
+			if (updates.threshold !== undefined) {
+				for (const node of data) {
+					const model = node.model as
+						| Record<string, unknown>
+						| undefined;
+					if (model?.type === "threshold") {
+						const conditions = model.conditions as Array<{
+							evaluator: { params: number[] };
+						}>;
+						if (conditions?.[0]?.evaluator) {
+							conditions[0].evaluator.params = [
+								updates.threshold,
+							];
+						}
 					}
 				}
 			}
-			updated.data = data;
-		}
 
-		// Update time range on all data nodes
-		if (updates.timeRange) {
-			const newSeconds = parseTimeRangeToSeconds(updates.timeRange);
-			const data = [...(existing.data as Record<string, unknown>[])];
-			for (const node of data) {
-				const timeRange = node.relativeTimeRange as
-					| { from: number }
-					| undefined;
-				if (timeRange) {
-					timeRange.from = newSeconds;
+			if (updates.timeRange) {
+				const newSeconds = parseTimeRangeToSeconds(updates.timeRange);
+				for (const node of data) {
+					const timeRange = node.relativeTimeRange as
+						| { from: number }
+						| undefined;
+					if (timeRange) {
+						timeRange.from = newSeconds;
+					}
 				}
 			}
+
 			updated.data = data;
 		}
 
