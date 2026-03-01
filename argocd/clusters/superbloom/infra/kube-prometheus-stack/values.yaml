@@ -7,8 +7,13 @@ grafana:
     storageClassName: local-path
     size: 2Gi
   # Skip init-chown-data (fails with local-path provisioner)
+  # Instead, use fsGroup to set volume ownership
   initChownData:
     enabled: false
+  podSecurityContext:
+    fsGroup: 472
+    runAsUser: 472
+    runAsGroup: 472
   # Datasources auto-configured for local Loki + Tempo
   additionalDataSources:
     - name: Loki
