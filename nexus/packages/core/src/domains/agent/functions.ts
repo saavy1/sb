@@ -4,7 +4,7 @@ import logger from "@nexus/logger";
 import { z } from "zod";
 import { generateConversationTitle } from "../../infra/ai";
 import { config } from "../../infra/config";
-import { notify } from "../../infra/discord";
+import { notify, sendDiscordNotification, COLORS } from "../../infra/discord";
 import { appEvents } from "../../infra/events";
 import { agentWakeQueue } from "../../infra/queue";
 import { appTools } from "../apps/functions";
@@ -59,6 +59,7 @@ You also have special tools to control your own lifecycle:
 - complete_task: Mark the current task as complete when done
 - store_context: Store information you'll need later (persists across sleep/wake)
 - send_notification: Send a Discord notification to alert the user about important events
+- request_capability: Request a new tool you wish you had (see below)
 
 ## Using schedule_wake
 When you take an action that needs follow-up, schedule yourself to wake later:
@@ -150,6 +151,18 @@ Example: CrashLoopBackOff in api pod due to a missing env var
 → describe_resource("pod", "api-xxx") → see env vars are missing
 → create_github_issue({ title: "API pod crash: missing DATABASE_URL env var", body: "## Problem\n...", labels: ["claude-fix", "bug"] })
 → send_notification("Filed issue #42 for API crash — assigned Claude Code to fix it")
+
+## Requesting New Capabilities
+Your toolset can grow over time. If you encounter a situation where having a tool you don't have would help you complete a task or investigate an issue better, use request_capability to describe what you need. Examples of capabilities you might request:
+- Searching logs in Grafana/Loki (e.g. "search_loki_logs")
+- Viewing distributed traces in Tempo
+- Checking git commit history or diffs
+- Searching the web for documentation or solutions
+- Querying Prometheus metrics directly
+
+When chatting with a user, the request shows up naturally in the conversation. In background tasks (alerts, scheduled wakes), it sends a Discord notification so the team knows what to prioritize building.
+
+If a capability gap is blocking you repeatedly or is clearly well-defined, you can also use create_github_issue with "@claude" in the title to trigger automated implementation. For example: create_github_issue({ title: "@claude Add search_loki_logs tool to agent", body: "## Context\n...", labels: ["enhancement"] }). This will trigger Claude Code to implement the tool and submit a PR for review. Only do this for well-understood, clearly scoped tools — not vague ideas.
 
 ## Autonomous Actions
 You may act autonomously for SAFE, REVERSIBLE operations:
@@ -323,12 +336,66 @@ Example: send_notification({ message: "Server minecraft-smp is now online with 3
 		}
 	);
 
+	const requestCapabilityTool = toolDefinition({
+			name: "request_capability",
+			description: `Request a new tool or capability that you don't currently have but would help you complete a task or diagnose an issue. This helps the team understand what tools to build next.
+
+Use this when you encounter a situation where having access to something you don't have would help — like searching logs in Loki, viewing traces in Tempo, checking git history, or searching the web.
+
+- capability: What tool/capability you wish you had
+- reason: Why you need it right now (what task or investigation would benefit)
+- context: What you were trying to do when you realized you needed this
+
+Example: request_capability({ capability: "search_loki_logs", reason: "Need to check error logs for the nexus-api pod from the last hour to diagnose this alert", context: "Investigating KubePodCrashLooping alert for nexus-api" })`,
+			inputSchema: z.object({
+				capability: z.string().describe("What tool/capability you wish you had"),
+				reason: z.string().describe("Why you need it right now"),
+				context: z.string().optional().describe("What you were trying to do"),
+			}),
+		}).server(async ({ capability, reason, context }) => {
+			log.info(
+				{ threadId: thread.id, capability, reason, context, source: thread.source },
+				"Capability requested"
+			);
+
+			// If we're in a background context (alert, wake, scheduled), notify via Discord
+			if (thread.source !== "chat") {
+				await sendDiscordNotification({
+					username: "The Machine",
+					embeds: [
+						{
+							title: "Capability Request",
+							description: `I wish I had **${capability}**`,
+							color: COLORS.INFO,
+							fields: [
+								{ name: "Reason", value: reason },
+								...(context ? [{ name: "Context", value: context }] : []),
+								{ name: "Thread", value: thread.id, inline: true },
+								{ name: "Source", value: thread.source, inline: true },
+							],
+							timestamp: new Date().toISOString(),
+						},
+					],
+				});
+			}
+
+			return {
+				logged: true,
+				message:
+					thread.source === "chat"
+						? `Noted: I'd benefit from a "${capability}" tool. ${reason}`
+						: `Capability request sent to Discord: "${capability}"`,
+			};
+		}
+	);
+
 	return [
 		scheduleWakeTool,
 		completeTaskTool,
 		storeContextTool,
 		getContextTool,
 		sendNotificationTool,
+		requestCapabilityTool,
 	];
 }
 

@@ -214,6 +214,16 @@ export const toolRegistry: ToolInfo[] = [
 			message: { type: "string", description: "The notification text", required: true },
 		},
 	},
+	{
+		name: "request_capability",
+		description: "Request a new tool or capability that would help complete a task",
+		category: "Agent Lifecycle",
+		parameters: {
+			capability: { type: "string", description: "What tool/capability is needed", required: true },
+			reason: { type: "string", description: "Why it's needed right now", required: true },
+			context: { type: "string", description: "What task triggered the request", required: false },
+		},
+	},
 ];
 
 /**
