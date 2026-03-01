@@ -9,4 +9,7 @@ resources:
   - external-secrets/
   - infisical/
   - kargo/
+  - kube-prometheus-stack/
+  - loki/
+  - tempo/
   - zot/

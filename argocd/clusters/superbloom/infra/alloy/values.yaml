@@ -2,71 +2,35 @@ cluster:
   name: superbloom
 
 destinations:
-  - name: grafana-cloud-metrics
+  - name: local-prometheus
     type: prometheus
-    url: https://prometheus-prod-36-prod-us-west-0.grafana.net/api/prom/push
-    auth:
-      type: basic
-      usernameKey: PROMETHEUS_USERNAME
-      passwordKey: GRAFANA_CLOUD_TOKEN
-    secret:
-      create: false
-      name: grafana-cloud-credentials
-      namespace: alloy
+    url: http://kube-prometheus-stack-prometheus.monitoring.svc.cluster.local:9090/api/v1/write
 
-  - name: grafana-cloud-logs
+  - name: local-loki
     type: loki
-    url: https://logs-prod-021.grafana.net/loki/api/v1/push
-    auth:
-      type: basic
-      usernameKey: LOKI_USERNAME
-      passwordKey: GRAFANA_CLOUD_TOKEN
-    secret:
-      create: false
-      name: grafana-cloud-credentials
-      namespace: alloy
+    url: http://loki-gateway.monitoring.svc.cluster.local:80/loki/api/v1/push
 
-  - name: gc-otlp-endpoint
+  - name: local-tempo
     type: otlp
-    url: https://otlp-gateway-prod-us-west-0.grafana.net/otlp
-    protocol: http
-    auth:
-      type: basic
-      usernameKey: OTLP_USERNAME
-      passwordKey: GRAFANA_CLOUD_TOKEN
-    secret:
-      create: false
-      name: grafana-cloud-credentials
-      namespace: alloy
+    url: http://tempo.monitoring.svc.cluster.local:4317
+    protocol: grpc
     metrics:
-      enabled: true
+      enabled: false
     logs:
-      enabled: true
+      enabled: false
     traces:
       enabled: true
-
-  - name: grafana-cloud-profiles
-    type: pyroscope
-    url: https://profiles-prod-008.grafana.net:443
-    auth:
-      type: basic
-      usernameKey: PYROSCOPE_USERNAME
-      passwordKey: GRAFANA_CLOUD_TOKEN
-    secret:
-      create: false
-      name: grafana-cloud-credentials
-      namespace: alloy
 
 clusterMetrics:
   enabled: true
   kepler:
-    enabled: false  # High cardinality, disable to save series
+    enabled: false
 
 annotationAutodiscovery:
-  enabled: false  # Disable auto-scraping to control series count
+  enabled: false
 
 prometheusOperatorObjects:
-  enabled: false  # Disable ServiceMonitor/PodMonitor scraping
+  enabled: false
 
 clusterEvents:
   enabled: true
@@ -88,16 +52,13 @@ applicationObservability:
         enabled: true
         port: 4318
     zipkin:
-      enabled: true
-      port: 9411
+      enabled: false
 
 autoInstrumentation:
-  enabled: true
-  beyla:
-    deliverTracesToApplicationObservability: true
+  enabled: false
 
 profiling:
-  enabled: false  # Disable to reduce resource usage
+  enabled: false
 
 alloy-metrics:
   enabled: true
@@ -128,12 +89,8 @@ alloy-receiver:
         port: 4318
         targetPort: 4318
         protocol: TCP
-      - name: zipkin
-        port: 9411
-        targetPort: 9411
-        protocol: TCP
 
 alloy-profiles:
-  enabled: false  # Disabled since profiling is off
+  enabled: false
   remoteConfig:
     enabled: false

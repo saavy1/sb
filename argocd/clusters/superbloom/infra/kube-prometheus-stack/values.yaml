@@ -1,0 +1,113 @@
+# Grafana - exposed via Caddy reverse proxy
+grafana:
+  enabled: true
+  adminPassword: admin
+  persistence:
+    enabled: true
+    storageClassName: local-path
+    size: 2Gi
+  # Datasources auto-configured for local Loki + Tempo
+  additionalDataSources:
+    - name: Loki
+      type: loki
+      url: http://loki-gateway.monitoring.svc.cluster.local:80
+      access: proxy
+      isDefault: false
+      jsonData:
+        derivedFields:
+          - datasourceUid: tempo
+            matcherRegex: '"traceId":"(\w+)"'
+            name: TraceID
+            url: "$${__value.raw}"
+    - name: Tempo
+      type: tempo
+      uid: tempo
+      url: http://tempo.monitoring.svc.cluster.local:3100
+      access: proxy
+      isDefault: false
+      jsonData:
+        tracesToLogsV2:
+          datasourceUid: loki
+          filterByTraceID: true
+        nodeGraph:
+          enabled: true
+        serviceMap:
+          datasourceUid: prometheus
+  sidecar:
+    dashboards:
+      enabled: true
+    datasources:
+      enabled: true
+  service:
+    type: ClusterIP
+    port: 80
+
+# Prometheus - metrics storage + scraping
+prometheus:
+  prometheusSpec:
+    retention: 15d
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: local-path
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 10Gi
+    # Accept remote write from Alloy
+    enableRemoteWriteReceiver: true
+    # Resource limits for single-node
+    resources:
+      requests:
+        memory: 512Mi
+        cpu: 250m
+      limits:
+        memory: 2Gi
+    # Scrape all namespaces
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
+
+# Alertmanager - fires webhooks to nexus API
+alertmanager:
+  alertmanagerSpec:
+    storage:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: local-path
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 1Gi
+  config:
+    global:
+      resolve_timeout: 5m
+    route:
+      receiver: nexus-webhook
+      group_by: ["alertname", "namespace"]
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 4h
+    receivers:
+      - name: nexus-webhook
+        webhook_configs:
+          - url: http://nexus.nexus.svc.cluster.local:3000/api/webhooks/alertmanager
+            send_resolved: true
+
+# Node exporter for host metrics
+nodeExporter:
+  enabled: true
+
+# kube-state-metrics for k8s object metrics
+kubeStateMetrics:
+  enabled: true
+
+# Disable components we don't need
+kubeEtcd:
+  enabled: false
+kubeScheduler:
+  enabled: false
+kubeControllerManager:
+  enabled: false
+kubeProxy:
+  enabled: false

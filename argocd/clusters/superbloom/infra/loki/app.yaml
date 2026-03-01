@@ -1,7 +1,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: infra-alloy
+  name: infra-loki
   namespace: argocd
   finalizers:
     - resources-finalizer.argocd.argoproj.io
@@ -9,20 +9,18 @@ spec:
   project: default
   destination:
     server: https://kubernetes.default.svc
-    namespace: alloy
+    namespace: monitoring
   sources:
     - repoURL: https://grafana.github.io/helm-charts
-      chart: k8s-monitoring
+      chart: loki
+      targetRevision: "6.53.0"
       helm:
-        releaseName: grafana-k8s-monitoring
+        releaseName: loki
         valueFiles:
-          - $values/argocd/clusters/superbloom/infra/alloy/values.yaml
+          - $values/argocd/clusters/superbloom/infra/loki/values.yaml
     - repoURL: https://github.com/saavy1/sb.git
       targetRevision: main
       ref: values
-    - repoURL: https://github.com/saavy1/sb.git
-      targetRevision: main
-      path: argocd/clusters/superbloom/infra/alloy/resources
   syncPolicy:
     automated:
       prune: false
