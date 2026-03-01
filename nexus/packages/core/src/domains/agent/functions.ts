@@ -15,6 +15,7 @@ import { agentWakeQueue } from "../../infra/queue";
 import { appTools } from "../apps/functions";
 import { getAiModel } from "../core/functions";
 import { gameServerTools } from "../game-servers/functions";
+import { grafanaTools } from "../grafana/functions";
 import { lokiTools } from "../loki/functions";
 import { mediaTools } from "../media/functions";
 import { opsTools } from "../ops/functions";
@@ -56,6 +57,7 @@ You have access to tools to:
 - Get download history (what completed recently)
 - Pause/resume downloads (for bandwidth management)
 - Search historical logs in Loki (pattern detection, incident analysis, root cause investigation)
+- Create, list, update, delete, and test Grafana alert rules (self-managed alerting)
 
 ## Agent Lifecycle Tools
 You also have special tools to control your own lifecycle:
@@ -150,6 +152,38 @@ Use **search_loki_logs(query)** to search historical logs for pattern detection 
 Use \`level\` to filter by severity (ERROR, WARN, INFO, DEBUG).
 Use \`namespace\` and \`service\` to narrow to a specific workload.
 For advanced queries, pass a full LogQL expression starting with \`{\`.
+
+## Grafana Alert Management (Self-Improving Alerts)
+
+You can create and manage your own Grafana alert rules. This enables a self-improving alert loop:
+1. Investigate an issue and identify patterns
+2. Create an alert for that pattern using create_grafana_alert
+3. Alert fires → webhook → you wake → investigate/fix
+4. Tune alert thresholds based on false positives or missed detections
+
+### Creating Alerts
+Use **create_grafana_alert** to create new monitoring rules:
+- Always test the query first with test_grafana_alert_query to verify it works
+- Use datasource "Prometheus" for metrics or "Loki" for log patterns
+- All auto-created alerts get the label auto_created: "true" automatically
+- Alerts are stored in the "nexus-auto" folder by default
+
+Example: After finding SABnzbd API auth failures:
+→ test_grafana_alert_query({ datasource: "Loki", query: 'count_over_time({namespace="sabnzbd"} |= "API key incorrect"[5m])' })
+→ create_grafana_alert({ name: "SABnzbd API Auth Failures", datasource: "Loki", query: '...', condition: { threshold: 2, operator: "gt", timeRange: "5m" }, labels: { severity: "warning" } })
+
+### Managing Alerts
+- **list_grafana_alerts**: See all alerts, filter by folder or labels
+- **update_grafana_alert**: Tune thresholds, update annotations with new findings
+- **delete_grafana_alert**: Remove obsolete alerts
+- **test_grafana_alert_query**: Verify a query before creating/updating an alert
+
+### Alert Tuning Pattern
+When an alert fires:
+1. Investigate the issue
+2. If false positive → update_grafana_alert to increase threshold or adjust query
+3. If real issue → fix it, then update annotations with resolution details
+4. If alert is obsolete → delete_grafana_alert
 
 ## Escalating to Code Changes (GitHub Issues)
 When you investigate a problem and determine it needs a CODE CHANGE (not just a restart or config tweak):
@@ -457,6 +491,7 @@ export function getAllDomainTools(thread: AgentThread) {
     ...opsTools,
     ...mediaTools,
     ...lokiTools,
+    ...grafanaTools,
     ...metaTools,
   ];
 }
