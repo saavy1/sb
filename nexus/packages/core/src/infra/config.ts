@@ -52,7 +52,7 @@ export const config = {
 	SABNZBD_API_KEY: Bun.env.SABNZBD_API_KEY,
 
 	// Loki (log aggregation)
-	LOKI_URL: Bun.env.LOKI_URL || "http://loki-gateway.monitoring.svc.cluster.local:3100",
+	LOKI_URL: Bun.env.LOKI_URL || "http://loki-gateway.monitoring.svc.cluster.local:80",
 } as const;
 
 export const isDev = config.NODE_ENV === "development";
