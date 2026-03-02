@@ -3,6 +3,8 @@
  * This provides metadata about all tools available to the agent.
  */
 
+import { mcpManager } from "./mcp";
+
 export interface ToolInfo {
 	name: string;
 	description: string;
@@ -298,11 +300,23 @@ export const toolRegistry: ToolInfo[] = [
 ];
 
 /**
+ * Get the full tool registry including dynamically discovered MCP tools.
+ */
+export function getDynamicToolRegistry(): ToolInfo[] {
+	const mcpTools: ToolInfo[] = mcpManager.getAllTools().map((tool) => ({
+		name: tool.name,
+		description: tool.description || "",
+		category: `MCP (${tool.name.split("_")[0]})`,
+	}));
+	return [...toolRegistry, ...mcpTools];
+}
+
+/**
  * Get all tools grouped by category.
  */
 export function getToolsByCategory(): Record<string, ToolInfo[]> {
 	const grouped: Record<string, ToolInfo[]> = {};
-	for (const tool of toolRegistry) {
+	for (const tool of getDynamicToolRegistry()) {
 		if (!grouped[tool.category]) {
 			grouped[tool.category] = [];
 		}
@@ -315,9 +329,10 @@ export function getToolsByCategory(): Record<string, ToolInfo[]> {
  * Get tool count summary.
  */
 export function getToolSummary(): { total: number; byCategory: Record<string, number> } {
+	const allTools = getDynamicToolRegistry();
 	const byCategory: Record<string, number> = {};
-	for (const tool of toolRegistry) {
+	for (const tool of allTools) {
 		byCategory[tool.category] = (byCategory[tool.category] || 0) + 1;
 	}
-	return { total: toolRegistry.length, byCategory };
+	return { total: allTools.length, byCategory };
 }

@@ -1,0 +1,26 @@
+controllers:
+  main:
+    replicas: 1
+    containers:
+      main:
+        image:
+          repository: ghcr.io/github/github-mcp-server
+          tag: latest
+          pullPolicy: Always
+        args:
+          - --transport
+          - http
+          - --port
+          - "8000"
+        env:
+          GITHUB_PERSONAL_ACCESS_TOKEN:
+            valueFrom:
+              secretKeyRef:
+                name: nexus-env
+                key: GITHUB_PAT
+service:
+  main:
+    controller: main
+    ports:
+      http:
+        port: 8000

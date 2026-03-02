@@ -1,4 +1,5 @@
 import { config } from "@nexus/core/infra/config";
+import { mcpManager } from "@nexus/core/infra/mcp";
 import { closePubSub, initPubSub } from "@nexus/core/infra/pubsub";
 import { closeQueues, redis } from "@nexus/core/infra/queue";
 import logger from "@nexus/logger";
@@ -26,6 +27,11 @@ process.on("unhandledRejection", (reason, _promise) => {
 // Initialize pub/sub for real-time events
 initPubSub(redis);
 
+// Initialize MCP connections (non-blocking — agent works without MCP)
+mcpManager.initialize().catch((err) => {
+	logger.warn({ err }, "MCP initialization failed — MCP tools will be unavailable");
+});
+
 // Start API server
 const server = app.listen(config.PORT);
 logger.info(
@@ -41,6 +47,7 @@ logger.info(
 async function shutdown(signal: string) {
 	logger.info(`Received ${signal}, shutting down...`);
 	await closePubSub();
+	await mcpManager.close();
 	await closeQueues();
 	server.stop();
 	process.exit(0);

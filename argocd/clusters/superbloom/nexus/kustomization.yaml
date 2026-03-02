@@ -6,3 +6,6 @@ resources:
   - bot/
   - agent-worker/
   - mc-monitor/
+  - mcp-grafana/
+  - mcp-github/
+  - mcp-infisical/
