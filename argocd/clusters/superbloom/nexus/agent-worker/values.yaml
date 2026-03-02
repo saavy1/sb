@@ -11,7 +11,7 @@ controllers:
       main:
         image:
           repository: registry.saavylab.dev/saavy1/nexus-agent-worker
-          tag: latest
+          tag: f9f43905-70d3-4b32-bd34-52f5e7371c03
           pullPolicy: Always
         env:
           NODE_ENV: production
