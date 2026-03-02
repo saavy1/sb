@@ -21,6 +21,7 @@
 	},
 	"dependencies": {
 		"@elysiajs/opentelemetry": "^1.4.9",
+		"@modelcontextprotocol/sdk": "^1.27.1",
 		"@nexus/k8s": "workspace:*",
 		"@nexus/logger": "workspace:*",
 		"@nexus/mc-monitor": "workspace:*",

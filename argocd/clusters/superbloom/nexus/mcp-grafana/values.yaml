@@ -1,0 +1,25 @@
+controllers:
+  main:
+    replicas: 1
+    containers:
+      main:
+        image:
+          repository: ghcr.io/grafana/mcp-grafana
+          tag: latest
+          pullPolicy: Always
+        args:
+          - --transport=http
+          - --port=8000
+        env:
+          GRAFANA_URL: http://kube-prometheus-stack-grafana.monitoring.svc.cluster.local
+          GRAFANA_SERVICE_ACCOUNT_TOKEN:
+            valueFrom:
+              secretKeyRef:
+                name: nexus-env
+                key: GRAFANA_API_KEY
+service:
+  main:
+    controller: main
+    ports:
+      http:
+        port: 8000

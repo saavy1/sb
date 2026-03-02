@@ -657,7 +657,7 @@ Example: get_infisical_secret_history({ secretId: "abc123", limit: 5 })`,
 	}
 });
 
-// Export tools array for agent
+// Full tools array (kept for backwards compatibility)
 export const infisicalTools = [
 	listInfisicalProjectsTool,
 	getInfisicalSecretTool,
@@ -665,3 +665,6 @@ export const infisicalTools = [
 	compareSecretSyncTool,
 	getInfisicalSecretHistoryTool,
 ];
+
+// Custom tools that have no MCP equivalent (bridges Infisical + K8s)
+export const customInfisicalTools = [compareSecretSyncTool];

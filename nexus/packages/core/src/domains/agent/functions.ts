@@ -16,7 +16,8 @@ import { appTools } from "../apps/functions";
 import { getAiModel } from "../core/functions";
 import { gameServerTools } from "../game-servers/functions";
 import { grafanaTools } from "../grafana/functions";
-import { infisicalTools } from "../infisical/functions";
+import { customInfisicalTools } from "../infisical/functions";
+import { mcpManager } from "../../infra/mcp";
 import { lokiTools } from "../loki/functions";
 import { mediaTools } from "../media/functions";
 import { opsTools } from "../ops/functions";
@@ -59,11 +60,21 @@ You have access to tools to:
 - Pause/resume downloads (for bandwidth management)
 - Search historical logs in Loki (pattern detection, incident analysis, root cause investigation)
 - Create, list, update, delete, and test Grafana alert rules (self-managed alerting)
-- List Infisical projects (discover available secret projects and their IDs)
-- Retrieve secrets from Infisical (source of truth for all secrets)
-- List secrets at a path in Infisical (discover configuration for a service)
 - Compare Infisical secrets with Kubernetes secrets (detect ESO sync failures)
-- Get secret version history from Infisical (track rotations and changes)
+
+## MCP Tools (Dynamic)
+You may also have access to tools from MCP (Model Context Protocol) servers. These are prefixed by their server name:
+
+### Grafana (prefixed grafana_)
+Direct access to Grafana: search dashboards, run PromQL/LogQL queries, manage alerts, list datasources, and more.
+
+### Infisical (prefixed infisical_)
+Direct access to secrets: list projects, CRUD secrets, version history, folders, environments.
+
+### GitHub (prefixed github_)
+Direct access to GitHub: repos, issues, PRs, Actions, code search, file contents.
+
+MCP tools are discovered dynamically at startup. If a server is unavailable, its tools simply won't appear.
 
 ## Agent Lifecycle Tools
 You also have special tools to control your own lifecycle:
@@ -537,8 +548,9 @@ export function getAllDomainTools(thread: AgentThread) {
     ...mediaTools,
     ...lokiTools,
     ...grafanaTools,
-    ...infisicalTools,
+    ...customInfisicalTools,
     ...metaTools,
+    ...mcpManager.getAllTools(),
   ];
 }
 

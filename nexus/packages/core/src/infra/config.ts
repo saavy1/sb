@@ -69,6 +69,25 @@ export const config = {
     Bun.env.INFISICAL_URL ||
     "http://infisical.infisical.svc.cluster.local:8080",
   INFISICAL_API_TOKEN: Bun.env.INFISICAL_API_TOKEN,
+
+  // MCP servers
+  // Enabled when the corresponding secret is available (falls back to existing keys from nexus-env).
+  // The tokens are used as enablement flags — MCP servers handle their own backend auth.
+  MCP_GRAFANA_URL:
+    Bun.env.MCP_GRAFANA_URL ||
+    "http://mcp-grafana.nexus.svc.cluster.local:8000/mcp",
+  MCP_GRAFANA_TOKEN: Bun.env.MCP_GRAFANA_TOKEN || Bun.env.GRAFANA_API_KEY,
+  MCP_GITHUB_URL:
+    Bun.env.MCP_GITHUB_URL ||
+    "http://mcp-github.nexus.svc.cluster.local:8000/mcp",
+  MCP_GITHUB_TOKEN: Bun.env.MCP_GITHUB_TOKEN || Bun.env.GITHUB_PAT,
+  MCP_INFISICAL_URL:
+    Bun.env.MCP_INFISICAL_URL ||
+    "http://mcp-infisical.nexus.svc.cluster.local:8000/mcp",
+  MCP_INFISICAL_CLIENT_ID:
+    Bun.env.MCP_INFISICAL_CLIENT_ID || Bun.env.INFISICAL_CLIENT_ID,
+  MCP_INFISICAL_CLIENT_SECRET:
+    Bun.env.MCP_INFISICAL_CLIENT_SECRET || Bun.env.INFISICAL_CLIENT_SECRET,
 } as const;
 
 export const isDev = config.NODE_ENV === "development";

@@ -17,6 +17,7 @@ import {
 	startSystemEventsWorker,
 } from "@nexus/core/domains/agent";
 import { config } from "@nexus/core/infra/config";
+import { mcpManager } from "@nexus/core/infra/mcp";
 import { closeQueues } from "@nexus/core/infra/queue";
 import logger from "@nexus/logger";
 
@@ -36,6 +37,9 @@ if (!config.DATABASE_URL) {
 if (!config.OPENROUTER_API_KEY) {
 	log.warn("OPENROUTER_API_KEY not configured - agent responses will fail");
 }
+
+// Initialize MCP connections before starting workers
+await mcpManager.initialize();
 
 // Start the workers
 const agentWorker = startAgentWorker();
@@ -57,6 +61,7 @@ async function shutdown(signal: string) {
 	await agentWorker.close();
 	await systemEventsWorker.close();
 	await discordAsksWorker.close();
+	await mcpManager.close();
 	await closeQueues();
 
 	process.exit(0);
