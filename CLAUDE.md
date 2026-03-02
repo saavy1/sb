@@ -20,7 +20,6 @@ sb/
     │   └── mc-monitor/ # Minecraft server protocol library
     └── workers/
         ├── agent/      # AI agent background worker
-        ├── embeddings/ # Document embeddings generation
         └── mc-monitor/ # Game server status polling
 ```
 

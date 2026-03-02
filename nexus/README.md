@@ -17,7 +17,6 @@ nexus/
 │   └── mc-monitor/    # Minecraft server protocol library
 └── workers/
     ├── agent/         # AI agent with K8s/ArgoCD tools
-    ├── embeddings/    # Document embeddings generation
     └── mc-monitor/    # Game server status polling
 ```
 
@@ -59,9 +58,9 @@ UI (Web) ───────────┘     │
                           ├──► PostgreSQL (agent state)
                           └──► Valkey + BullMQ (job queues)
                                     │
-            ┌───────────────────────┼───────────────────────┐
-            ▼                       ▼                       ▼
-     worker-agent          worker-embeddings        worker-mc-monitor
+            ┌───────────────────────┼──
+            ▼                       ▼                      
+     worker-agent          worker-mc-monitor
 ```
 
 **API** is the core Elysia control plane. All business logic lives in `@nexus/core` organized by domain.
