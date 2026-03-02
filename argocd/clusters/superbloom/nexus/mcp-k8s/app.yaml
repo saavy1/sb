@@ -1,0 +1,31 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: nexus-mcp-k8s
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: nexus
+  sources:
+    - repoURL: https://bjw-s-labs.github.io/helm-charts
+      chart: app-template
+      targetRevision: "4.1.1"
+      helm:
+        releaseName: mcp-k8s
+        valueFiles:
+          - $values/argocd/clusters/superbloom/nexus/mcp-k8s/values.yaml
+    - repoURL: https://github.com/saavy1/sb.git
+      targetRevision: main
+      ref: values
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ApplyOutOfSyncOnly=true
+      - ServerSideApply=true

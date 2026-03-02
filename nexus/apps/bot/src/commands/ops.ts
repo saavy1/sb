@@ -61,34 +61,20 @@ async function handleStatus(interaction: ChatInputCommandInteraction) {
 			return;
 		}
 
-		const { ssh, kubectl, argocd } = data;
-
-		// Determine overall status
-		const allSuccess = ssh.success && kubectl.success && argocd.success;
-		const anyFailure = !ssh.success || !kubectl.success || !argocd.success;
+		const { ssh } = data;
 
 		const embed = new EmbedBuilder()
-			.setColor(allSuccess ? COLORS.SUCCESS : anyFailure ? COLORS.ERROR : COLORS.WARNING)
+			.setColor(ssh.success ? COLORS.SUCCESS : COLORS.ERROR)
 			.setTitle("Infrastructure Status")
-			.setDescription("Connectivity to infrastructure components")
+			.setDescription(
+				"Connectivity to infrastructure components\n_K8s access is via MCP server (auto-discovered)_"
+			)
 			.setTimestamp()
-			.addFields(
-				{
-					name: `${statusEmoji(ssh.success ? "healthy" : "error")} SSH`,
-					value: ssh.message || (ssh.success ? "Connected" : "Failed"),
-					inline: true,
-				},
-				{
-					name: `${statusEmoji(kubectl.success ? "healthy" : "error")} Kubectl`,
-					value: kubectl.message || (kubectl.success ? "Connected" : "Failed"),
-					inline: true,
-				},
-				{
-					name: `${statusEmoji(argocd.success ? "healthy" : "error")} ArgoCD`,
-					value: argocd.message || (argocd.success ? "Connected" : "Failed"),
-					inline: true,
-				}
-			);
+			.addFields({
+				name: `${statusEmoji(ssh.success ? "healthy" : "error")} SSH`,
+				value: ssh.message || (ssh.success ? "Connected" : "Failed"),
+				inline: true,
+			});
 
 		await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
 	} catch (err) {

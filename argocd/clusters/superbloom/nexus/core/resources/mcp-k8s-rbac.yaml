@@ -1,0 +1,117 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: mcp-k8s
+  namespace: nexus
+  labels:
+    app.kubernetes.io/name: mcp-k8s
+    app.kubernetes.io/managed-by: argocd
+---
+# ClusterRole for the k8s MCP server - provides kubectl/helm/argocd access
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: mcp-k8s
+  labels:
+    app.kubernetes.io/name: mcp-k8s
+    app.kubernetes.io/managed-by: argocd
+rules:
+  # Read access to core resources
+  - apiGroups: [""]
+    resources:
+      - pods
+      - pods/log
+      - services
+      - endpoints
+      - namespaces
+      - nodes
+      - events
+      - configmaps
+      - secrets
+      - persistentvolumeclaims
+      - persistentvolumes
+      - serviceaccounts
+      - replicationcontrollers
+    verbs: ["get", "list", "watch"]
+  # Read access to apps resources
+  - apiGroups: ["apps"]
+    resources:
+      - deployments
+      - statefulsets
+      - daemonsets
+      - replicasets
+    verbs: ["get", "list", "watch"]
+  # Write access for rollout restart (patch deployments/statefulsets)
+  - apiGroups: ["apps"]
+    resources:
+      - deployments
+      - statefulsets
+    verbs: ["patch", "update"]
+  # Batch resources (jobs, cronjobs)
+  - apiGroups: ["batch"]
+    resources:
+      - jobs
+      - cronjobs
+    verbs: ["get", "list", "watch"]
+  # Networking resources
+  - apiGroups: ["networking.k8s.io"]
+    resources:
+      - ingresses
+      - networkpolicies
+    verbs: ["get", "list", "watch"]
+  # Storage resources
+  - apiGroups: ["storage.k8s.io"]
+    resources:
+      - storageclasses
+    verbs: ["get", "list", "watch"]
+  # Metrics API (kubectl top)
+  - apiGroups: ["metrics.k8s.io"]
+    resources:
+      - pods
+      - nodes
+    verbs: ["get", "list"]
+  # ArgoCD resources (get status, trigger sync via annotation)
+  - apiGroups: ["argoproj.io"]
+    resources:
+      - applications
+      - applicationsets
+      - appprojects
+    verbs: ["get", "list", "watch", "patch", "update"]
+  # Helm needs to read/write secrets for release management
+  - apiGroups: [""]
+    resources:
+      - secrets
+    verbs: ["create", "update", "patch", "delete"]
+  # RBAC resources (read-only for inspection)
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources:
+      - roles
+      - rolebindings
+      - clusterroles
+      - clusterrolebindings
+    verbs: ["get", "list", "watch"]
+  # Custom resources (Flux, etc.)
+  - apiGroups: ["source.toolkit.fluxcd.io", "kustomize.toolkit.fluxcd.io", "helm.toolkit.fluxcd.io"]
+    resources: ["*"]
+    verbs: ["get", "list", "watch"]
+  # External Secrets
+  - apiGroups: ["external-secrets.io"]
+    resources: ["*"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: mcp-k8s
+  labels:
+    app.kubernetes.io/name: mcp-k8s
+    app.kubernetes.io/managed-by: argocd
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: mcp-k8s
+subjects:
+  - kind: ServiceAccount
+    name: mcp-k8s
+    namespace: nexus

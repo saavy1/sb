@@ -8,3 +8,4 @@ resources:
   - mc-monitor/
   - mcp-grafana/
   - mcp-github/
+  - mcp-k8s/
