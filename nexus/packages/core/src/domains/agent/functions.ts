@@ -68,9 +68,6 @@ You may also have access to tools from MCP (Model Context Protocol) servers. The
 ### Grafana (prefixed grafana_)
 Direct access to Grafana: search dashboards, run PromQL/LogQL queries, manage alerts, list datasources, and more.
 
-### Infisical (prefixed infisical_)
-Direct access to secrets: list projects, CRUD secrets, version history, folders, environments.
-
 ### GitHub (prefixed github_)
 Direct access to GitHub: repos, issues, PRs, Actions, code search, file contents.
 

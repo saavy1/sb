@@ -4,12 +4,14 @@ controllers:
     containers:
       main:
         image:
-          repository: ghcr.io/grafana/mcp-grafana
+          repository: grafana/mcp-grafana
           tag: latest
           pullPolicy: Always
         args:
-          - --transport=http
-          - --port=8000
+          - -t
+          - streamable-http
+          - --address
+          - 0.0.0.0:8000
         env:
           GRAFANA_URL: http://kube-prometheus-stack-grafana.monitoring.svc.cluster.local
           GRAFANA_SERVICE_ACCOUNT_TOKEN:

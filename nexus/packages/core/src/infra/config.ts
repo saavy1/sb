@@ -81,13 +81,6 @@ export const config = {
     Bun.env.MCP_GITHUB_URL ||
     "http://mcp-github.nexus.svc.cluster.local:8000/mcp",
   MCP_GITHUB_TOKEN: Bun.env.MCP_GITHUB_TOKEN || Bun.env.GITHUB_PAT,
-  MCP_INFISICAL_URL:
-    Bun.env.MCP_INFISICAL_URL ||
-    "http://mcp-infisical.nexus.svc.cluster.local:8000/mcp",
-  MCP_INFISICAL_CLIENT_ID:
-    Bun.env.MCP_INFISICAL_CLIENT_ID || Bun.env.INFISICAL_CLIENT_ID,
-  MCP_INFISICAL_CLIENT_SECRET:
-    Bun.env.MCP_INFISICAL_CLIENT_SECRET || Bun.env.INFISICAL_CLIENT_SECRET,
 } as const;
 
 export const isDev = config.NODE_ENV === "development";

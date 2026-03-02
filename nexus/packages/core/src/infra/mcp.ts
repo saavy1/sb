@@ -40,10 +40,6 @@ function getMcpServerConfigs(): McpServerConfig[] {
 		servers.push({ id: "github", url: config.MCP_GITHUB_URL });
 	}
 
-	if (config.MCP_INFISICAL_CLIENT_ID && config.MCP_INFISICAL_CLIENT_SECRET) {
-		servers.push({ id: "infisical", url: config.MCP_INFISICAL_URL });
-	}
-
 	return servers;
 }
 
