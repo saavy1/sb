@@ -8,8 +8,6 @@ import { client } from "../lib/api";
 
 type ConnectionTestResult = {
 	ssh: { success: boolean; message: string };
-	kubectl: { success: boolean; message: string };
-	argocd: { success: boolean; message: string };
 } | null;
 
 export const Route = createFileRoute("/settings")({
@@ -108,11 +106,10 @@ function SettingsPage() {
 			}
 			if (data) {
 				setConnectionTest(data);
-				const allSuccess = data.ssh.success && data.kubectl.success && data.argocd.success;
-				if (allSuccess) {
-					toast.success("All connections successful");
+				if (data.ssh.success) {
+					toast.success("Connection successful");
 				} else {
-					toast.error("Some connections failed");
+					toast.error("Connection failed");
 				}
 			}
 		} catch (error) {
@@ -243,16 +240,9 @@ function SettingsPage() {
 										success={connectionTest.ssh.success}
 										message={connectionTest.ssh.message}
 									/>
-									<ConnectionRow
-										label="kubectl"
-										success={connectionTest.kubectl.success}
-										message={connectionTest.kubectl.message}
-									/>
-									<ConnectionRow
-										label="argocd"
-										success={connectionTest.argocd.success}
-										message={connectionTest.argocd.message}
-									/>
+									<p className="text-text-tertiary text-xs">
+										K8s access is via MCP server (auto-discovered)
+									</p>
 								</div>
 							)}
 						</div>

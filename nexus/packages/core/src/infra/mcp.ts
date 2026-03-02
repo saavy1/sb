@@ -45,6 +45,11 @@ function getMcpServerConfigs(): McpServerConfig[] {
 		});
 	}
 
+	// K8s MCP server — auto-enabled in-cluster, provides kubectl/helm/argocd tools
+	if (config.MCP_K8S_ENABLED) {
+		servers.push({ id: "k8s", url: config.MCP_K8S_URL });
+	}
+
 	return servers;
 }
 

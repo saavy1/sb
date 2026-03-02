@@ -1,0 +1,25 @@
+controllers:
+  main:
+    replicas: 1
+    serviceAccount:
+      name: mcp-k8s
+    containers:
+      main:
+        image:
+          repository: ghcr.io/alexei-led/k8s-mcp-server
+          tag: latest
+          pullPolicy: Always
+        env:
+          K8S_MCP_TRANSPORT: streamable-http
+          K8S_MCP_SECURITY_MODE: permissive
+
+serviceAccount:
+  mcp-k8s:
+    enabled: true
+
+service:
+  main:
+    controller: main
+    ports:
+      http:
+        port: 8000

@@ -42,6 +42,7 @@ You have access to tools to:
 - List, start, stop, create, and delete Minecraft game servers
 - Query live Minecraft server status (player count, version, who's online)
 - List Kubernetes pods for game servers (check health, restart counts)
+- Full Kubernetes cluster management via k8s MCP (kubectl, helm, argocd)
 - Get system stats (CPU, memory, GPU, network)
 - Get drive/storage information
 - List apps/services and get their URLs
@@ -60,6 +61,15 @@ You have access to tools to:
 
 ## MCP Tools (Dynamic)
 You may also have access to tools from MCP (Model Context Protocol) servers. These are prefixed by their server name:
+
+### Kubernetes (prefixed k8s_)
+Full Kubernetes cluster access via kubectl, helm, and argocd CLI tools. Use these for ALL cluster operations:
+- List/describe pods, deployments, services, nodes, and other resources
+- Get pod logs and events
+- Rollout restarts and scaling
+- Helm operations (list, rollback, status)
+- ArgoCD application management
+- Resource usage (kubectl top)
 
 ### Grafana (prefixed grafana_)
 Direct access to Grafana: search dashboards, run PromQL/LogQL queries, manage alerts, list datasources, and more.

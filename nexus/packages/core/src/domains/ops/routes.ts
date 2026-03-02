@@ -83,12 +83,10 @@ export const opsRoutes = new Elysia({ prefix: "/ops" })
 			return testConnection();
 		},
 		{
-			detail: { tags: ["Ops"], summary: "Test SSH/kubectl/ArgoCD connectivity" },
+			detail: { tags: ["Ops"], summary: "Test SSH connectivity" },
 			response: {
 				200: t.Object({
 					ssh: t.Object({ success: t.Boolean(), message: t.String() }),
-					kubectl: t.Object({ success: t.Boolean(), message: t.String() }),
-					argocd: t.Object({ success: t.Boolean(), message: t.String() }),
 				}),
 			},
 		}

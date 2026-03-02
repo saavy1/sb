@@ -81,6 +81,12 @@ export const config = {
     Bun.env.MCP_GITHUB_URL ||
     "http://mcp-github.nexus.svc.cluster.local:8000/mcp",
   MCP_GITHUB_TOKEN: Bun.env.MCP_GITHUB_TOKEN || Bun.env.GITHUB_PAT,
+  MCP_K8S_URL:
+    Bun.env.MCP_K8S_URL ||
+    "http://mcp-k8s.nexus.svc.cluster.local:8000/mcp",
+  // Auto-enabled in-cluster; set MCP_K8S_ENABLED=true to enable externally
+  MCP_K8S_ENABLED:
+    Bun.env.MCP_K8S_ENABLED || (Bun.env.KUBERNETES_SERVICE_HOST ? "true" : ""),
 } as const;
 
 export const isDev = config.NODE_ENV === "development";

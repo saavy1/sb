@@ -4,6 +4,7 @@ resources:
   - namespace.yaml
   - serviceaccount.yaml
   - rbac.yaml
+  - mcp-k8s-rbac.yaml
   - project.yaml
   - project-config.yaml
   - external-secrets.yaml
