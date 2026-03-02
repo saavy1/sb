@@ -1,3 +1,10 @@
+# Fix ArgoCD hook finalizer deadlock on admission webhook RBAC resources
+prometheusOperator:
+  admissionWebhooks:
+    annotations:
+      argocd.argoproj.io/hook: PreSync
+      argocd.argoproj.io/hook-delete-policy: HookSucceeded
+
 # Grafana - exposed via Caddy reverse proxy
 grafana:
   enabled: true
