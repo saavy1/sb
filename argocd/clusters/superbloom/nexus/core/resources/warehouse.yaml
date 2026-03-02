@@ -8,17 +8,17 @@ spec:
   subscriptions:
     - image:
         repoURL: zot.zot.svc.cluster.local:5000/saavy1/nexus
-        imageSelectionStrategy: Lexicographic
+        imageSelectionStrategy: Lexical
         allowTags: ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$
     - image:
         repoURL: zot.zot.svc.cluster.local:5000/saavy1/nexus-bot
-        imageSelectionStrategy: Lexicographic
+        imageSelectionStrategy: Lexical
         allowTags: ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$
     - image:
         repoURL: zot.zot.svc.cluster.local:5000/saavy1/nexus-agent-worker
-        imageSelectionStrategy: Lexicographic
+        imageSelectionStrategy: Lexical
         allowTags: ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$
     - image:
         repoURL: zot.zot.svc.cluster.local:5000/saavy1/nexus-mc-monitor
-        imageSelectionStrategy: Lexicographic
+        imageSelectionStrategy: Lexical
         allowTags: ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$

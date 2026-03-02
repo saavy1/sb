@@ -1,7 +1,12 @@
-import { chat, convertMessagesToModelMessages, maxIterations, toServerSentEventsResponse } from "@tanstack/ai";
-import type { StreamChunk, ModelMessage } from "@tanstack/ai";
-import { Elysia, t } from "elysia";
 import logger from "@nexus/logger";
+import type { ModelMessage, StreamChunk } from "@tanstack/ai";
+import {
+	chat,
+	convertMessagesToModelMessages,
+	maxIterations,
+	toServerSentEventsResponse,
+} from "@tanstack/ai";
+import { Elysia, t } from "elysia";
 import { generateConversationTitle } from "../../infra/ai";
 import { appEvents } from "../../infra/events";
 import { getToolSummary, getToolsByCategory, toolRegistry } from "../../infra/tool-registry";
@@ -73,10 +78,15 @@ async function* withPersistence(
 	existingMessages: ModelMessage[],
 	firstUserContent: string | null,
 	timeout: ReturnType<typeof setTimeout>,
+	model: string
 ): AsyncIterable<StreamChunk> {
 	const collectedMessages: ModelMessage[] = [];
 	let currentContent = "";
-	let currentToolCalls: Array<{ id: string; type: "function"; function: { name: string; arguments: string } }> = [];
+	let currentToolCalls: Array<{
+		id: string;
+		type: "function";
+		function: { name: string; arguments: string };
+	}> = [];
 	let lastAssistantContent: string | null = null;
 
 	// Track tool call args accumulation
@@ -106,6 +116,10 @@ async function* withPersistence(
 
 				case "TOOL_CALL_START":
 					toolCallArgsBuffers.set(chunk.toolCallId, { name: chunk.toolName, args: "" });
+					log.info(
+						{ threadId: thread.id, toolName: chunk.toolName, toolCallId: chunk.toolCallId, model },
+						"Tool call started"
+					);
 					break;
 
 				case "TOOL_CALL_ARGS":
@@ -129,17 +143,40 @@ async function* withPersistence(
 						if (chunk.result !== undefined) {
 							collectedMessages.push({
 								role: "tool",
-								content: typeof chunk.result === "string" ? chunk.result : JSON.stringify(chunk.result),
+								content:
+									typeof chunk.result === "string" ? chunk.result : JSON.stringify(chunk.result),
 								toolCallId: chunk.toolCallId,
 							});
 						} else {
-							log.warn({ toolCallId: chunk.toolCallId, toolName: buf.name }, "TOOL_CALL_END received without result");
+							log.warn(
+								{ toolCallId: chunk.toolCallId, toolName: buf.name },
+								"TOOL_CALL_END received without result"
+							);
 						}
+
+						log.info(
+							{ threadId: thread.id, toolName: buf.name, toolCallId: chunk.toolCallId, model },
+							"Tool call completed"
+						);
 					}
 					break;
 				}
 
 				case "RUN_FINISHED":
+					// Log token usage if available
+					if (chunk.usage) {
+						log.info(
+							{
+								threadId: thread.id,
+								model,
+								promptTokens: chunk.usage.promptTokens,
+								completionTokens: chunk.usage.completionTokens,
+								totalTokens: chunk.usage.totalTokens,
+							},
+							"Agent run finished"
+						);
+					}
+
 					// Persist all collected messages to DB
 					try {
 						await agentRepository.update(thread.id, {
@@ -290,15 +327,18 @@ export const agentRoutes = new Elysia({ prefix: "/agent" })
 			const messages = convertMessagesToModelMessages(body.messages);
 
 			// First exchange? Extract user content for title generation
-			const isFirstExchange = !thread.title && messages.filter((m) => m.role === "user").length === 1;
+			const isFirstExchange =
+				!thread.title && messages.filter((m) => m.role === "user").length === 1;
 			const firstUserContent = isFirstExchange
 				? (messages.find((m) => m.role === "user")?.content as string | null)
 				: null;
 
 			// Create adapter
-			const { adapter } = await createAdapter();
+			const { adapter, model } = await createAdapter();
 			const contextStr = getContextStr(thread);
 			const allTools = getAllDomainTools(thread);
+
+			log.info({ threadId: thread.id, model }, "Starting streaming chat");
 
 			// Set up timeout
 			const abortController = new AbortController();
@@ -316,8 +356,8 @@ export const agentRoutes = new Elysia({ prefix: "/agent" })
 				abortController,
 			});
 
-			// Wrap with side effects (DB persistence, title gen)
-			const wrapped = withPersistence(stream, thread, messages, firstUserContent, timeout);
+			// Wrap with side effects (DB persistence, title gen, tool/token logging)
+			const wrapped = withPersistence(stream, thread, messages, firstUserContent, timeout, model);
 
 			// Return SSE Response
 			return toServerSentEventsResponse(wrapped, { abortController });

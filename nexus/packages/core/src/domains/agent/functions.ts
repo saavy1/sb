@@ -1,23 +1,19 @@
-import {
-  chat,
-  maxIterations,
-  streamToText,
-  toolDefinition,
-} from "@tanstack/ai";
-import { createOpenRouterText } from "@tanstack/ai-openrouter";
 import logger from "@nexus/logger";
+import { chat, maxIterations, toolDefinition } from "@tanstack/ai";
+import { createOpenRouterText } from "@tanstack/ai-openrouter";
 import { z } from "zod";
 import { generateConversationTitle } from "../../infra/ai";
 import { config } from "../../infra/config";
-import { notify, sendDiscordNotification, COLORS } from "../../infra/discord";
+import { COLORS, notify, sendDiscordNotification } from "../../infra/discord";
 import { appEvents } from "../../infra/events";
+import { mcpManager } from "../../infra/mcp";
 import { agentWakeQueue } from "../../infra/queue";
+import { withSpan } from "../../infra/telemetry";
 import { appTools } from "../apps/functions";
 import { getAiModel } from "../core/functions";
 import { gameServerTools } from "../game-servers/functions";
 import { grafanaTools } from "../grafana/functions";
 import { customInfisicalTools } from "../infisical/functions";
-import { mcpManager } from "../../infra/mcp";
 import { lokiTools } from "../loki/functions";
 import { mediaTools } from "../media/functions";
 import { opsTools } from "../ops/functions";
@@ -283,169 +279,159 @@ ALWAYS ASK before:
 // === Helper functions ===
 
 export function generateId(): string {
-  return crypto.randomUUID().slice(0, 8);
+	return crypto.randomUUID().slice(0, 8);
 }
 
 function parseDelay(delay: string): number {
-  const match = delay.match(/^(\d+)(s|m|h|d)$/);
-  if (!match)
-    throw new Error(
-      `Invalid delay format: ${delay}. Use format like "30s", "5m", "2h", "1d"`,
-    );
+	const match = delay.match(/^(\d+)(s|m|h|d)$/);
+	if (!match)
+		throw new Error(`Invalid delay format: ${delay}. Use format like "30s", "5m", "2h", "1d"`);
 
-  const [, amount, unit] = match;
-  const multipliers: Record<string, number> = {
-    s: 1000,
-    m: 60_000,
-    h: 3600_000,
-    d: 86400_000,
-  };
-  return parseInt(amount, 10) * multipliers[unit];
+	const [, amount, unit] = match;
+	const multipliers: Record<string, number> = {
+		s: 1000,
+		m: 60_000,
+		h: 3600_000,
+		d: 86400_000,
+	};
+	return parseInt(amount, 10) * multipliers[unit];
 }
 
 // === Meta-tools (agent lifecycle control) ===
 
 // These are created per-thread since they need thread context
 export function createMetaTools(thread: AgentThread) {
-  const scheduleWakeTool = toolDefinition({
-    name: "schedule_wake",
-    description: `Schedule yourself to wake up later. Requires two parameters:
+	const scheduleWakeTool = toolDefinition({
+		name: "schedule_wake",
+		description: `Schedule yourself to wake up later. Requires two parameters:
 - delay: Time string like "10s", "5m", "2h", "1d"
 - reason: What to check/do when you wake
 
 Example: schedule_wake({ delay: "30s", reason: "Check if server started" })`,
-    inputSchema: z.object({
-      delay: z.string().describe('Time to wait, e.g. "10s", "5m", "2h", "1d"'),
-      reason: z.string().describe("What to check/do when waking"),
-    }),
-  }).server(async ({ delay, reason }) => {
-    const delayMs = parseDelay(delay);
+		inputSchema: z.object({
+			delay: z.string().describe('Time to wait, e.g. "10s", "5m", "2h", "1d"'),
+			reason: z.string().describe("What to check/do when waking"),
+		}),
+	}).server(async ({ delay, reason }) => {
+		const delayMs = parseDelay(delay);
 
-    // Schedule the wake job in BullMQ
-    const job = await agentWakeQueue.add(
-      "wake",
-      { threadId: thread.id, reason } satisfies WakeJobDataType,
-      { delay: delayMs },
-    );
+		// Schedule the wake job in BullMQ
+		const job = await agentWakeQueue.add(
+			"wake",
+			{ threadId: thread.id, reason } satisfies WakeJobDataType,
+			{ delay: delayMs }
+		);
 
-    // Update thread state
-    const jobId = job.id ?? `wake-${thread.id}-${Date.now()}`;
-    await agentRepository.setWake(thread.id, jobId, reason);
+		// Update thread state
+		const jobId = job.id ?? `wake-${thread.id}-${Date.now()}`;
+		await agentRepository.setWake(thread.id, jobId, reason);
 
-    log.info(
-      { threadId: thread.id, delay, reason, jobId: job.id },
-      "Scheduled wake",
-    );
+		log.info({ threadId: thread.id, delay, reason, jobId: job.id }, "Scheduled wake");
 
-    return {
-      success: true,
-      message: `Scheduled to wake in ${delay}`,
-      wakeAt: new Date(Date.now() + delayMs).toISOString(),
-    };
-  });
+		return {
+			success: true,
+			message: `Scheduled to wake in ${delay}`,
+			wakeAt: new Date(Date.now() + delayMs).toISOString(),
+		};
+	});
 
-  const completeTaskTool = toolDefinition({
-    name: "complete_task",
-    description: `Mark task as complete when the user's request is fully resolved.
+	const completeTaskTool = toolDefinition({
+		name: "complete_task",
+		description: `Mark task as complete when the user's request is fully resolved.
 - summary: Brief description of what was accomplished
 
 Example: complete_task({ summary: "Started the Minecraft server" })`,
-    inputSchema: z.object({
-      summary: z
-        .string()
-        .describe("Brief description of what was accomplished"),
-    }),
-  }).server(async ({ summary }) => {
-    await agentRepository.update(thread.id, { status: "complete" });
+		inputSchema: z.object({
+			summary: z.string().describe("Brief description of what was accomplished"),
+		}),
+	}).server(async ({ summary }) => {
+		await agentRepository.update(thread.id, { status: "complete" });
 
-    log.info({ threadId: thread.id, summary }, "Task completed");
+		log.info({ threadId: thread.id, summary }, "Task completed");
 
-    return {
-      success: true,
-      message: "Task marked complete",
-      summary,
-    };
-  });
+		return {
+			success: true,
+			message: "Task marked complete",
+			summary,
+		};
+	});
 
-  const storeContextTool = toolDefinition({
-    name: "store_context",
-    description: `Store information for later. Persists across sleep/wake cycles.
+	const storeContextTool = toolDefinition({
+		name: "store_context",
+		description: `Store information for later. Persists across sleep/wake cycles.
 - key: String identifier for the data
 - value: Any JSON-serializable value to store
 
 Example: store_context({ key: "pendingTask", value: { action: "restart", target: "minecraft" } })`,
-    inputSchema: z.object({
-      key: z.string().describe("String identifier for the data"),
-      value: z.any().describe("Any JSON-serializable value"),
-    }),
-  }).server(async ({ key, value }) => {
-    const currentContext = { ...thread.context };
-    currentContext[key] = value;
+		inputSchema: z.object({
+			key: z.string().describe("String identifier for the data"),
+			value: z.any().describe("Any JSON-serializable value"),
+		}),
+	}).server(async ({ key, value }) => {
+		const currentContext = { ...thread.context };
+		currentContext[key] = value;
 
-    await agentRepository.update(thread.id, {
-      context: currentContext,
-    });
+		await agentRepository.update(thread.id, {
+			context: currentContext,
+		});
 
-    // Update local thread object
-    thread.context = currentContext;
+		// Update local thread object
+		thread.context = currentContext;
 
-    return {
-      success: true,
-      message: `Stored "${key}" in context`,
-    };
-  });
+		return {
+			success: true,
+			message: `Stored "${key}" in context`,
+		};
+	});
 
-  const getContextTool = toolDefinition({
-    name: "get_context",
-    description: `Retrieve previously stored context data.
+	const getContextTool = toolDefinition({
+		name: "get_context",
+		description: `Retrieve previously stored context data.
 - key: The string identifier used when storing
 
 Example: get_context({ key: "pendingTask" })`,
-    inputSchema: z.object({
-      key: z.string().describe("The string identifier used when storing"),
-    }),
-  }).server(async ({ key }) => {
-    const value = thread.context[key];
+		inputSchema: z.object({
+			key: z.string().describe("The string identifier used when storing"),
+		}),
+	}).server(async ({ key }) => {
+		const value = thread.context[key];
 
-    if (value === undefined) {
-      return { found: false, key };
-    }
+		if (value === undefined) {
+			return { found: false, key };
+		}
 
-    return { found: true, key, value };
-  });
+		return { found: true, key, value };
+	});
 
-  const sendNotificationTool = toolDefinition({
-    name: "send_notification",
-    description: `Send a Discord notification to the user. Use this to alert the user about important events, completed tasks, or issues that need attention.
+	const sendNotificationTool = toolDefinition({
+		name: "send_notification",
+		description: `Send a Discord notification to the user. Use this to alert the user about important events, completed tasks, or issues that need attention.
 - message: The notification text to send
 
 Example: send_notification({ message: "Server minecraft-smp is now online with 3 players" })`,
-    inputSchema: z.object({
-      message: z.string().describe("The notification text to send"),
-    }),
-  }).server(async ({ message }) => {
-    const sent = await notify(message);
+		inputSchema: z.object({
+			message: z.string().describe("The notification text to send"),
+		}),
+	}).server(async ({ message }) => {
+		const sent = await notify(message);
 
-    if (sent) {
-      log.info(
-        { threadId: thread.id, messageLength: message.length },
-        "Sent Discord notification",
-      );
-      return {
-        success: true,
-        message: "Notification sent to Discord",
-      };
-    }
+		if (sent) {
+			log.info({ threadId: thread.id, messageLength: message.length }, "Sent Discord notification");
+			return {
+				success: true,
+				message: "Notification sent to Discord",
+			};
+		}
 
-    return {
-      success: false,
-      message: "Discord webhook not configured - notification not sent",
-    };
-  });
+		return {
+			success: false,
+			message: "Discord webhook not configured - notification not sent",
+		};
+	});
 
-  const requestCapabilityTool = toolDefinition({
-    name: "request_capability",
-    description: `Request a new tool or capability that you don't currently have but would help you complete a task or diagnose an issue. This helps the team understand what tools to build next.
+	const requestCapabilityTool = toolDefinition({
+		name: "request_capability",
+		description: `Request a new tool or capability that you don't currently have but would help you complete a task or diagnose an issue. This helps the team understand what tools to build next.
 
 Use this when you encounter a situation where having access to something you don't have would help — like searching logs in Loki, viewing traces in Tempo, checking git history, or searching the web.
 
@@ -454,146 +440,142 @@ Use this when you encounter a situation where having access to something you don
 - context: What you were trying to do when you realized you needed this
 
 Example: request_capability({ capability: "search_loki_logs", reason: "Need to check error logs for the nexus-api pod from the last hour to diagnose this alert", context: "Investigating KubePodCrashLooping alert for nexus-api" })`,
-    inputSchema: z.object({
-      capability: z.string().describe("What tool/capability you wish you had"),
-      reason: z.string().describe("Why you need it right now"),
-      context: z.string().optional().describe("What you were trying to do"),
-    }),
-  }).server(async ({ capability, reason, context }) => {
-    log.info(
-      {
-        threadId: thread.id,
-        capability,
-        reason,
-        context,
-        source: thread.source,
-      },
-      "Capability requested",
-    );
+		inputSchema: z.object({
+			capability: z.string().describe("What tool/capability you wish you had"),
+			reason: z.string().describe("Why you need it right now"),
+			context: z.string().optional().describe("What you were trying to do"),
+		}),
+	}).server(async ({ capability, reason, context }) => {
+		log.info(
+			{
+				threadId: thread.id,
+				capability,
+				reason,
+				context,
+				source: thread.source,
+			},
+			"Capability requested"
+		);
 
-    // If we're in a background context (alert, wake, scheduled), notify via Discord
-    if (thread.source !== "chat") {
-      await sendDiscordNotification({
-        username: "The Machine",
-        embeds: [
-          {
-            title: "Capability Request",
-            description: `I wish I had **${capability}**`,
-            color: COLORS.INFO,
-            fields: [
-              { name: "Reason", value: reason },
-              ...(context ? [{ name: "Context", value: context }] : []),
-              { name: "Thread", value: thread.id, inline: true },
-              { name: "Source", value: thread.source, inline: true },
-            ],
-            timestamp: new Date().toISOString(),
-          },
-        ],
-      });
-    }
+		// If we're in a background context (alert, wake, scheduled), notify via Discord
+		if (thread.source !== "chat") {
+			await sendDiscordNotification({
+				username: "The Machine",
+				embeds: [
+					{
+						title: "Capability Request",
+						description: `I wish I had **${capability}**`,
+						color: COLORS.INFO,
+						fields: [
+							{ name: "Reason", value: reason },
+							...(context ? [{ name: "Context", value: context }] : []),
+							{ name: "Thread", value: thread.id, inline: true },
+							{ name: "Source", value: thread.source, inline: true },
+						],
+						timestamp: new Date().toISOString(),
+					},
+				],
+			});
+		}
 
-    return {
-      logged: true,
-      message:
-        thread.source === "chat"
-          ? `Noted: I'd benefit from a "${capability}" tool. ${reason}`
-          : `Capability request sent to Discord: "${capability}"`,
-    };
-  });
+		return {
+			logged: true,
+			message:
+				thread.source === "chat"
+					? `Noted: I'd benefit from a "${capability}" tool. ${reason}`
+					: `Capability request sent to Discord: "${capability}"`,
+		};
+	});
 
-  return [
-    scheduleWakeTool,
-    completeTaskTool,
-    storeContextTool,
-    getContextTool,
-    sendNotificationTool,
-    requestCapabilityTool,
-  ];
+	return [
+		scheduleWakeTool,
+		completeTaskTool,
+		storeContextTool,
+		getContextTool,
+		sendNotificationTool,
+		requestCapabilityTool,
+	];
 }
 
 // === Helper to build context string ===
 
 export function getContextStr(thread: AgentThread): string {
-  if (Object.keys(thread.context).length > 0) {
-    return `\n\n## Stored Context\n${JSON.stringify(thread.context, null, 2)}`;
-  }
-  return "";
+	if (Object.keys(thread.context).length > 0) {
+		return `\n\n## Stored Context\n${JSON.stringify(thread.context, null, 2)}`;
+	}
+	return "";
 }
 
 // === Helper to create adapter ===
 
 export async function createAdapter() {
-  const aiModel = await getAiModel();
-  return {
-    adapter: createOpenRouterText(
-      aiModel as Parameters<typeof createOpenRouterText>[0],
-      config.OPENROUTER_API_KEY!,
-    ),
-    model: aiModel,
-  };
+	const aiModel = await getAiModel();
+	return {
+		adapter: createOpenRouterText(
+			aiModel as Parameters<typeof createOpenRouterText>[0],
+			config.OPENROUTER_API_KEY!
+		),
+		model: aiModel,
+	};
 }
 
 // === All domain tools (flat array) ===
 
 export function getAllDomainTools(thread: AgentThread) {
-  const metaTools = createMetaTools(thread);
-  return [
-    ...gameServerTools,
-    ...systemInfoTools,
-    ...appTools,
-    ...opsTools,
-    ...mediaTools,
-    ...lokiTools,
-    ...grafanaTools,
-    ...customInfisicalTools,
-    ...metaTools,
-    ...mcpManager.getAllTools(),
-  ];
+	const metaTools = createMetaTools(thread);
+	return [
+		...gameServerTools,
+		...systemInfoTools,
+		...appTools,
+		...opsTools,
+		...mediaTools,
+		...lokiTools,
+		...grafanaTools,
+		...customInfisicalTools,
+		...metaTools,
+		...mcpManager.getAllTools(),
+	];
 }
 
 // === Core agent functions ===
 
 export async function createThread(
-  source: ThreadSourceType,
-  sourceId?: string,
+	source: ThreadSourceType,
+	sourceId?: string
 ): Promise<AgentThread> {
-  const thread = await agentRepository.create({
-    id: generateId(),
-    source,
-    sourceId: sourceId ?? null,
-    messages: [],
-    context: {},
-  });
+	const thread = await agentRepository.create({
+		id: generateId(),
+		source,
+		sourceId: sourceId ?? null,
+		messages: [],
+		context: {},
+	});
 
-  log.info({ threadId: thread.id, source, sourceId }, "Created thread");
-  return thread;
+	log.info({ threadId: thread.id, source, sourceId }, "Created thread");
+	return thread;
 }
 
 export async function getThread(id: string): Promise<AgentThread | null> {
-  return agentRepository.findById(id);
+	return agentRepository.findById(id);
 }
 
 export async function getOrCreateThread(
-  source: ThreadSourceType,
-  sourceId: string,
+	source: ThreadSourceType,
+	sourceId: string
 ): Promise<AgentThread> {
-  const existing = await agentRepository.findBySourceId(source, sourceId);
-  if (
-    existing &&
-    existing.status !== "complete" &&
-    existing.status !== "failed"
-  ) {
-    return existing;
-  }
-  return createThread(source, sourceId);
+	const existing = await agentRepository.findBySourceId(source, sourceId);
+	if (existing && existing.status !== "complete" && existing.status !== "failed") {
+		return existing;
+	}
+	return createThread(source, sourceId);
 }
 
 export async function listThreads(options?: {
-  status?: "active" | "sleeping" | "complete" | "failed";
-  source?: ThreadSourceType;
-  limit?: number;
+	status?: "active" | "sleeping" | "complete" | "failed";
+	source?: ThreadSourceType;
+	limit?: number;
 }): Promise<AgentThread[]> {
-  return agentRepository.findAll(options);
+	return agentRepository.findAll(options);
 }
 
 /**
@@ -601,127 +583,172 @@ export async function listThreads(options?: {
  * No SSE streaming — runs to completion, persists to DB, emits thread:updated.
  */
 export async function runAgentLoop(
-  thread: AgentThread,
-  trigger:
-    | { type: "message"; content: string }
-    | { type: "wake"; reason: string },
+	thread: AgentThread,
+	trigger: { type: "message"; content: string } | { type: "wake"; reason: string }
 ): Promise<{ thread: AgentThread; response: string }> {
-  if (!config.OPENROUTER_API_KEY) {
-    throw new Error("OPENROUTER_API_KEY not configured");
-  }
+	if (!config.OPENROUTER_API_KEY) {
+		throw new Error("OPENROUTER_API_KEY not configured");
+	}
 
-  log.info({ threadId: thread.id, trigger }, "Starting agent loop");
+	return withSpan("agent", "agent.runLoop", async (span) => {
+		span.setAttribute("agent.thread_id", thread.id);
+		span.setAttribute("agent.trigger_type", trigger.type);
 
-  const messages = [...thread.messages];
+		// Prepare tools and adapter
+		const allTools = getAllDomainTools(thread);
+		const { adapter, model } = await createAdapter();
+		const contextStr = getContextStr(thread);
 
-  // Add trigger as new message
-  if (trigger.type === "message") {
-    messages.push({ role: "user" as const, content: trigger.content });
-  } else {
-    const wakeContent = `[SYSTEM WAKE] Scheduled wake: ${trigger.reason}`;
-    messages.push({ role: "user" as const, content: wakeContent });
-  }
+		span.setAttribute("ai.model", model);
 
-  // Clear wake state if this was a wake
-  if (trigger.type === "wake") {
-    await agentRepository.clearWake(thread.id);
-  }
+		log.info({ threadId: thread.id, trigger, model }, "Starting agent loop");
 
-  // Prepare tools and adapter
-  const allTools = getAllDomainTools(thread);
-  const { adapter } = await createAdapter();
-  const contextStr = getContextStr(thread);
+		const messages = [...thread.messages];
 
-  // Run chat with built-in agent loop (non-streaming for workers)
-  const abortController = new AbortController();
-  const timeout = setTimeout(() => abortController.abort(), 120_000);
+		// Add trigger as new message
+		if (trigger.type === "message") {
+			messages.push({ role: "user" as const, content: trigger.content });
+		} else {
+			const wakeContent = `[SYSTEM WAKE] Scheduled wake: ${trigger.reason}`;
+			messages.push({ role: "user" as const, content: wakeContent });
+		}
 
-  let response: string;
-  try {
-    // convertMessagesToModelMessages returns ModelMessage[] but chat() expects
-    // ConstrainedModelMessage — a known TanStack AI type gap (their internal code uses `as any`)
-    const stream = chat({
-      adapter,
-      messages: messages as Parameters<typeof chat>[0]["messages"],
-      systemPrompts: [AGENT_SYSTEM_PROMPT + contextStr],
-      tools: allTools,
-      agentLoopStrategy: maxIterations(10),
-      abortController,
-    });
-    response = await streamToText(stream);
-  } finally {
-    clearTimeout(timeout);
-  }
+		// Clear wake state if this was a wake
+		if (trigger.type === "wake") {
+			await agentRepository.clearWake(thread.id);
+		}
 
-  // Build new messages to persist: original messages + assistant response
-  const newMessages = [...messages];
-  if (response) {
-    newMessages.push({ role: "assistant" as const, content: response });
-  }
+		// Run chat with built-in agent loop (non-streaming for workers)
+		const abortController = new AbortController();
+		const timeout = setTimeout(() => abortController.abort(), 120_000);
 
-  // Persist final state
-  const updatedThread = await agentRepository.findById(thread.id);
-  if (updatedThread) {
-    thread = updatedThread;
-  }
+		let response = "";
+		let toolCallCount = 0;
+		let usage: { promptTokens: number; completionTokens: number; totalTokens: number } | undefined;
+		try {
+			// convertMessagesToModelMessages returns ModelMessage[] but chat() expects
+			// ConstrainedModelMessage — a known TanStack AI type gap (their internal code uses `as any`)
+			const stream = chat({
+				adapter,
+				messages: messages as Parameters<typeof chat>[0]["messages"],
+				systemPrompts: [AGENT_SYSTEM_PROMPT + contextStr],
+				tools: allTools,
+				agentLoopStrategy: maxIterations(10),
+				abortController,
+			});
 
-  const finalStatus =
-    thread.status === "sleeping" || thread.status === "complete"
-      ? thread.status
-      : "active";
+			for await (const chunk of stream) {
+				switch (chunk.type) {
+					case "TEXT_MESSAGE_CONTENT":
+						response += chunk.delta;
+						break;
+					case "TOOL_CALL_START":
+						toolCallCount++;
+						log.info(
+							{
+								threadId: thread.id,
+								toolName: chunk.toolName,
+								toolCallId: chunk.toolCallId,
+								model,
+							},
+							"Tool call started"
+						);
+						break;
+					case "TOOL_CALL_END":
+						log.info(
+							{
+								threadId: thread.id,
+								toolName: chunk.toolName,
+								toolCallId: chunk.toolCallId,
+								model,
+							},
+							"Tool call completed"
+						);
+						break;
+					case "RUN_FINISHED":
+						if (chunk.usage) {
+							usage = chunk.usage;
+						}
+						break;
+				}
+			}
+		} finally {
+			clearTimeout(timeout);
+		}
 
-  let writeSuccess = false;
-  for (let attempt = 0; attempt < 3 && !writeSuccess; attempt++) {
-    try {
-      await agentRepository.update(thread.id, {
-        messages: newMessages,
-        status: finalStatus,
-      });
-      writeSuccess = true;
-    } catch (dbErr) {
-      log.error(
-        { dbErr, threadId: thread.id, attempt: attempt + 1 },
-        "Failed to write final state to DB",
-      );
-      if (attempt < 2) {
-        await new Promise((resolve) =>
-          setTimeout(resolve, 100 * (attempt + 1)),
-        );
-      }
-    }
-  }
-  if (!writeSuccess) {
-    log.error(
-      { threadId: thread.id },
-      "All attempts to write final state failed",
-    );
-  }
+		span.setAttribute("agent.tool_call_count", toolCallCount);
 
-  log.info(
-    { threadId: thread.id, status: finalStatus },
-    "Agent loop completed",
-  );
+		// Build new messages to persist: original messages + assistant response
+		const newMessages = [...messages];
+		if (response) {
+			newMessages.push({ role: "assistant" as const, content: response });
+		}
 
-  // Emit thread:updated so UI knows to refetch if viewing this thread
-  appEvents.emit("thread:updated", { id: thread.id, title: thread.title });
+		// Persist final state
+		const updatedThread = await agentRepository.findById(thread.id);
+		if (updatedThread) {
+			thread = updatedThread;
+		}
 
-  // Generate title after first user message + response (async, don't block)
-  const userMessages = newMessages.filter((m) => m.role === "user");
-  if (userMessages.length === 1 && response && !thread.title) {
-    const userContent =
-      typeof userMessages[0].content === "string"
-        ? userMessages[0].content
-        : "";
-    generateConversationTitle(userContent, response).then((title) => {
-      if (title) {
-        log.info({ threadId: thread.id, title }, "Generated thread title");
-        agentRepository.update(thread.id, { title });
-        appEvents.emit("thread:updated", { id: thread.id, title });
-      }
-    });
-  }
+		const finalStatus =
+			thread.status === "sleeping" || thread.status === "complete" ? thread.status : "active";
 
-  return { thread, response };
+		let writeSuccess = false;
+		for (let attempt = 0; attempt < 3 && !writeSuccess; attempt++) {
+			try {
+				await agentRepository.update(thread.id, {
+					messages: newMessages,
+					status: finalStatus,
+				});
+				writeSuccess = true;
+			} catch (dbErr) {
+				log.error(
+					{ dbErr, threadId: thread.id, attempt: attempt + 1 },
+					"Failed to write final state to DB"
+				);
+				if (attempt < 2) {
+					await new Promise((resolve) => setTimeout(resolve, 100 * (attempt + 1)));
+				}
+			}
+		}
+		if (!writeSuccess) {
+			log.error({ threadId: thread.id }, "All attempts to write final state failed");
+		}
+
+		log.info(
+			{
+				threadId: thread.id,
+				status: finalStatus,
+				model,
+				toolCallCount,
+				...(usage && {
+					promptTokens: usage.promptTokens,
+					completionTokens: usage.completionTokens,
+					totalTokens: usage.totalTokens,
+				}),
+			},
+			"Agent loop completed"
+		);
+
+		// Emit thread:updated so UI knows to refetch if viewing this thread
+		appEvents.emit("thread:updated", { id: thread.id, title: thread.title });
+
+		// Generate title after first user message + response (async, don't block)
+		const userMessages = newMessages.filter((m) => m.role === "user");
+		if (userMessages.length === 1 && response && !thread.title) {
+			const userContent =
+				typeof userMessages[0].content === "string" ? userMessages[0].content : "";
+			generateConversationTitle(userContent, response).then((title) => {
+				if (title) {
+					log.info({ threadId: thread.id, title }, "Generated thread title");
+					agentRepository.update(thread.id, { title });
+					appEvents.emit("thread:updated", { id: thread.id, title });
+				}
+			});
+		}
+
+		return { thread, response };
+	});
 }
 
 /**
@@ -729,167 +756,147 @@ export async function runAgentLoop(
  * Returns the agent's response.
  */
 export async function sendMessage(
-  threadId: string,
-  content: string,
+	threadId: string,
+	content: string
 ): Promise<{ thread: AgentThread; response: string }> {
-  const thread = await agentRepository.findById(threadId);
-  if (!thread) {
-    throw new Error(`Thread ${threadId} not found`);
-  }
+	const thread = await agentRepository.findById(threadId);
+	if (!thread) {
+		throw new Error(`Thread ${threadId} not found`);
+	}
 
-  // Cancel any pending wake if thread was sleeping
-  if (thread.wakeJobId) {
-    try {
-      const job = await agentWakeQueue.getJob(thread.wakeJobId);
-      if (job) {
-        await job.remove();
-        log.info(
-          { threadId, jobId: thread.wakeJobId },
-          "Cancelled pending wake",
-        );
-      }
-    } catch (err) {
-      log.warn({ err, threadId }, "Failed to cancel wake job");
-    }
-  }
+	// Cancel any pending wake if thread was sleeping
+	if (thread.wakeJobId) {
+		try {
+			const job = await agentWakeQueue.getJob(thread.wakeJobId);
+			if (job) {
+				await job.remove();
+				log.info({ threadId, jobId: thread.wakeJobId }, "Cancelled pending wake");
+			}
+		} catch (err) {
+			log.warn({ err, threadId }, "Failed to cancel wake job");
+		}
+	}
 
-  return runAgentLoop(thread, { type: "message", content });
+	return runAgentLoop(thread, { type: "message", content });
 }
 
 /**
  * Wake a sleeping thread (called by worker).
  */
 export async function wakeThread(
-  threadId: string,
-  reason: string,
+	threadId: string,
+	reason: string
 ): Promise<{ thread: AgentThread; response: string }> {
-  const thread = await agentRepository.findById(threadId);
-  if (!thread) {
-    throw new Error(`Thread ${threadId} not found`);
-  }
+	const thread = await agentRepository.findById(threadId);
+	if (!thread) {
+		throw new Error(`Thread ${threadId} not found`);
+	}
 
-  if (thread.status !== "sleeping") {
-    log.warn(
-      { threadId, status: thread.status },
-      "Thread not sleeping, skipping wake",
-    );
-    return { thread, response: "" };
-  }
+	if (thread.status !== "sleeping") {
+		log.warn({ threadId, status: thread.status }, "Thread not sleeping, skipping wake");
+		return { thread, response: "" };
+	}
 
-  return runAgentLoop(thread, { type: "wake", reason });
+	return runAgentLoop(thread, { type: "wake", reason });
 }
 
 // === Alert handling ===
 
 export interface AlertInput {
-  alertName: string;
-  severity: string;
-  description: string;
-  labels: Record<string, string>;
-  annotations: Record<string, string>;
-  startsAt: string;
-  fingerprint: string;
-  generatorURL?: string;
+	alertName: string;
+	severity: string;
+	description: string;
+	labels: Record<string, string>;
+	annotations: Record<string, string>;
+	startsAt: string;
+	fingerprint: string;
+	generatorURL?: string;
 }
 
 /**
  * Create an agent thread from an Alertmanager alert.
  * Uses fingerprint for deduplication - won't create duplicate threads for the same alert.
  */
-export async function createThreadFromAlert(
-  alert: AlertInput,
-): Promise<AgentThread> {
-  // Check for existing active thread for this alert (dedup by fingerprint)
-  const existing = await agentRepository.findBySourceId(
-    "alert",
-    alert.fingerprint,
-  );
-  if (
-    existing &&
-    existing.status !== "complete" &&
-    existing.status !== "failed"
-  ) {
-    log.info(
-      { threadId: existing.id, fingerprint: alert.fingerprint },
-      "Alert thread already exists, skipping",
-    );
-    return existing;
-  }
+export async function createThreadFromAlert(alert: AlertInput): Promise<AgentThread> {
+	// Check for existing active thread for this alert (dedup by fingerprint)
+	const existing = await agentRepository.findBySourceId("alert", alert.fingerprint);
+	if (existing && existing.status !== "complete" && existing.status !== "failed") {
+		log.info(
+			{ threadId: existing.id, fingerprint: alert.fingerprint },
+			"Alert thread already exists, skipping"
+		);
+		return existing;
+	}
 
-  // Create new thread for this alert
-  const thread = await agentRepository.create({
-    id: generateId(),
-    source: "alert",
-    sourceId: alert.fingerprint,
-    messages: [],
-    context: {
-      alert: {
-        name: alert.alertName,
-        severity: alert.severity,
-        labels: alert.labels,
-        annotations: alert.annotations,
-        startsAt: alert.startsAt,
-        generatorURL: alert.generatorURL,
-      },
-    },
-  });
+	// Create new thread for this alert
+	const thread = await agentRepository.create({
+		id: generateId(),
+		source: "alert",
+		sourceId: alert.fingerprint,
+		messages: [],
+		context: {
+			alert: {
+				name: alert.alertName,
+				severity: alert.severity,
+				labels: alert.labels,
+				annotations: alert.annotations,
+				startsAt: alert.startsAt,
+				generatorURL: alert.generatorURL,
+			},
+		},
+	});
 
-  log.info(
-    {
-      threadId: thread.id,
-      alertName: alert.alertName,
-      severity: alert.severity,
-    },
-    "Created thread for alert",
-  );
+	log.info(
+		{
+			threadId: thread.id,
+			alertName: alert.alertName,
+			severity: alert.severity,
+		},
+		"Created thread for alert"
+	);
 
-  // Build alert message for the agent
-  const alertMessage = buildAlertMessage(alert);
+	// Build alert message for the agent
+	const alertMessage = buildAlertMessage(alert);
 
-  // Run agent loop with the alert (fire and forget - don't block webhook response)
-  runAgentLoop(thread, { type: "message", content: alertMessage }).catch(
-    (err) => {
-      log.error(
-        { err, threadId: thread.id, alertName: alert.alertName },
-        "Failed to process alert",
-      );
-      agentRepository.update(thread.id, { status: "failed" });
-    },
-  );
+	// Run agent loop with the alert (fire and forget - don't block webhook response)
+	runAgentLoop(thread, { type: "message", content: alertMessage }).catch((err) => {
+		log.error({ err, threadId: thread.id, alertName: alert.alertName }, "Failed to process alert");
+		agentRepository.update(thread.id, { status: "failed" });
+	});
 
-  return thread;
+	return thread;
 }
 
 function buildAlertMessage(alert: AlertInput): string {
-  const parts = [
-    `Alert: ${alert.alertName} (${alert.severity})`,
-    "",
-    alert.description,
-    "",
-    "**Labels:**",
-    ...Object.entries(alert.labels).map(([k, v]) => `- ${k}: ${v}`),
-  ];
+	const parts = [
+		`Alert: ${alert.alertName} (${alert.severity})`,
+		"",
+		alert.description,
+		"",
+		"**Labels:**",
+		...Object.entries(alert.labels).map(([k, v]) => `- ${k}: ${v}`),
+	];
 
-  if (Object.keys(alert.annotations).length > 0) {
-    parts.push("", "**Annotations:**");
-    for (const [k, v] of Object.entries(alert.annotations)) {
-      if (k !== "description" && k !== "summary") {
-        parts.push(`- ${k}: ${v}`);
-      }
-    }
-  }
+	if (Object.keys(alert.annotations).length > 0) {
+		parts.push("", "**Annotations:**");
+		for (const [k, v] of Object.entries(alert.annotations)) {
+			if (k !== "description" && k !== "summary") {
+				parts.push(`- ${k}: ${v}`);
+			}
+		}
+	}
 
-  if (alert.generatorURL) {
-    parts.push("", `[View in Alertmanager](${alert.generatorURL})`);
-  }
+	if (alert.generatorURL) {
+		parts.push("", `[View in Alertmanager](${alert.generatorURL})`);
+	}
 
-  parts.push(
-    "",
-    "---",
-    "Investigate this alert. Check relevant metrics, logs, and system state. Take autonomous action if safe and appropriate, or summarize findings and recommend next steps.",
-  );
+	parts.push(
+		"",
+		"---",
+		"Investigate this alert. Check relevant metrics, logs, and system state. Take autonomous action if safe and appropriate, or summarize findings and recommend next steps."
+	);
 
-  return parts.join("\n");
+	return parts.join("\n");
 }
 
 // === Exported tools array for AI service ===

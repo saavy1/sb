@@ -19,6 +19,7 @@ const log = logger.child({ module: "mcp" });
 interface McpServerConfig {
 	id: string;
 	url: string;
+	headers?: Record<string, string>;
 }
 
 interface ConnectedServer {
@@ -37,7 +38,11 @@ function getMcpServerConfigs(): McpServerConfig[] {
 	}
 
 	if (config.MCP_GITHUB_TOKEN) {
-		servers.push({ id: "github", url: config.MCP_GITHUB_URL });
+		servers.push({
+			id: "github",
+			url: config.MCP_GITHUB_URL,
+			headers: { Authorization: `Bearer ${config.MCP_GITHUB_TOKEN}` },
+		});
 	}
 
 	return servers;
@@ -55,10 +60,13 @@ async function connectToServer(
 	});
 
 	const url = new URL(serverConfig.url);
+	const requestInit = serverConfig.headers
+		? { headers: serverConfig.headers }
+		: undefined;
 
 	// Try Streamable HTTP first (newer protocol)
 	try {
-		const transport = new StreamableHTTPClientTransport(url);
+		const transport = new StreamableHTTPClientTransport(url, { requestInit });
 		await client.connect(transport);
 		log.info({ serverId: serverConfig.id }, "Connected via Streamable HTTP");
 		return client;
@@ -70,7 +78,7 @@ async function connectToServer(
 	}
 
 	// Fall back to SSE transport
-	const sseTransport = new SSEClientTransport(url);
+	const sseTransport = new SSEClientTransport(url, { requestInit });
 	await client.connect(sseTransport);
 	log.info({ serverId: serverConfig.id }, "Connected via SSE");
 	return client;
