@@ -1,3 +1,5 @@
+runtimeClassName: nvidia
+
 affinity:
   nodeAffinity:
     requiredDuringSchedulingIgnoredDuringExecution:
