@@ -1,3 +1,19 @@
+configMaps:
+  config:
+    data:
+      configuration.yaml: |
+        homeassistant:
+          name: Home
+          unit_system: imperial
+          time_zone: America/Denver
+
+        http:
+          use_x_forwarded_for: true
+          trusted_proxies:
+            - 10.0.0.0/8
+            - 172.16.0.0/12
+            - 192.168.0.0/16
+            - 127.0.0.0/8
 controllers:
   main:
     strategy: Recreate
@@ -63,3 +79,10 @@ persistence:
     storageClass: local-path
     globalMounts:
       - path: /config
+  ha-config-file:
+    enabled: true
+    type: configMap
+    name: home-assistant-config
+    globalMounts:
+      - path: /config/configuration.yaml
+        subPath: configuration.yaml
