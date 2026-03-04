@@ -195,7 +195,7 @@ async function* withPersistence(
 
 		// Title generation on first exchange
 		if (!thread.title && firstUserContent && lastAssistantContent) {
-			generateConversationTitle(firstUserContent, lastAssistantContent).then((title) => {
+			generateConversationTitle(firstUserContent, lastAssistantContent, model).then((title) => {
 				if (title) {
 					log.info({ threadId: thread.id, title }, "Generated thread title");
 					agentRepository.update(thread.id, { title });

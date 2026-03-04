@@ -2,18 +2,14 @@ import { chat } from "@tanstack/ai";
 import { createOpenaiChat } from "@tanstack/ai-openai";
 import { createOpenRouterText } from "@tanstack/ai-openrouter";
 import logger from "@nexus/logger";
-import { config } from "./config";
+import { config, isLocalProvider } from "./config";
 
 const log = logger.child({ module: "ai" });
 
 const TITLE_PROMPT = `Generate a concise 3-5 word title for this conversation. Return ONLY the title, no quotes, no explanation.`;
 
-function isLocalProvider() {
-	return config.AI_PROVIDER === "local";
-}
-
 export function createChatAdapter(model: string) {
-	if (isLocalProvider()) {
+	if (isLocalProvider) {
 		return createOpenaiChat(
 			model as Parameters<typeof createOpenaiChat>[0],
 			config.AI_LOCAL_API_KEY,
@@ -27,7 +23,7 @@ export function createChatAdapter(model: string) {
 }
 
 export function hasAiProvider(): boolean {
-	if (isLocalProvider()) {
+	if (isLocalProvider) {
 		return !!config.AI_LOCAL_URL;
 	}
 	return !!config.OPENROUTER_API_KEY;
@@ -35,7 +31,8 @@ export function hasAiProvider(): boolean {
 
 export async function generateConversationTitle(
 	userMessage: string,
-	assistantResponse: string
+	assistantResponse: string,
+	model: string,
 ): Promise<string | null> {
 	log.info(
 		{ userMessageLength: userMessage.length, assistantResponseLength: assistantResponse.length },
@@ -48,7 +45,7 @@ export async function generateConversationTitle(
 	}
 
 	try {
-		const adapter = createChatAdapter(config.AI_MODEL);
+		const adapter = createChatAdapter(model);
 
 		const title = await chat({
 			adapter,
