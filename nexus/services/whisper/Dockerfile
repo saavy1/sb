@@ -4,17 +4,13 @@ USER root
 
 # Install Intel GPU compute runtime for Arc GPU support
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl gpg gpg-agent \
-  && curl -fsSL https://repositories.intel.com/gpu/intel-graphics.key | \
-     gpg --dearmor -o /usr/share/keyrings/intel-graphics.gpg \
-  && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics.gpg] \
-     https://repositories.intel.com/gpu/ubuntu noble unified" \
-     > /etc/apt/sources.list.d/intel-gpu.list \
+    software-properties-common \
+  && add-apt-repository -y ppa:kobuk-team/intel-graphics \
   && apt-get update \
   && apt-get install -y --no-install-recommends \
      intel-opencl-icd \
-     intel-level-zero-gpu \
-     level-zero \
+     libze-intel-gpu1 \
+     libze1 \
      ocl-icd-libopencl1 \
   && rm -rf /var/lib/apt/lists/*
 
