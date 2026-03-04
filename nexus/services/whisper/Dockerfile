@@ -2,17 +2,17 @@ FROM openvino/ubuntu24_runtime:2025.3.0 AS base
 
 USER root
 
-# Install Intel GPU compute runtime for Arc GPU support
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    software-properties-common \
-  && add-apt-repository -y ppa:kobuk-team/intel-graphics \
-  && apt-get update \
-  && apt-get install -y --no-install-recommends \
-     intel-opencl-icd \
-     libze-intel-gpu1 \
-     libze1 \
-     ocl-icd-libopencl1 \
-  && rm -rf /var/lib/apt/lists/*
+# Upgrade Intel GPU compute runtime for Arc GPU support
+# Uses direct .deb installs (same approach as official OpenVINO Dockerfiles)
+RUN dpkg --remove --force-depends intel-level-zero-gpu level-zero intel-opencl-icd && \
+    mkdir /tmp/gpu_deps && cd /tmp/gpu_deps && \
+    curl -L -O https://github.com/intel/intel-graphics-compiler/releases/download/v2.28.4/intel-igc-core-2_2.28.4+20760_amd64.deb && \
+    curl -L -O https://github.com/intel/intel-graphics-compiler/releases/download/v2.28.4/intel-igc-opencl-2_2.28.4+20760_amd64.deb && \
+    curl -L -O https://github.com/intel/compute-runtime/releases/download/26.05.37020.3/intel-opencl-icd_26.05.37020.3-0_amd64.deb && \
+    curl -L -O https://github.com/intel/compute-runtime/releases/download/26.05.37020.3/libigdgmm12_22.9.0_amd64.deb && \
+    curl -L -O https://github.com/intel/compute-runtime/releases/download/26.05.37020.3/libze-intel-gpu1_26.05.37020.3-0_amd64.deb && \
+    dpkg -i ./*.deb && \
+    rm -rf /tmp/gpu_deps
 
 # Install uv
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
