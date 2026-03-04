@@ -1,4 +1,4 @@
-FROM openvino/ubuntu24_runtime:2025.0.0 AS base
+FROM openvino/ubuntu24_runtime:2025.3.0 AS base
 
 USER root
 
