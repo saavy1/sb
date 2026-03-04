@@ -14,6 +14,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   && apt-get install -y --no-install-recommends \
      intel-opencl-icd \
      intel-level-zero-gpu \
+     intel-igc-core \
+     intel-igc-opencl \
      level-zero \
      ocl-icd-libopencl1 \
   && rm -rf /var/lib/apt/lists/*
