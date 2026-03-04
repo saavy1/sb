@@ -1,4 +1,4 @@
-FROM openvino/ubuntu22_runtime:2025.0.0 AS base
+FROM openvino/ubuntu24_runtime:2025.0.0 AS base
 
 USER root
 
@@ -8,14 +8,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   && curl -fsSL https://repositories.intel.com/gpu/intel-graphics.key | \
      gpg --dearmor -o /usr/share/keyrings/intel-graphics.gpg \
   && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics.gpg] \
-     https://repositories.intel.com/gpu/ubuntu jammy unified" \
+     https://repositories.intel.com/gpu/ubuntu noble unified" \
      > /etc/apt/sources.list.d/intel-gpu.list \
   && apt-get update \
   && apt-get install -y --no-install-recommends \
      intel-opencl-icd \
      intel-level-zero-gpu \
-     intel-igc-core \
-     intel-igc-opencl \
      level-zero \
      ocl-icd-libopencl1 \
   && rm -rf /var/lib/apt/lists/*
