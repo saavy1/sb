@@ -14,6 +14,7 @@
       ./modules/firewall.nix
       ./modules/intel-gpu.nix
       ./modules/zfs.nix
+      ./modules/samba.nix
     ];
 
   # Bootloader.
