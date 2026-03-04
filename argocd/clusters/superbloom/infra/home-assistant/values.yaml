@@ -1,0 +1,65 @@
+controllers:
+  main:
+    strategy: Recreate
+    containers:
+      main:
+        image:
+          repository: ghcr.io/home-assistant/home-assistant
+          tag: stable
+          pullPolicy: IfNotPresent
+        env:
+          TZ: America/Denver
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 2000m
+            memory: 2Gi
+        probes:
+          liveness:
+            enabled: true
+            custom: true
+            spec:
+              httpGet:
+                path: /
+                port: 8123
+              initialDelaySeconds: 30
+              periodSeconds: 10
+          readiness:
+            enabled: true
+            custom: true
+            spec:
+              httpGet:
+                path: /
+                port: 8123
+              initialDelaySeconds: 15
+              periodSeconds: 5
+          startup:
+            enabled: true
+            custom: true
+            spec:
+              httpGet:
+                path: /
+                port: 8123
+              initialDelaySeconds: 10
+              failureThreshold: 30
+              periodSeconds: 5
+service:
+  main:
+    controller: main
+    ports:
+      http:
+        port: 8123
+ingress:
+  main:
+    enabled: false
+persistence:
+  config:
+    enabled: true
+    type: persistentVolumeClaim
+    accessMode: ReadWriteOnce
+    size: 5Gi
+    storageClass: local-path
+    globalMounts:
+      - path: /config
