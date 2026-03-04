@@ -19,19 +19,23 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
 WORKDIR /app
 
+# Install into OpenVINO's virtualenv
+ENV VIRTUAL_ENV=/opt/venv
+ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+
 # Install dependencies
 COPY pyproject.toml .
-RUN uv pip install --system --break-system-packages --no-cache .
+RUN uv pip install --no-cache .
 
 # Copy source
 COPY src/ src/
-RUN uv pip install --system --break-system-packages --no-cache --no-deps .
+RUN uv pip install --no-cache --no-deps .
 
 # Download model at build time
 ARG WHISPER_MODEL=OpenVINO/whisper-base-int8-ov
-RUN uv pip install --system --break-system-packages --no-cache huggingface-hub && \
-    python -c "from huggingface_hub import snapshot_download; snapshot_download('${WHISPER_MODEL}', local_dir='/models/whisper')" && \
-    uv pip uninstall --system --break-system-packages huggingface-hub
+RUN uv pip install --no-cache huggingface-hub && \
+    python3 -c "from huggingface_hub import snapshot_download; snapshot_download('${WHISPER_MODEL}', local_dir='/models/whisper')" && \
+    uv pip uninstall huggingface-hub
 
 USER openvino
 
