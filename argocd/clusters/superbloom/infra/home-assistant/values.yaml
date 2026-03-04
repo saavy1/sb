@@ -9,6 +9,8 @@ configMaps:
           name: Home
           unit_system: imperial
           time_zone: America/Denver
+          external_url: https://home.saavylab.dev
+          internal_url: https://home.saavylab.dev
 
         default_config:
 
