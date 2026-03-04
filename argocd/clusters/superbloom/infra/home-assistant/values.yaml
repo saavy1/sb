@@ -149,6 +149,7 @@ persistence:
     accessMode: ReadWriteOnce
     size: 5Gi
     storageClass: local-path
+    retain: true
     advancedMounts:
       main:
         main:
