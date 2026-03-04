@@ -41,6 +41,12 @@ export const config = {
     "http://kube-prometheus-stack-grafana.monitoring.svc.cluster.local",
   GRAFANA_API_KEY: Bun.env.GRAFANA_API_KEY,
 
+  // AI Provider ("openrouter" | "local")
+  AI_PROVIDER: Bun.env.AI_PROVIDER || "openrouter",
+  AI_LOCAL_URL: Bun.env.AI_LOCAL_URL, // e.g. "http://dgx-spark:8000/v1"
+  AI_LOCAL_API_KEY: Bun.env.AI_LOCAL_API_KEY || "not-needed", // vLLM doesn't require one
+  AI_LOCAL_MODEL: Bun.env.AI_LOCAL_MODEL, // e.g. "meta-llama/Llama-3.3-70B-Instruct"
+
   // AI / OpenRouter
   OPENROUTER_API_KEY: Bun.env.OPENROUTER_API_KEY,
   AI_MODEL: Bun.env.AI_MODEL || "deepseek/deepseek-v3.2",

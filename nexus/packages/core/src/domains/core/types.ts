@@ -50,6 +50,13 @@ export const DEFAULT_MODELS = [
   },
 ] as const;
 
+// Local models available when AI_PROVIDER=local (vLLM, Ollama, etc.)
+export const DEFAULT_LOCAL_MODELS = [
+  { id: "meta-llama/Llama-3.3-70B-Instruct", name: "Llama 3.3 70B", provider: "Local" },
+  { id: "deepseek-ai/DeepSeek-V3", name: "DeepSeek V3", provider: "Local" },
+  { id: "Qwen/Qwen2.5-72B-Instruct", name: "Qwen 2.5 72B", provider: "Local" },
+] as const;
+
 // === API schemas ===
 
 export const ModelOption = t.Object({
