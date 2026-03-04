@@ -135,7 +135,7 @@ data:
 
     # Home Assistant - uses built-in auth
     home.saavylab.dev {
-        reverse_proxy home-assistant.home-assistant.svc.cluster.local:8123
+        reverse_proxy home-assistant-main.home-assistant.svc.cluster.local:8123
     }
 
     # Grafana - uses built-in auth
