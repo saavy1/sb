@@ -1,6 +1,22 @@
-FROM openvino/ubuntu22_runtime:2024.6.0-gpu AS base
+FROM openvino/ubuntu22_runtime:2025.0.0 AS base
 
 USER root
+
+# Install Intel GPU compute runtime for Arc GPU support
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl gpg gpg-agent \
+  && curl -fsSL https://repositories.intel.com/gpu/intel-graphics.key | \
+     gpg --dearmor -o /usr/share/keyrings/intel-graphics.gpg \
+  && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics.gpg] \
+     https://repositories.intel.com/gpu/ubuntu jammy unified" \
+     > /etc/apt/sources.list.d/intel-gpu.list \
+  && apt-get update \
+  && apt-get install -y --no-install-recommends \
+     intel-opencl-icd \
+     intel-level-zero-gpu \
+     level-zero \
+     ocl-icd-libopencl1 \
+  && rm -rf /var/lib/apt/lists/*
 
 # Install uv
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
