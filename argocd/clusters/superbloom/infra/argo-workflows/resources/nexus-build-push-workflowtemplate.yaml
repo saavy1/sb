@@ -72,12 +72,28 @@ spec:
                   value: /workdir/nexus/workers/mc-monitor/Dockerfile
                 - name: image
                   value: "{{workflow.parameters.registry}}/{{workflow.parameters.imageOwner}}/nexus-mc-monitor"
+          - name: build-whisper
+            template: build-image
+            arguments:
+              parameters:
+                - name: revision
+                  value: "{{workflow.parameters.revision}}"
+                - name: repoURL
+                  value: "{{workflow.parameters.repoURL}}"
+                - name: context
+                  value: /workdir/nexus/services/whisper
+                - name: dockerfile
+                  value: /workdir/nexus/services/whisper/Dockerfile
+                - name: image
+                  value: "{{workflow.parameters.registry}}/{{workflow.parameters.imageOwner}}/wyoming-openvino-whisper"
 
     - name: build-image
       inputs:
         parameters:
           - name: revision
           - name: repoURL
+          - name: context
+            default: /workdir/nexus
           - name: dockerfile
           - name: image
         artifacts:
@@ -89,7 +105,7 @@ spec:
       container:
         image: gcr.io/kaniko-project/executor:v1.23.2-debug
         args:
-          - "--context=/workdir/nexus"
+          - "--context={{inputs.parameters.context}}"
           - "--dockerfile={{inputs.parameters.dockerfile}}"
           - "--destination={{inputs.parameters.image}}:latest"
           - "--destination={{inputs.parameters.image}}:{{workflow.uid}}"

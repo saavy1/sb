@@ -106,9 +106,9 @@ controllers:
     containers:
       main:
         image:
-          repository: ghcr.io/saavy1/wyoming-openvino-whisper
+          repository: registry.saavylab.dev/saavy1/wyoming-openvino-whisper
           tag: latest
-          pullPolicy: IfNotPresent
+          pullPolicy: Always
         securityContext:
           privileged: true
         resources:

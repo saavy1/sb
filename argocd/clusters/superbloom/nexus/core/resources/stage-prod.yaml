@@ -50,6 +50,12 @@ spec:
             updates:
               - key: controllers.main.containers.main.image.tag
                 value: ${{ imageFrom("zot.zot.svc.cluster.local:5000/saavy1/nexus-mc-monitor").Tag }}
+        - uses: yaml-update
+          config:
+            path: ./work/argocd/clusters/superbloom/infra/home-assistant/values.yaml
+            updates:
+              - key: controllers.whisper.containers.main.image.tag
+                value: ${{ imageFrom("zot.zot.svc.cluster.local:5000/saavy1/wyoming-openvino-whisper").Tag }}
         - uses: git-commit
           config:
             path: ./work
