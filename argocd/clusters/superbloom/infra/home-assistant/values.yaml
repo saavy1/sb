@@ -101,6 +101,23 @@ controllers:
           limits:
             cpu: 500m
             memory: 256Mi
+  whisper:
+    strategy: Recreate
+    containers:
+      main:
+        image:
+          repository: ghcr.io/saavy1/wyoming-openvino-whisper
+          tag: latest
+          pullPolicy: IfNotPresent
+        securityContext:
+          privileged: true
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 2000m
+            memory: 2Gi
 service:
   main:
     controller: main
@@ -117,6 +134,11 @@ service:
     ports:
       wyoming:
         port: 10400
+  whisper:
+    controller: whisper
+    ports:
+      wyoming:
+        port: 10300
 ingress:
   main:
     enabled: false
@@ -162,3 +184,11 @@ persistence:
           - path: /data
           - path: /custom
             subPath: custom
+  dri:
+    enabled: true
+    type: hostPath
+    hostPath: /dev/dri
+    advancedMounts:
+      whisper:
+        main:
+          - path: /dev/dri
