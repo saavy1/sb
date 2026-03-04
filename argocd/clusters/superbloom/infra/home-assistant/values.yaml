@@ -7,6 +7,10 @@ configMaps:
           unit_system: imperial
           time_zone: America/Denver
 
+        default_config:
+
+        mobile_app:
+
         http:
           use_x_forwarded_for: true
           trusted_proxies:
