@@ -1,4 +1,4 @@
-import { config } from "../../infra/config";
+import { config, isLocalProvider } from "../../infra/config";
 import { settingsRepository } from "./repository";
 import {
 	DEFAULT_LOCAL_MODELS,
@@ -15,14 +15,10 @@ const serverStartTime = Date.now();
 
 // === Model list ===
 
-function isLocalProvider() {
-	return config.AI_PROVIDER === "local";
-}
-
 function getAvailableModels(): ModelOptionType[] {
 	const envModels = config.AI_MODELS;
 
-	const baseModels: ModelOptionType[] = isLocalProvider()
+	const baseModels: ModelOptionType[] = isLocalProvider
 		? [...DEFAULT_LOCAL_MODELS]
 		: [...DEFAULT_MODELS];
 
@@ -87,7 +83,7 @@ export async function getSettings(): Promise<SettingsResponseType> {
 export async function getAiModel(): Promise<string> {
 	const saved = await settingsRepository.get(SETTING_KEYS.AI_MODEL);
 	if (saved) return saved;
-	if (isLocalProvider() && config.AI_LOCAL_MODEL) return config.AI_LOCAL_MODEL;
+	if (isLocalProvider && config.AI_LOCAL_MODEL) return config.AI_LOCAL_MODEL;
 	return config.AI_MODEL;
 }
 

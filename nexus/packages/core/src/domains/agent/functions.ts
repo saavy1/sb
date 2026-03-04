@@ -733,7 +733,7 @@ export async function runAgentLoop(
 		if (userMessages.length === 1 && response && !thread.title) {
 			const userContent =
 				typeof userMessages[0].content === "string" ? userMessages[0].content : "";
-			generateConversationTitle(userContent, response).then((title) => {
+			generateConversationTitle(userContent, response, model).then((title) => {
 				if (title) {
 					log.info({ threadId: thread.id, title }, "Generated thread title");
 					agentRepository.update(thread.id, { title });

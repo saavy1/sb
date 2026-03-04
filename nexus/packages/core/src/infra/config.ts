@@ -91,3 +91,4 @@ export const config = {
 
 export const isDev = config.NODE_ENV === "development";
 export const isProd = config.NODE_ENV === "production";
+export const isLocalProvider = config.AI_PROVIDER === "local";
