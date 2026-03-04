@@ -1,3 +1,6 @@
+defaultPodOptions:
+  imagePullSecrets:
+    - name: ha-registry-pull
 configMaps:
   config:
     data:

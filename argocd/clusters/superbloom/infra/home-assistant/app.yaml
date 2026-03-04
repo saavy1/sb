@@ -21,6 +21,16 @@ spec:
     - repoURL: https://github.com/saavy1/sb.git
       targetRevision: main
       ref: values
+    - repoURL: https://github.com/saavy1/sb.git
+      targetRevision: main
+      path: argocd/clusters/superbloom/infra/home-assistant/resources
+  ignoreDifferences:
+    - group: external-secrets.io
+      kind: ExternalSecret
+      jqPathExpressions:
+        - .spec.data[].remoteRef.conversionStrategy
+        - .spec.data[].remoteRef.decodingStrategy
+        - .spec.data[].remoteRef.metadataPolicy
   syncPolicy:
     automated:
       prune: false
@@ -29,3 +39,5 @@ spec:
       - CreateNamespace=true
       - ApplyOutOfSyncOnly=true
       - ServerSideApply=true
+      - RespectIgnoreDifferences=true
+      - SkipDryRunOnMissingResource=true
