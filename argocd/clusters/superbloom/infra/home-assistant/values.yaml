@@ -65,12 +65,58 @@ controllers:
               initialDelaySeconds: 10
               failureThreshold: 30
               periodSeconds: 5
+  piper:
+    strategy: Recreate
+    containers:
+      main:
+        image:
+          repository: rhasspy/wyoming-piper
+          tag: latest
+          pullPolicy: IfNotPresent
+        args:
+          - --voice
+          - en_US-lessac-medium
+        resources:
+          requests:
+            cpu: 50m
+            memory: 128Mi
+          limits:
+            cpu: 1000m
+            memory: 512Mi
+  openwakeword:
+    strategy: Recreate
+    containers:
+      main:
+        image:
+          repository: rhasspy/wyoming-openwakeword
+          tag: latest
+          pullPolicy: IfNotPresent
+        args:
+          - --preload-model
+          - ok_nabu
+        resources:
+          requests:
+            cpu: 50m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 256Mi
 service:
   main:
     controller: main
     ports:
       http:
         port: 8123
+  piper:
+    controller: piper
+    ports:
+      wyoming:
+        port: 10200
+  openwakeword:
+    controller: openwakeword
+    ports:
+      wyoming:
+        port: 10400
 ingress:
   main:
     enabled: false
@@ -81,12 +127,38 @@ persistence:
     accessMode: ReadWriteOnce
     size: 5Gi
     storageClass: local-path
-    globalMounts:
-      - path: /config
+    advancedMounts:
+      main:
+        main:
+          - path: /config
   ha-config-file:
     enabled: true
     type: configMap
     name: home-assistant
-    globalMounts:
-      - path: /config/configuration.yaml
-        subPath: configuration.yaml
+    advancedMounts:
+      main:
+        main:
+          - path: /config/configuration.yaml
+            subPath: configuration.yaml
+  piper-data:
+    enabled: true
+    type: persistentVolumeClaim
+    accessMode: ReadWriteOnce
+    size: 2Gi
+    storageClass: local-path
+    advancedMounts:
+      piper:
+        main:
+          - path: /data
+  openwakeword-data:
+    enabled: true
+    type: persistentVolumeClaim
+    accessMode: ReadWriteOnce
+    size: 1Gi
+    storageClass: local-path
+    advancedMounts:
+      openwakeword:
+        main:
+          - path: /data
+          - path: /custom
+            subPath: custom
