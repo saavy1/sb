@@ -1,9 +1,7 @@
 import logger from "@nexus/logger";
 import { chat, maxIterations, toolDefinition } from "@tanstack/ai";
-import { createOpenRouterText } from "@tanstack/ai-openrouter";
 import { z } from "zod";
-import { generateConversationTitle } from "../../infra/ai";
-import { config } from "../../infra/config";
+import { createChatAdapter, generateConversationTitle, hasAiProvider } from "../../infra/ai";
 import { COLORS, notify, sendDiscordNotification } from "../../infra/discord";
 import { appEvents } from "../../infra/events";
 import { mcpManager } from "../../infra/mcp";
@@ -511,10 +509,7 @@ export function getContextStr(thread: AgentThread): string {
 export async function createAdapter() {
 	const aiModel = await getAiModel();
 	return {
-		adapter: createOpenRouterText(
-			aiModel as Parameters<typeof createOpenRouterText>[0],
-			config.OPENROUTER_API_KEY!
-		),
+		adapter: createChatAdapter(aiModel),
 		model: aiModel,
 	};
 }
@@ -586,8 +581,8 @@ export async function runAgentLoop(
 	thread: AgentThread,
 	trigger: { type: "message"; content: string } | { type: "wake"; reason: string }
 ): Promise<{ thread: AgentThread; response: string }> {
-	if (!config.OPENROUTER_API_KEY) {
-		throw new Error("OPENROUTER_API_KEY not configured");
+	if (!hasAiProvider()) {
+		throw new Error("AI provider not configured — set OPENROUTER_API_KEY or AI_PROVIDER=local with AI_LOCAL_URL");
 	}
 
 	return withSpan("agent", "agent.runLoop", async (span) => {

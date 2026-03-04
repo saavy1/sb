@@ -1,6 +1,7 @@
 import { config } from "../../infra/config";
 import { settingsRepository } from "./repository";
 import {
+	DEFAULT_LOCAL_MODELS,
 	DEFAULT_MODELS,
 	type ModelOptionType,
 	SETTING_KEYS,
@@ -14,11 +15,19 @@ const serverStartTime = Date.now();
 
 // === Model list ===
 
+function isLocalProvider() {
+	return config.AI_PROVIDER === "local";
+}
+
 function getAvailableModels(): ModelOptionType[] {
 	const envModels = config.AI_MODELS;
 
+	const baseModels: ModelOptionType[] = isLocalProvider()
+		? [...DEFAULT_LOCAL_MODELS]
+		: [...DEFAULT_MODELS];
+
 	if (!envModels) {
-		return [...DEFAULT_MODELS];
+		return baseModels;
 	}
 
 	// Parse additional models from env var (format: "id:name:provider,id:name:provider")
@@ -27,7 +36,7 @@ function getAvailableModels(): ModelOptionType[] {
 		return { id: id.trim(), name: name?.trim() || id, provider: provider?.trim() || "Custom" };
 	});
 
-	return [...DEFAULT_MODELS, ...extraModels];
+	return [...baseModels, ...extraModels];
 }
 
 // === System info ===
@@ -77,7 +86,9 @@ export async function getSettings(): Promise<SettingsResponseType> {
 
 export async function getAiModel(): Promise<string> {
 	const saved = await settingsRepository.get(SETTING_KEYS.AI_MODEL);
-	return saved ?? config.AI_MODEL;
+	if (saved) return saved;
+	if (isLocalProvider() && config.AI_LOCAL_MODEL) return config.AI_LOCAL_MODEL;
+	return config.AI_MODEL;
 }
 
 export async function getDiscordWebhookUrl(): Promise<string | null> {
