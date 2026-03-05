@@ -19,6 +19,13 @@ operator:
 
 # DaemonSets (device plugin, etc.) target GPU nodes only
 daemonsets:
+  tolerations:
+    - key: nvidia.com/gpu
+      operator: Exists
+      effect: NoExecute
+    - key: nvidia.com/gpu
+      operator: Exists
+      effect: NoSchedule
   affinity:
     nodeAffinity:
       requiredDuringSchedulingIgnoredDuringExecution:
