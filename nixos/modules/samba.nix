@@ -5,7 +5,10 @@
   systemd.services.samba-smbd = {
     after = [ "tailscaled.service" ];
     wants = [ "tailscaled.service" ];
-};
+  };
+
+  # nmbd not needed — MagicDNS handles name resolution on tailnet
+  systemd.services.samba-nmbd.enable = false;
 
   services.samba = {
     enable = true;
