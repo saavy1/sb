@@ -52,4 +52,4 @@ spec:
       operator: Exists
       effect: NoSchedule
   nodeSelector:
-    nvidia.com/gpu.product: gb10
+    nvidia.com/gpu.product: NVIDIA-GB10
