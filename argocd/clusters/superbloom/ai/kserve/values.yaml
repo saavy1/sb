@@ -1,0 +1,9 @@
+# Raw deployment mode — no Knative, no Istio
+kserve:
+  controller:
+    deploymentMode: "RawDeployment"
+    gateway:
+      disableIngressCreation: true
+    env:
+      - name: KSERVE_ENABLE_SELF_SIGNED_CA
+        value: "true"

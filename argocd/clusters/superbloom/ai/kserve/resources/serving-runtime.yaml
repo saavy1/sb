@@ -1,0 +1,55 @@
+apiVersion: serving.kserve.io/v1alpha1
+kind: ClusterServingRuntime
+metadata:
+  name: nvidia-vllm
+spec:
+  annotations:
+    prometheus.kserve.io/port: "8080"
+    prometheus.kserve.io/path: "/metrics"
+  supportedModelFormats:
+    - name: vllm
+      version: "1"
+      autoSelect: true
+      priority: 1
+  containers:
+    - name: kserve-container
+      image: nvcr.io/nvidia/vllm:26.02-py3
+      command:
+        - python3
+        - -m
+        - vllm.entrypoints.openai.api_server
+      args:
+        - --model=$(MODEL_PATH)
+        - --served-model-name={{.Name}}
+        - --trust-remote-code
+        - --host=0.0.0.0
+        - --port=8080
+      env:
+        - name: MODEL_PATH
+          value: /mnt/nas/models
+      ports:
+        - containerPort: 8080
+          protocol: TCP
+      resources:
+        limits:
+          nvidia.com/gpu: "1"
+        requests:
+          nvidia.com/gpu: "1"
+      volumeMounts:
+        - name: nas-models
+          mountPath: /mnt/nas/models
+          readOnly: true
+  volumes:
+    - name: nas-models
+      hostPath:
+        path: /mnt/nas/models
+        type: Directory
+  tolerations:
+    - key: nvidia.com/gpu
+      operator: Exists
+      effect: NoExecute
+    - key: nvidia.com/gpu
+      operator: Exists
+      effect: NoSchedule
+  nodeSelector:
+    nvidia.com/gpu.product: gb10

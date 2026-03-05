@@ -108,7 +108,7 @@ spec:
           - "--context={{inputs.parameters.context}}"
           - "--dockerfile={{inputs.parameters.dockerfile}}"
           - "--destination={{inputs.parameters.image}}:latest"
-          - "--destination={{inputs.parameters.image}}:{{workflow.uid}}"
+          - "--destination={{inputs.parameters.image}}:{{inputs.parameters.revision}}"
           - "--insecure-registry={{workflow.parameters.registry}}"
           - "--snapshot-mode=redo"
           - "--use-new-run"

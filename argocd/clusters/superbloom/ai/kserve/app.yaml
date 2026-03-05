@@ -1,0 +1,60 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ai-kserve-crd
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kserve
+  sources:
+    - repoURL: ghcr.io/kserve/charts
+      chart: kserve-crd
+      targetRevision: "v0.16.0"
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ai-kserve
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  project: default
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kserve
+  sources:
+    - repoURL: ghcr.io/kserve/charts
+      chart: kserve
+      targetRevision: "v0.16.0"
+      helm:
+        releaseName: kserve
+        valueFiles:
+          - $values/argocd/clusters/superbloom/ai/kserve/values.yaml
+    - repoURL: https://github.com/saavy1/sb.git
+      targetRevision: main
+      ref: values
+    - repoURL: https://github.com/saavy1/sb.git
+      targetRevision: main
+      path: argocd/clusters/superbloom/ai/kserve/resources
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ApplyOutOfSyncOnly=true
+      - ServerSideApply=true

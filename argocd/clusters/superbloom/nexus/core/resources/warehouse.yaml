@@ -8,21 +8,21 @@ spec:
   subscriptions:
     - image:
         repoURL: zot.zot.svc.cluster.local:5000/saavy1/nexus
-        imageSelectionStrategy: Lexical
-        allowTags: ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$
+        imageSelectionStrategy: NewestBuild
+        allowTags: ^[0-9a-f]{7,40}$
     - image:
         repoURL: zot.zot.svc.cluster.local:5000/saavy1/nexus-bot
-        imageSelectionStrategy: Lexical
-        allowTags: ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$
+        imageSelectionStrategy: NewestBuild
+        allowTags: ^[0-9a-f]{7,40}$
     - image:
         repoURL: zot.zot.svc.cluster.local:5000/saavy1/nexus-agent-worker
-        imageSelectionStrategy: Lexical
-        allowTags: ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$
+        imageSelectionStrategy: NewestBuild
+        allowTags: ^[0-9a-f]{7,40}$
     - image:
         repoURL: zot.zot.svc.cluster.local:5000/saavy1/nexus-mc-monitor
-        imageSelectionStrategy: Lexical
-        allowTags: ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$
+        imageSelectionStrategy: NewestBuild
+        allowTags: ^[0-9a-f]{7,40}$
     - image:
         repoURL: zot.zot.svc.cluster.local:5000/saavy1/wyoming-openvino-whisper
-        imageSelectionStrategy: Lexical
-        allowTags: ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$
+        imageSelectionStrategy: NewestBuild
+        allowTags: ^[0-9a-f]{7,40}$
