@@ -1,49 +1,12 @@
 { pkgs, ... }:
 
 {
-  # Gate service: blocks until tailscale0 has an IPv4 address.
-  # tailscaled.service reports ready before the TUN is bindable
-  # (tailscale/tailscale#11504), so After= alone isn't enough.
-  systemd.services.tailscale-online = {
-    description = "Wait for Tailscale interface to be ready";
-    after = [ "tailscaled.service" ];
-    wants = [ "tailscaled.service" ];
-    serviceConfig = {
-      Type = "oneshot";
-      RemainAfterExit = true;
-      ExecStart = pkgs.writeShellScript "wait-for-tailscale" ''
-        for i in $(seq 1 30); do
-          if ${pkgs.iproute2}/bin/ip -4 addr show dev tailscale0 | ${pkgs.gnugrep}/bin/grep -q 'inet '; then
-            echo "tailscale0 has an IPv4 address"
-            exit 0
-          fi
-          echo "Waiting for tailscale0 IPv4 address... ($i/30)"
-          sleep 1
-        done
-        echo "ERROR: tailscale0 did not get an IPv4 address within 30s"
-        exit 1
-      '';
-    };
-  };
-
-  # Samba waits for the tailscale gate, not just tailscaled
-  systemd.services.samba-smbd = {
-    after = [ "tailscale-online.service" ];
-    wants = [ "tailscale-online.service" ];
-  };
-
   # nmbd not needed — MagicDNS handles name resolution on tailnet
   systemd.services.samba-nmbd.enable = false;
 
-  # WSDD also needs the interface up
-  systemd.services.samba-wsdd = {
-    after = [ "tailscale-online.service" ];
-    wants = [ "tailscale-online.service" ];
-  };
-
   services.samba = {
     enable = true;
-    openFirewall = false; # tailscale0 is already trusted
+    openFirewall = false; # tailscale0 is already trusted, firewall blocks LAN
 
     settings = {
       global = {
@@ -51,9 +14,9 @@
         "server string" = "superbloom";
         "server role" = "standalone server";
 
-        # Security — only accessible over Tailscale
-        "interfaces" = "tailscale0";
-        "bind interfaces only" = "yes";
+        # No interface binding — smbd listens on all interfaces at startup,
+        # but only tailscale0 is a trusted firewall interface so LAN clients
+        # are blocked. This avoids the tailscale0 startup race entirely.
 
         # Performance tuning for ZFS + large files
         "socket options" = "TCP_NODELAY IPTOS_LOWDELAY";
@@ -161,6 +124,5 @@
   services.samba-wsdd = {
     enable = true;
     openFirewall = false; # tailscale0 is already trusted
-    interface = "tailscale0";
   };
 }
