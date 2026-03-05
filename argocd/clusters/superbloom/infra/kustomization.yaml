@@ -12,6 +12,6 @@ resources:
   - kargo/
   - kube-prometheus-stack/
   - loki/
-  - nvidia-device-plugin/
+  - nvidia-gpu-operator/
   - tempo/
   - zot/

@@ -1,0 +1,18 @@
+# DGX Spark has pre-installed drivers and container toolkit
+driver:
+  enabled: false
+
+toolkit:
+  enabled: false
+
+# Only schedule GPU operator components on the GX10 node
+daemonsets:
+  labels:
+    superbloom.dev/role: ai
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: nvidia.com/gpu.product
+                operator: Exists

@@ -1,7 +1,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: infra-nvidia-device-plugin
+  name: infra-nvidia-gpu-operator
   namespace: argocd
   finalizers:
     - resources-finalizer.argocd.argoproj.io
@@ -9,15 +9,15 @@ spec:
   project: default
   destination:
     server: https://kubernetes.default.svc
-    namespace: nvidia-device-plugin
+    namespace: gpu-operator
   sources:
-    - repoURL: https://nvidia.github.io/k8s-device-plugin
-      chart: nvidia-device-plugin
-      targetRevision: "0.17.1"
+    - repoURL: https://helm.ngc.nvidia.com/nvidia
+      chart: gpu-operator
+      targetRevision: "v25.10.1"
       helm:
-        releaseName: nvidia-device-plugin
+        releaseName: gpu-operator
         valueFiles:
-          - $values/argocd/clusters/superbloom/infra/nvidia-device-plugin/values.yaml
+          - $values/argocd/clusters/superbloom/infra/nvidia-gpu-operator/values.yaml
     - repoURL: https://github.com/saavy1/sb.git
       targetRevision: main
       ref: values
@@ -28,3 +28,4 @@ spec:
     syncOptions:
       - CreateNamespace=true
       - ApplyOutOfSyncOnly=true
+      - ServerSideApply=true
