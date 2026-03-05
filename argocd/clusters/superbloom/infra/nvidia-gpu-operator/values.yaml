@@ -5,10 +5,18 @@ driver:
 toolkit:
   enabled: false
 
-# Only schedule GPU operator components on the GX10 node
+# Operator pod + jobs run on superbloom (has working pod networking)
+operator:
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: node-role.kubernetes.io/control-plane
+                operator: Exists
+
+# DaemonSets (device plugin, etc.) target GPU nodes only
 daemonsets:
-  labels:
-    superbloom.dev/role: ai
   affinity:
     nodeAffinity:
       requiredDuringSchedulingIgnoredDuringExecution:
