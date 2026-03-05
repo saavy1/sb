@@ -5,6 +5,7 @@ resources:
   - argo-workflows/
   - authelia/
   - caddy/
+  - cert-manager/
   - ddns/
   - external-secrets/
   - home-assistant/

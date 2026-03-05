@@ -8,7 +8,8 @@ This monorepo manages the entire **Superbloom** homelab infrastructure, from bar
 
 ### Naming
 
-- **Superbloom**: The physical server and infrastructure
+- **Superbloom**: The primary server (NixOS, AMD Ryzen 7 5700G, 64GB RAM, Intel Arc A380)
+- **GX10**: GPU compute node (Ascent GX10, NVIDIA GB10 Blackwell, 128GB unified memory, ARM64)
 - **Nexus**: The application platform — API control plane, web dashboard, Discord bot, AI agent
 - **The Machine**: Discord bot personality for infrastructure and game server management
 
@@ -35,56 +36,69 @@ sb/
         └── mc-monitor/ # Game server status polling
 ```
 
-## Architecture
+## Cluster Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│ nixos/ — Base OS                                            │
-│ ├─ NixOS + K3s cluster                                     │
-│ ├─ Docker, Tailscale VPN, networking                       │
-│ └─ User environments and shell config                      │
-└────────────────────┬────────────────────────────────────────┘
-                     │
-┌────────────────────▼────────────────────────────────────────┐
-│ flux/ — Bootstrap Layer                                     │
-│ ├─ ArgoCD (installs the GitOps engine itself)              │
-│ ├─ Infisical (secrets management)                          │
-│ └─ CNPG Operator (PostgreSQL)                              │
-└────────────────────┬────────────────────────────────────────┘
-                     │
-┌────────────────────▼────────────────────────────────────────┐
-│ argocd/ — Primary GitOps                                    │
-│ ├─ Infrastructure: Caddy, Authelia, DDNS, Monitoring,      │
-│ │   Zot Registry, Kargo, External Secrets, Argo Workflows  │
-│ ├─ Nexus: API, Bot, Agent Worker, MC Monitor               │
-│ ├─ Media: Jellyfin, Sonarr, Radarr, SABnzbd, etc.         │
-│ ├─ Games: Minecraft server infrastructure                   │
-│ └─ Data: Valkey (Redis-compatible)                          │
-└────────────────────┬────────────────────────────────────────┘
-                     │
-┌────────────────────▼────────────────────────────────────────┐
-│ nexus/ — Applications                                       │
-│ ┌─────────────────────────────────────────────┐             │
-│ │ @nexus/api (Elysia Control Plane)           │             │
-│ │ └─ @nexus/core (domains, schemas, services) │             │
-│ └────────────┬────────────────────────────────┘             │
-│     ┌────────┼─────────┐                                    │
-│     ▼        ▼         ▼                                    │
-│  @bot      @ui     @workers/*                               │
-│  Discord   React   agent, embeddings, mc-monitor            │
+│ superbloom (control-plane)              gx10 (GPU worker)   │
+│ ├─ NixOS + K3s server                  ├─ DGX OS + K3s agent│
+│ ├─ AMD Ryzen 7, 64GB RAM              ├─ NVIDIA GB10, 128GB│
+│ ├─ Intel Arc A380 (transcoding)        ├─ vLLM / KServe    │
+│ ├─ ZFS RAIDZ2 (8x8TB)                 └─ NAS models mount  │
+│ └─ Samba file shares                                        │
+│                                                             │
+│ Connected via Tailscale VPN, Flannel CNI over tailscale0    │
 └─────────────────────────────────────────────────────────────┘
+```
+
+## GitOps Layers
+
+```
+┌────────────────────────────────────────────────────────────────┐
+│ flux/ — Bootstrap Layer                                        │
+│ ├─ ArgoCD (installs the GitOps engine itself)                 │
+│ ├─ Infisical (secrets management)                             │
+│ └─ CNPG Operator (PostgreSQL)                                 │
+└────────────────────┬───────────────────────────────────────────┘
+                     │
+┌────────────────────▼───────────────────────────────────────────┐
+│ argocd/ — Primary GitOps                                       │
+│ ├─ Infrastructure: Caddy, Authelia, DDNS, Monitoring,         │
+│ │   Zot Registry, Kargo, External Secrets, Argo Workflows,    │
+│ │   NVIDIA GPU Operator, Home Assistant                       │
+│ ├─ AI: KServe (model serving), vLLM ServingRuntime            │
+│ ├─ Nexus: API, Bot, Agent Worker, MC Monitor, MCP Servers     │
+│ ├─ Media: Jellyfin, Sonarr, Radarr, SABnzbd, etc.            │
+│ ├─ Games: Minecraft server infrastructure                      │
+│ └─ Data: Valkey (Redis-compatible)                             │
+└────────────────────┬───────────────────────────────────────────┘
+                     │
+┌────────────────────▼───────────────────────────────────────────┐
+│ nexus/ — Applications                                          │
+│ ┌─────────────────────────────────────────────┐                │
+│ │ @nexus/api (Elysia Control Plane)           │                │
+│ │ └─ @nexus/core (domains, schemas, services) │                │
+│ └────────────┬────────────────────────────────┘                │
+│     ┌────────┼─────────┐                                       │
+│     ▼        ▼         ▼                                       │
+│  @bot      @ui     @workers/*                                  │
+│  Discord   React   agent, mc-monitor                           │
+└────────────────────────────────────────────────────────────────┘
 ```
 
 ## Key Technologies
 
 | Layer | Technologies |
 |-------|-------------|
-| OS | NixOS, K3s, Tailscale |
+| OS | NixOS, K3s, Tailscale, Flannel |
+| GPU | NVIDIA GPU Operator, KServe, vLLM |
 | GitOps | ArgoCD, Flux (bootstrap), Kargo (promotions) |
 | Secrets | Infisical, External Secrets Operator |
 | Ingress | Caddy, Authelia (SSO), Cloudflare DDNS |
 | Monitoring | Prometheus, Grafana, Loki, Tempo, Alloy |
+| Home Automation | Home Assistant, Whisper (STT), Piper (TTS), openWakeWord |
 | Registry | Zot (self-hosted OCI registry) |
+| Storage | ZFS RAIDZ2, Samba (NAS), local-path provisioner |
 | Runtime | Bun, TypeScript, Turborepo |
 | Backend | Elysia, Drizzle ORM, BullMQ |
 | Frontend | React 19, TanStack Router |

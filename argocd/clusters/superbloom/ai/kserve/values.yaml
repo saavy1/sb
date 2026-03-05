@@ -4,6 +4,3 @@ kserve:
     deploymentMode: "RawDeployment"
     gateway:
       disableIngressCreation: true
-    env:
-      - name: KSERVE_ENABLE_SELF_SIGNED_CA
-        value: "true"
