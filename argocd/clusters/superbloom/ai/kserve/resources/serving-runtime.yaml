@@ -1,7 +1,7 @@
 apiVersion: serving.kserve.io/v1alpha1
 kind: ClusterServingRuntime
 metadata:
-  name: nvidia-vllm
+  name: vllm
 spec:
   annotations:
     prometheus.kserve.io/port: "8080"
@@ -13,7 +13,7 @@ spec:
       priority: 1
   containers:
     - name: kserve-container
-      image: nvcr.io/nvidia/vllm:26.02-py3
+      image: vllm/vllm-openai:latest
       command:
         - python3
         - -m
