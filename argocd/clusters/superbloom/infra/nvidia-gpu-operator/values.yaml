@@ -8,7 +8,7 @@ toolkit:
 # Operator pod + jobs run on superbloom (has working pod networking)
 operator:
   nodeSelector:
-    node-role.kubernetes.io/control-plane: ""
+    node-role.kubernetes.io/control-plane: "true"
   affinity:
     nodeAffinity:
       requiredDuringSchedulingIgnoredDuringExecution:
