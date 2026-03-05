@@ -1,6 +1,13 @@
 { pkgs, ... }:
 
 {
+  # Ensure Samba starts after Tailscale interface is up
+  systemd.services.samba-smbd = {
+    after = [ "tailscaled.service" ];
+    wants = [ "tailscaled.service" ];
+    serviceConfig.ExecStartPre = "${pkgs.coreutils}/bin/sleep 5";
+  };
+
   services.samba = {
     enable = true;
     openFirewall = false; # tailscale0 is already trusted
