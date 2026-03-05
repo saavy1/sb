@@ -6,6 +6,7 @@
       "--disable=traefik"
       "--write-kubeconfig-mode=644"
       "--tls-san=100.66.91.56"
+      "--flannel-iface=tailscale0"
     ];
   };
 }
