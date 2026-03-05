@@ -5,8 +5,7 @@
   systemd.services.samba-smbd = {
     after = [ "tailscaled.service" ];
     wants = [ "tailscaled.service" ];
-    serviceConfig.ExecStartPre = "${pkgs.coreutils}/bin/sleep 5";
-  };
+};
 
   services.samba = {
     enable = true;
