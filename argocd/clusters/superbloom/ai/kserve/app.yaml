@@ -11,7 +11,7 @@ spec:
     server: https://kubernetes.default.svc
     namespace: kserve
   sources:
-    - repoURL: oci://ghcr.io/kserve/charts
+    - repoURL: oci://ghcr.io/kserve/charts/kserve-crd
       chart: kserve-crd
       targetRevision: "v0.16.0"
   syncPolicy:
@@ -37,7 +37,7 @@ spec:
     server: https://kubernetes.default.svc
     namespace: kserve
   sources:
-    - repoURL: oci://ghcr.io/kserve/charts
+    - repoURL: oci://ghcr.io/kserve/charts/kserve
       chart: kserve
       targetRevision: "v0.16.0"
       helm:
