@@ -21,6 +21,12 @@ spec:
     - repoURL: https://github.com/saavy1/sb.git
       targetRevision: main
       ref: values
+  ignoreDifferences:
+    - group: apps
+      kind: StatefulSet
+      jqPathExpressions:
+        - .spec.volumeClaimTemplates[]?.apiVersion
+        - .spec.volumeClaimTemplates[]?.kind
   syncPolicy:
     automated:
       prune: false
@@ -30,3 +36,4 @@ spec:
       - ApplyOutOfSyncOnly=true
       - ServerSideApply=true
       - ServerSideDiff=true
+      - RespectIgnoreDifferences=true

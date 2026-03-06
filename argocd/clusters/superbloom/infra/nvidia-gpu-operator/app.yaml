@@ -21,6 +21,11 @@ spec:
     - repoURL: https://github.com/saavy1/sb.git
       targetRevision: main
       ref: values
+  ignoreDifferences:
+    - group: nvidia.com
+      kind: ClusterPolicy
+      jqPathExpressions:
+        - .spec
   syncPolicy:
     automated:
       prune: false
@@ -29,3 +34,5 @@ spec:
       - CreateNamespace=true
       - ApplyOutOfSyncOnly=true
       - ServerSideApply=true
+      - ServerSideDiff=true
+      - RespectIgnoreDifferences=true

@@ -20,6 +20,12 @@ operator:
 # NFD worker needs to run on GX10 to discover the GPU
 node-feature-discovery:
   worker:
+    livenessProbe:
+      timeoutSeconds: 5
+      periodSeconds: 30
+    readinessProbe:
+      timeoutSeconds: 5
+      periodSeconds: 30
     tolerations:
       - key: node-role.kubernetes.io/control-plane
         operator: Equal

@@ -15,7 +15,7 @@ controllers:
 
 serviceAccount:
   mcp-k8s:
-    enabled: true
+    enabled: false
 
 service:
   main:
