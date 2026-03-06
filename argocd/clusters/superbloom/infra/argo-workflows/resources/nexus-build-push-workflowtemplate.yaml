@@ -123,6 +123,8 @@ spec:
         command: [sh, -c]
         args:
           - |
+            apt-get update -qq && apt-get install -y -qq git > /dev/null 2>&1
+
             cd /workdir/nexus
             bun install --frozen-lockfile --silent
 

@@ -1,3 +1,5 @@
+export const BUILD_VERSION = "1.1.0";
+
 export const config = {
   PORT: Number(Bun.env.PORT) || 3000,
   NODE_ENV: Bun.env.NODE_ENV || "development",
