@@ -30,6 +30,13 @@ Investigate spawning subagents that execute commands in parallel. Would speed up
 ### Agent Skills System
 Create a skills framework for Nexus -- composable, reusable capabilities the agent can invoke. Think: "deploy service X", "run migration", "check cluster health" as first-class skills rather than ad-hoc tool calls.
 
+### Spark Arena Integration
+Explore [spark-arena.com](https://spark-arena.com) as a reference architecture for GB10 model serving. Three areas to investigate:
+
+- **Custom vLLM Docker Images**: Spark Arena builds custom Docker images on top of upstream vLLM that include extras like `fastsafetensors` (parallel safetensor I/O for faster model loading), optimized CUDA kernels, and pre-baked configurations for GB10/SM121. Evaluate whether building our own custom vLLM image (or using theirs as a base) would give meaningful performance gains over `vllm/vllm-openai:cu130-nightly`.
+- **Recipes System**: Their recipes define per-model vLLM configurations (batch sizes, quantization settings, context lengths, memory utilization) tested on GB10 hardware. Build tooling in Nexus to pull and apply these recipes when creating InferenceService CRs, so we get known-good configs instead of guessing.
+- **API Integration**: Spark Arena exposes an API. Build Nexus tools that can query available recipes, benchmark results, and recommended configurations for specific models on GB10.
+
 ### Long-Term Memory (FalkorDB Spike)
 Spike on FalkorDB or similar graph-based memory as a replacement/supplement for current memory. Goal: better contextual recall, relationship tracking between entities, and persistent knowledge that improves over time.
 
