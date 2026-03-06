@@ -31,6 +31,8 @@ spec:
             exec:
               command:
                 - buildctl
+                - --addr
+                - tcp://localhost:1234
                 - debug
                 - workers
             initialDelaySeconds: 5
@@ -39,6 +41,8 @@ spec:
             exec:
               command:
                 - buildctl
+                - --addr
+                - tcp://localhost:1234
                 - debug
                 - workers
             initialDelaySeconds: 10
