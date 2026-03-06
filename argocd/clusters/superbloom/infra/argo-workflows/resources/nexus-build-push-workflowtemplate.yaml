@@ -182,7 +182,7 @@ spec:
               repo: "{{inputs.parameters.repoURL}}"
               revision: "{{inputs.parameters.revision}}"
       container:
-        image: zot.zot.svc.cluster.local:5000/moby/buildkit:rootless
+        image: zot.zot.svc.cluster.local:5000/moby/buildkit:latest
         command: [sh, -c]
         args:
           - |

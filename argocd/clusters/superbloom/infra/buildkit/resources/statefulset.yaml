@@ -18,7 +18,7 @@ spec:
         node-role.kubernetes.io/control-plane: "true"
       containers:
         - name: buildkitd
-          image: moby/buildkit:rootless
+          image: moby/buildkit:latest
           args:
             - --addr
             - tcp://0.0.0.0:1234
@@ -26,11 +26,7 @@ spec:
             - containerPort: 1234
               protocol: TCP
           securityContext:
-            runAsUser: 1000
-            runAsNonRoot: true
-            allowPrivilegeEscalation: false
-            seccompProfile:
-              type: Unconfined
+            privileged: true
           readinessProbe:
             exec:
               command:
@@ -56,11 +52,11 @@ spec:
               memory: 4Gi
           volumeMounts:
             - name: buildkit-state
-              mountPath: /home/user/.local/share/buildkit
+              mountPath: /var/lib/buildkit
             - name: config
               mountPath: /etc/buildkit
             - name: docker-config
-              mountPath: /home/user/.docker
+              mountPath: /root/.docker
       volumes:
         - name: config
           configMap:
