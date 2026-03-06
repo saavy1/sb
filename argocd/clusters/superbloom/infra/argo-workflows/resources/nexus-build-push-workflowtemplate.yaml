@@ -186,6 +186,9 @@ spec:
               revision: "{{inputs.parameters.revision}}"
       container:
         image: moby/buildkit:latest
+        env:
+          - name: DOCKER_CONFIG
+            value: /root/.docker
         command: [sh, -c]
         args:
           - |
@@ -199,3 +202,13 @@ spec:
               --output type=image,\"name={{inputs.parameters.image}}:latest,{{inputs.parameters.image}}:{{inputs.parameters.revision}}\",push=true,registry.insecure=true \
               --export-cache type=registry,ref={{inputs.parameters.image}}:cache,mode=max,registry.insecure=true \
               --import-cache type=registry,ref={{inputs.parameters.image}}:cache,registry.insecure=true
+        volumeMounts:
+          - name: docker-config
+            mountPath: /root/.docker
+      volumes:
+        - name: docker-config
+          secret:
+            secretName: zot-push
+            items:
+              - key: .dockerconfigjson
+                path: config.json
