@@ -5,7 +5,7 @@ metadata:
   namespace: argo
 spec:
   event:
-    selector: metadata["x-github-event"] == ["push"] && payload.repository.full_name == "saavy1/sb" && payload.ref == "refs/heads/main" && discriminator == "nexus-build-push"
+    selector: metadata["x-github-event"] == ["push"] && payload.repository.full_name == "saavy1/sb" && payload.ref == "refs/heads/main" && discriminator == "nexus-build-push" && !(payload.head_commit.message startsWith "chore(kargo)")
   submit:
     workflowTemplateRef:
       name: nexus-build-push
