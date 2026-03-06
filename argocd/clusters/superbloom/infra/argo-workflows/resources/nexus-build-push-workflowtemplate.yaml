@@ -123,38 +123,29 @@ spec:
         command: [sh, -c]
         args:
           - |
-            apt-get update -qq && apt-get install -y -qq git > /dev/null 2>&1
+            apt-get update -qq && apt-get install -y -qq git jq > /dev/null 2>&1
 
             cd /workdir/nexus
             bun install --frozen-lockfile --silent
 
-            # Debug: show git state
-            echo "=== Git debug ==="
-            cd /workdir && git log --oneline -3 && echo "---"
-            git diff HEAD~1 --stat
-            echo "=== End git debug ==="
-
-            cd /workdir/nexus
-
-            # Use turbo to detect affected packages
-            echo "=== Turbo output ==="
+            # Detect affected turbo packages
             TURBO_SCM_BASE=HEAD~1 TURBO_SCM_HEAD=HEAD \
-              bunx turbo ls --affected --output=json 2>&1 | tee /tmp/affected.json
-            echo "=== End turbo output ==="
+              bunx turbo ls --affected --output=json 2>/dev/null > /tmp/affected.json || true
 
-            AFFECTED=$(cat /tmp/affected.json)
+            AFFECTED=$(jq -r '.packages.items[].name' /tmp/affected.json 2>/dev/null || echo "")
+            echo "=== Affected packages ==="
+            echo "$AFFECTED"
 
             # Check each turbo package
-            echo "$AFFECTED" | grep -q '"name":"@nexus/api"' && echo true > /tmp/build-api || echo false > /tmp/build-api
-            echo "$AFFECTED" | grep -q '"name":"@nexus/bot"' && echo true > /tmp/build-bot || echo false > /tmp/build-bot
-            echo "$AFFECTED" | grep -q '"name":"@nexus/worker-agent"' && echo true > /tmp/build-agent-worker || echo false > /tmp/build-agent-worker
-            echo "$AFFECTED" | grep -q '"name":"@nexus/worker-mc-monitor"' && echo true > /tmp/build-mc-monitor || echo false > /tmp/build-mc-monitor
+            echo "$AFFECTED" | grep -qx '@nexus/api' && echo true > /tmp/build-api || echo false > /tmp/build-api
+            echo "$AFFECTED" | grep -qx '@nexus/bot' && echo true > /tmp/build-bot || echo false > /tmp/build-bot
+            echo "$AFFECTED" | grep -qx '@nexus/worker-agent' && echo true > /tmp/build-agent-worker || echo false > /tmp/build-agent-worker
+            echo "$AFFECTED" | grep -qx '@nexus/worker-mc-monitor' && echo true > /tmp/build-mc-monitor || echo false > /tmp/build-mc-monitor
 
             # Whisper is not a turbo workspace — check git diff directly
             cd /workdir
             git diff HEAD~1 --name-only | grep -q '^nexus/services/whisper/' && echo true > /tmp/build-whisper || echo false > /tmp/build-whisper
 
-            echo "=== Affected packages ==="
             echo "api: $(cat /tmp/build-api)"
             echo "bot: $(cat /tmp/build-bot)"
             echo "agent-worker: $(cat /tmp/build-agent-worker)"
