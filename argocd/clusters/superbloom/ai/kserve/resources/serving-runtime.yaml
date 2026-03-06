@@ -26,7 +26,6 @@ spec:
         - --port=8080
         - --gpu-memory-utilization=0.7
         - --kv-cache-dtype=fp8
-        - --load-format=fastsafetensors
         - --enable-prefix-caching
         - --attention-backend=flashinfer
         - --enable-auto-tool-choice
