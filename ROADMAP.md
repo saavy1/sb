@@ -10,6 +10,9 @@ Deploy Frigate on Spark with a vision/object detection model for camera feeds. U
 ### Minecraft Game Servers via Helm
 Replace the current hand-rolled manifests for Minecraft game-servers with a proper Helm chart deployment. Cleaner upgrades, consistent config management, and easier scaling.
 
+### Declarative Backup Tool (rclone)
+Build a custom backup tool where you declare files/folders to back up and it rclone-syncs them on a schedule. Simple config-driven approach -- just list paths and destinations, and a CronJob or systemd timer handles the rest.
+
 ### Smarter CI Builds (Argo Workflows)
 Argo Workflows currently rebuilds all Nexus images on every push. Add change detection so only apps/packages/services with actual code changes get built and pushed. Could use path-based filtering in the workflow event binding or a pre-build step that diffs against the last successful build.
 

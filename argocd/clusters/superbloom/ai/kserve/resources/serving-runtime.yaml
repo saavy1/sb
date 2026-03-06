@@ -13,7 +13,7 @@ spec:
       priority: 1
   containers:
     - name: kserve-container
-      image: vllm/vllm-openai:latest
+      image: vllm/vllm-openai:cu130-nightly
       command:
         - python3
         - -m
@@ -24,9 +24,17 @@ spec:
         - --trust-remote-code
         - --host=0.0.0.0
         - --port=8080
+        - --gpu-memory-utilization=0.7
+        - --kv-cache-dtype=fp8
+        - --load-format=fastsafetensors
+        - --enable-prefix-caching
+        - --attention-backend=flashinfer
+        - --enable-auto-tool-choice
       env:
         - name: MODEL_PATH
           value: /mnt/nas/models
+        - name: VLLM_MARLIN_USE_ATOMIC_ADD
+          value: "1"
       ports:
         - containerPort: 8080
           protocol: TCP
