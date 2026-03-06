@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: buildkit-config
+  namespace: buildkit
+data:
+  buildkitd.toml: |
+    [registry."zot.zot.svc.cluster.local:5000"]
+      http = true
+
+    [registry."docker.io"]
+      mirrors = ["zot.zot.svc.cluster.local:5000"]
+
+    [registry."gcr.io"]
+      mirrors = ["zot.zot.svc.cluster.local:5000"]

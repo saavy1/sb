@@ -119,7 +119,7 @@ spec:
               revision: "{{inputs.parameters.revision}}"
               depth: 2
       container:
-        image: oven/bun:1.3.9
+        image: zot.zot.svc.cluster.local:5000/oven/bun:1.3.9
         command: [sh, -c]
         args:
           - |
@@ -182,22 +182,17 @@ spec:
               repo: "{{inputs.parameters.repoURL}}"
               revision: "{{inputs.parameters.revision}}"
       container:
-        image: gcr.io/kaniko-project/executor:v1.23.2-debug
+        image: zot.zot.svc.cluster.local:5000/moby/buildkit:rootless
+        command: [sh, -c]
         args:
-          - "--context={{inputs.parameters.context}}"
-          - "--dockerfile={{inputs.parameters.dockerfile}}"
-          - "--destination={{inputs.parameters.image}}:latest"
-          - "--destination={{inputs.parameters.image}}:{{inputs.parameters.revision}}"
-          - "--insecure-registry={{workflow.parameters.registry}}"
-          - "--snapshot-mode=redo"
-          - "--use-new-run"
-        volumeMounts:
-          - name: docker-config
-            mountPath: /kaniko/.docker
-      volumes:
-        - name: docker-config
-          secret:
-            secretName: zot-push
-            items:
-              - key: .dockerconfigjson
-                path: config.json
+          - |
+            buildctl \
+              --addr tcp://buildkit.buildkit.svc.cluster.local:1234 \
+              build \
+              --frontend dockerfile.v0 \
+              --local context={{inputs.parameters.context}} \
+              --local dockerfile=$(dirname {{inputs.parameters.dockerfile}}) \
+              --opt filename=$(basename {{inputs.parameters.dockerfile}}) \
+              --output type=image,\"name={{inputs.parameters.image}}:latest,{{inputs.parameters.image}}:{{inputs.parameters.revision}}\",push=true,registry.insecure=true \
+              --export-cache type=registry,ref={{inputs.parameters.image}}:cache,mode=max,registry.insecure=true \
+              --import-cache type=registry,ref={{inputs.parameters.image}}:cache,registry.insecure=true

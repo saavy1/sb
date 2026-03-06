@@ -3,6 +3,7 @@ kind: Kustomization
 resources:
   - alloy/
   - argo-workflows/
+  - buildkit/
   - authelia/
   - caddy/
   - cert-manager/

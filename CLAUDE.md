@@ -2,6 +2,10 @@
 
 Development patterns and conventions for the Superbloom monorepo.
 
+## Philosophy
+
+This is a personal homelab project. **Do things properly, not quickly.** There are no deadlines. Prefer clean, correct solutions over hacks or workarounds. If something requires more setup to do right, take the time to do it right. Don't apply band-aid fixes when a proper solution exists.
+
 ## Repository Structure
 
 ```

@@ -1,0 +1,83 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: buildkit
+  namespace: buildkit
+spec:
+  serviceName: buildkit
+  replicas: 1
+  selector:
+    matchLabels:
+      app: buildkit
+  template:
+    metadata:
+      labels:
+        app: buildkit
+    spec:
+      nodeSelector:
+        node-role.kubernetes.io/control-plane: "true"
+      containers:
+        - name: buildkitd
+          image: moby/buildkit:rootless
+          args:
+            - --addr
+            - tcp://0.0.0.0:1234
+          ports:
+            - containerPort: 1234
+              protocol: TCP
+          securityContext:
+            runAsUser: 1000
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            seccompProfile:
+              type: Unconfined
+          readinessProbe:
+            exec:
+              command:
+                - buildctl
+                - debug
+                - workers
+            initialDelaySeconds: 5
+            periodSeconds: 30
+          livenessProbe:
+            exec:
+              command:
+                - buildctl
+                - debug
+                - workers
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "4"
+              memory: 4Gi
+          volumeMounts:
+            - name: buildkit-state
+              mountPath: /home/user/.local/share/buildkit
+            - name: config
+              mountPath: /etc/buildkit
+            - name: docker-config
+              mountPath: /home/user/.docker
+      volumes:
+        - name: config
+          configMap:
+            name: buildkit-config
+        - name: docker-config
+          secret:
+            secretName: zot-push
+            items:
+              - key: .dockerconfigjson
+                path: config.json
+  volumeClaimTemplates:
+    - metadata:
+        name: buildkit-state
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        storageClassName: local-path
+        resources:
+          requests:
+            storage: 50Gi

@@ -16,6 +16,9 @@ Build a custom backup tool where you declare files/folders to back up and it rcl
 ### Smarter CI Builds (Argo Workflows)
 Argo Workflows currently rebuilds all Nexus images on every push. Add change detection so only apps/packages/services with actual code changes get built and pushed. Could use path-based filtering in the workflow event binding or a pre-build step that diffs against the last successful build.
 
+### Turborepo Remote Cache
+Set up a Turborepo remote cache server so build artifacts (typecheck, lint, test results) are shared between CI and local dev. Zot may support the Turbo cache protocol natively. Would speed up both Argo Workflow CI runs and local `bun run typecheck`/`bun run test` by reusing cached results across machines.
+
 ## Nexus AI / The Machine
 
 ### Dynamic Model Loading
