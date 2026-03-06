@@ -1,7 +1,7 @@
 {
 	"name": "@nexus/core",
 	"description": "Shared business logic, domain schemas, and infrastructure for Nexus services",
-	"version": "1.1.0",
+	"version": "1.2.0",
 	"type": "module",
 	"exports": {
 		"./infra": "./src/infra/index.ts",
