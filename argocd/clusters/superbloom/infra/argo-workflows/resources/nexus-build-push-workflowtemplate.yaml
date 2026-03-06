@@ -119,7 +119,7 @@ spec:
               revision: "{{inputs.parameters.revision}}"
               depth: 2
       container:
-        image: zot.zot.svc.cluster.local:5000/oven/bun:1.3.9
+        image: oven/bun:1.3.9
         command: [sh, -c]
         args:
           - |
@@ -182,7 +182,7 @@ spec:
               repo: "{{inputs.parameters.repoURL}}"
               revision: "{{inputs.parameters.revision}}"
       container:
-        image: zot.zot.svc.cluster.local:5000/moby/buildkit:latest
+        image: moby/buildkit:latest
         command: [sh, -c]
         args:
           - |
