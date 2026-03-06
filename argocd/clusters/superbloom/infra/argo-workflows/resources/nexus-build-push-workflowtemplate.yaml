@@ -128,9 +128,19 @@ spec:
             cd /workdir/nexus
             bun install --frozen-lockfile --silent
 
+            # Debug: show git state
+            echo "=== Git debug ==="
+            cd /workdir && git log --oneline -3 && echo "---"
+            git diff HEAD~1 --stat
+            echo "=== End git debug ==="
+
+            cd /workdir/nexus
+
             # Use turbo to detect affected packages
+            echo "=== Turbo output ==="
             TURBO_SCM_BASE=HEAD~1 TURBO_SCM_HEAD=HEAD \
-              bunx turbo ls --affected --output=json 2>/dev/null > /tmp/affected.json || true
+              bunx turbo ls --affected --output=json 2>&1 | tee /tmp/affected.json
+            echo "=== End turbo output ==="
 
             AFFECTED=$(cat /tmp/affected.json)
 

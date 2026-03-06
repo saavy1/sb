@@ -14,6 +14,12 @@ spec:
     - repoURL: https://github.com/saavy1/sb.git
       targetRevision: main
       path: argocd/clusters/superbloom/infra/buildkit/resources
+  ignoreDifferences:
+    - group: apps
+      kind: StatefulSet
+      jqPathExpressions:
+        - .spec.volumeClaimTemplates[]?.apiVersion
+        - .spec.volumeClaimTemplates[]?.kind
   syncPolicy:
     automated:
       prune: false
@@ -22,3 +28,5 @@ spec:
       - CreateNamespace=true
       - ApplyOutOfSyncOnly=true
       - ServerSideApply=true
+      - ServerSideDiff=true
+      - RespectIgnoreDifferences=true
