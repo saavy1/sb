@@ -13,6 +13,9 @@ Replace the current hand-rolled manifests for Minecraft game-servers with a prop
 ### Declarative Backup Tool (rclone)
 Build a custom backup tool where you declare files/folders to back up and it rclone-syncs them on a schedule. Simple config-driven approach -- just list paths and destinations, and a CronJob or systemd timer handles the rest.
 
+### NixOS on Spark (Replace DGX OS)
+Replace DGX OS (Ubuntu 24.04) with NixOS to match superbloom's declarative config. Community flake exists ([graham33/nixos-dgx-spark](https://github.com/graham33/nixos-dgx-spark)). See [docs/nixos-spark.md](docs/nixos-spark.md) for full research notes.
+
 ### Smarter CI Builds (Argo Workflows)
 Argo Workflows currently rebuilds all Nexus images on every push. Add change detection so only apps/packages/services with actual code changes get built and pushed. Could use path-based filtering in the workflow event binding or a pre-build step that diffs against the last successful build.
 

@@ -199,7 +199,8 @@ spec:
               --local context={{inputs.parameters.context}} \
               --local dockerfile=$(dirname {{inputs.parameters.dockerfile}}) \
               --opt filename=$(basename {{inputs.parameters.dockerfile}}) \
-              --output type=image,\"name={{inputs.parameters.image}}:latest,{{inputs.parameters.image}}:{{inputs.parameters.revision}}\",push=true,registry.insecure=true \
+              --opt build-arg:SOURCE_DATE_EPOCH=$(date +%s) \
+              --output type=image,\"name={{inputs.parameters.image}}:latest,{{inputs.parameters.image}}:{{inputs.parameters.revision}}\",push=true,rewrite-timestamp=true,registry.insecure=true \
               --export-cache type=registry,ref={{inputs.parameters.image}}:cache,mode=max,registry.insecure=true \
               --import-cache type=registry,ref={{inputs.parameters.image}}:cache,registry.insecure=true
         volumeMounts:
