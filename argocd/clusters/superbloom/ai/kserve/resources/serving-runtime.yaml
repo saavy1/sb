@@ -30,6 +30,7 @@ spec:
         - --enable-prefix-caching
         - --attention-backend=flashinfer
         - --enable-auto-tool-choice
+        - --tool-call-parser=hermes
       env:
         - name: MODEL_PATH
           value: /mnt/nas/models
