@@ -25,6 +25,9 @@ spec:
           ports:
             - containerPort: 1234
               protocol: TCP
+          env:
+            - name: DOCKER_CONFIG
+              value: /root/.docker
           securityContext:
             privileged: true
           readinessProbe:
