@@ -112,7 +112,7 @@ controllers:
       main:
         image:
           repository: registry.saavylab.dev/saavy1/wyoming-openvino-whisper
-          tag: 2e313557d37c24b2c6668150b449983643f67092
+          tag: 579dc1255f23482347d13e653de55f7bec5f0def
           pullPolicy: Always
         securityContext:
           privileged: true
