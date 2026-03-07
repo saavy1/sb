@@ -634,6 +634,7 @@ export async function runAgentLoop(
 		let toolCallCount = 0;
 		let usage: { promptTokens: number; completionTokens: number; totalTokens: number } | undefined;
 		const pendingToolCalls: ToolCall[] = [];
+		const pendingToolResults: { role: "tool"; content: string; toolCallId: string }[] = [];
 		const toolCallArgsBuffers = new Map<string, { name: string; args: string }>();
 
 		try {
@@ -678,7 +679,7 @@ export async function runAgentLoop(
 							toolCallArgsBuffers.delete(chunk.toolCallId);
 
 							if (chunk.result !== undefined) {
-								messages.push({
+								pendingToolResults.push({
 									role: "tool",
 									content:
 										typeof chunk.result === "string" ? chunk.result : JSON.stringify(chunk.result),
@@ -695,19 +696,22 @@ export async function runAgentLoop(
 					}
 
 					case "RUN_FINISHED": {
-						// Flush pending tool calls as an assistant message
+						// Flush in correct order: assistant message (with toolCalls) first, then tool results
 						if (pendingToolCalls.length > 0) {
 							messages.push({
 								role: "assistant",
 								content: accumulatedContent || null,
 								toolCalls: [...pendingToolCalls],
 							});
+							for (const result of pendingToolResults) {
+								messages.push(result);
+							}
 							pendingToolCalls.length = 0;
+							pendingToolResults.length = 0;
 						} else if (accumulatedContent) {
 							messages.push({ role: "assistant", content: accumulatedContent });
 						}
 
-						// Track the final text response for return value
 						if (accumulatedContent) response = accumulatedContent;
 						accumulatedContent = "";
 

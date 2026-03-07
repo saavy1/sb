@@ -8,30 +8,36 @@ import { API_URL, client } from "../../lib/api";
 import { ChatInput } from "./ChatInput";
 import { ChatMessages } from "./ChatMessages";
 
-function convertModelToUIMessages(messages: ModelMessage[]): UIMessage[] {
-	const wakeMessages: UIMessage[] = [];
-	const regularMessages: ModelMessage[] = [];
+const WAKE_PREFIX = "[SYSTEM WAKE]";
 
+function convertModelToUIMessages(messages: ModelMessage[]): UIMessage[] {
+	// Track which model messages are wake messages by index so we can
+	// fix them up after conversion while preserving chronological order
+	const wakeIndices = new Set<number>();
 	for (let i = 0; i < messages.length; i++) {
 		const m = messages[i];
-		if (
-			m.role === "user" &&
-			typeof m.content === "string" &&
-			m.content.startsWith("[SYSTEM WAKE]")
-		) {
-			wakeMessages.push({
-				id: `wake-${i}`,
-				role: "system",
-				parts: [{ type: "text" as const, content: m.content.replace("[SYSTEM WAKE]", "").trim() }],
-			});
-		} else {
-			regularMessages.push(m);
+		if (m.role === "user" && typeof m.content === "string" && m.content.startsWith(WAKE_PREFIX)) {
+			wakeIndices.add(i);
 		}
 	}
 
-	const converted = modelMessagesToUIMessages(regularMessages);
-	if (wakeMessages.length === 0) return converted;
-	return [...wakeMessages, ...converted];
+	const converted = modelMessagesToUIMessages(messages);
+
+	if (wakeIndices.size === 0) return converted;
+
+	// Post-process: convert wake user messages to system role in-place.
+	// modelMessagesToUIMessages may merge tool results into assistant messages,
+	// so the index mapping isn't 1:1 — match by content instead.
+	for (const msg of converted) {
+		if (msg.role !== "user") continue;
+		const textPart = msg.parts.find((p) => p.type === "text");
+		if (textPart && "content" in textPart && textPart.content.startsWith(WAKE_PREFIX)) {
+			(msg as UIMessage).role = "system";
+			textPart.content = textPart.content.replace(WAKE_PREFIX, "").trim();
+		}
+	}
+
+	return converted;
 }
 
 type Props = {
