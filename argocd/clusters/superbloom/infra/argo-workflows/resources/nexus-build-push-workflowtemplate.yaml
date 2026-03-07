@@ -193,6 +193,7 @@ spec:
         args:
           - |
             export SOURCE_DATE_EPOCH=$(date +%s)
+            BUILD_DATE=$(date -u -d @$SOURCE_DATE_EPOCH +%Y-%m-%dT%H:%M:%SZ)
             buildctl \
               --addr tcp://buildkit.buildkit.svc.cluster.local:1234 \
               build \
@@ -200,6 +201,7 @@ spec:
               --local context={{inputs.parameters.context}} \
               --local dockerfile=$(dirname {{inputs.parameters.dockerfile}}) \
               --opt filename=$(basename {{inputs.parameters.dockerfile}}) \
+              --opt label:org.opencontainers.image.created=$BUILD_DATE \
               --output type=image,\"name={{inputs.parameters.image}}:latest,{{inputs.parameters.image}}:{{inputs.parameters.revision}}\",push=true,registry.insecure=true \
               --export-cache type=registry,ref={{inputs.parameters.image}}:cache,mode=max,registry.insecure=true \
               --import-cache type=registry,ref={{inputs.parameters.image}}:cache,registry.insecure=true
