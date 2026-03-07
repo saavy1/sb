@@ -1,100 +1,37 @@
+import type { ModelMessage } from "@tanstack/ai";
+import { modelMessagesToUIMessages } from "@tanstack/ai";
 import { fetchServerSentEvents } from "@tanstack/ai-client";
 import type { UIMessage } from "@tanstack/ai-react";
 import { useChat } from "@tanstack/ai-react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { API_URL, client } from "../../lib/api";
 import { ChatInput } from "./ChatInput";
 import { ChatMessages } from "./ChatMessages";
 
-type ModelMessage = {
-	role: string;
-	content?: string | null;
-	toolCalls?: Array<{
-		id: string;
-		type: string;
-		function: { name: string; arguments: string };
-	}>;
-	toolCallId?: string;
-};
-
-/** Convert DB ModelMessages to UIMessages, preserving tool-call/result parts */
 function convertModelToUIMessages(messages: ModelMessage[]): UIMessage[] {
-	const uiMessages: UIMessage[] = [];
+	const wakeMessages: UIMessage[] = [];
+	const regularMessages: ModelMessage[] = [];
 
 	for (let i = 0; i < messages.length; i++) {
 		const m = messages[i];
-
-		// Wake messages → system role
 		if (
 			m.role === "user" &&
 			typeof m.content === "string" &&
 			m.content.startsWith("[SYSTEM WAKE]")
 		) {
-			uiMessages.push({
-				id: `loaded-${i}`,
+			wakeMessages.push({
+				id: `wake-${i}`,
 				role: "system",
 				parts: [{ type: "text" as const, content: m.content.replace("[SYSTEM WAKE]", "").trim() }],
 			});
-			continue;
-		}
-
-		// Skip tool-role messages — they're attached to assistant messages below
-		if (m.role === "tool") continue;
-
-		// User messages
-		if (m.role === "user") {
-			uiMessages.push({
-				id: `loaded-${i}`,
-				role: "user",
-				parts: [{ type: "text" as const, content: typeof m.content === "string" ? m.content : "" }],
-			});
-			continue;
-		}
-
-		// Assistant messages — include tool-call and tool-result parts
-		if (m.role === "assistant") {
-			const parts: UIMessage["parts"] = [];
-
-			if (m.content) {
-				parts.push({
-					type: "text" as const,
-					content: typeof m.content === "string" ? m.content : "",
-				});
-			}
-
-			if (m.toolCalls) {
-				for (const tc of m.toolCalls) {
-					parts.push({
-						type: "tool-call" as const,
-						id: tc.id,
-						name: tc.function.name,
-						arguments: tc.function.arguments || "{}",
-						state: "input-complete",
-					});
-
-					// Find matching tool result in subsequent messages
-					const toolResult = messages.find((r) => r.role === "tool" && r.toolCallId === tc.id);
-					if (toolResult) {
-						parts.push({
-							type: "tool-result" as const,
-							toolCallId: tc.id,
-							content:
-								typeof toolResult.content === "string"
-									? toolResult.content
-									: JSON.stringify(toolResult.content),
-							state: "complete",
-						});
-					}
-				}
-			}
-
-			if (parts.length > 0) {
-				uiMessages.push({ id: `loaded-${i}`, role: "assistant", parts });
-			}
+		} else {
+			regularMessages.push(m);
 		}
 	}
 
-	return uiMessages;
+	const converted = modelMessagesToUIMessages(regularMessages);
+	if (wakeMessages.length === 0) return converted;
+	return [...wakeMessages, ...converted];
 }
 
 type Props = {
@@ -102,52 +39,97 @@ type Props = {
 	onThreadChange?: (id: string | null) => void;
 };
 
-export function ChatView({ threadId: propThreadId, onThreadChange }: Props) {
-	const [activeThreadId, setActiveThreadId] = useState<string | null>(propThreadId ?? null);
-	const [input, setInput] = useState("");
-	const [submitError, setSubmitError] = useState<string | null>(null);
-	const activeThreadIdRef = useRef<string | null>(activeThreadId);
-	const skipNextLoadRef = useRef(false);
+/**
+ * Outer component that loads thread messages, then renders ChatViewInner
+ * keyed on threadId so useChat gets a fresh instance with correct initialMessages.
+ */
+export function ChatView({ threadId, onThreadChange }: Props) {
+	const [initialMessages, setInitialMessages] = useState<UIMessage[] | null>(threadId ? null : []);
 
 	useEffect(() => {
-		activeThreadIdRef.current = activeThreadId;
-	}, [activeThreadId]);
-
-	// Sync prop to state when parent changes threadId (clicking sidebar)
-	useEffect(() => {
-		setActiveThreadId(propThreadId ?? null);
-	}, [propThreadId]);
-
-	const { messages, sendMessage, isLoading, error, setMessages } = useChat({
-		connection: fetchServerSentEvents(
-			() =>
-				`${API_URL}/api/agent/chat${activeThreadIdRef.current ? `?threadId=${activeThreadIdRef.current}` : ""}`
-		),
-	});
-
-	// Load existing thread messages on threadId change
-	// biome-ignore lint/correctness/useExhaustiveDependencies: intentional trigger on activeThreadId
-	useEffect(() => {
-		if (!activeThreadId) {
-			setMessages([]);
+		if (!threadId) {
+			setInitialMessages([]);
 			return;
 		}
 
-		// Skip loading when we just created a new thread (prevents wiping in-flight stream)
-		if (skipNextLoadRef.current) {
-			skipNextLoadRef.current = false;
-			return;
-		}
+		let cancelled = false;
+		setInitialMessages(null);
 
-		const loadThread = async () => {
-			const { data } = await client.api.agent.threads({ id: activeThreadId }).get();
-			if (data && "messages" in data && Array.isArray(data.messages)) {
-				setMessages(convertModelToUIMessages(data.messages as ModelMessage[]));
+		const load = async () => {
+			const { data } = await client.api.agent.threads({ id: threadId }).get();
+			if (cancelled) return;
+
+			if (data && "messages" in data && Array.isArray(data.messages) && data.messages.length > 0) {
+				setInitialMessages(convertModelToUIMessages(data.messages as ModelMessage[]));
+			} else {
+				setInitialMessages([]);
 			}
 		};
 
-		loadThread();
-	}, [activeThreadId]);
+		load();
+		return () => {
+			cancelled = true;
+		};
+	}, [threadId]);
+
+	// Show loading state while fetching thread messages
+	if (initialMessages === null) {
+		return (
+			<div className="flex h-full items-center justify-center text-sm text-text-tertiary">
+				Loading...
+			</div>
+		);
+	}
+
+	return (
+		<ChatViewInner
+			key={threadId ?? "new"}
+			threadId={threadId}
+			initialMessages={initialMessages}
+			onThreadChange={onThreadChange}
+		/>
+	);
+}
+
+type InnerProps = {
+	threadId?: string;
+	initialMessages: UIMessage[];
+	onThreadChange?: (id: string | null) => void;
+};
+
+function ChatViewInner({ threadId: initialThreadId, initialMessages, onThreadChange }: InnerProps) {
+	const [input, setInput] = useState("");
+	const [submitError, setSubmitError] = useState<string | null>(null);
+	const threadIdRef = useRef<string | undefined>(initialThreadId);
+
+	const persistMessages = useCallback(async (msgs: UIMessage[]) => {
+		const id = threadIdRef.current;
+		if (!id || msgs.length === 0) return;
+
+		try {
+			await fetch(`${API_URL}/api/agent/threads/${id}/persist`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ messages: msgs }),
+			});
+		} catch (err) {
+			console.error("Failed to persist messages:", err);
+		}
+	}, []);
+
+	const { messages, sendMessage, isLoading, error } = useChat({
+		initialMessages,
+		connection: fetchServerSentEvents(
+			() =>
+				`${API_URL}/api/agent/chat${threadIdRef.current ? `?threadId=${threadIdRef.current}` : ""}`
+		),
+		onFinish: () => {
+			persistMessages(chatRef.current.messages);
+		},
+	});
+
+	const chatRef = useRef({ messages });
+	chatRef.current.messages = messages;
 
 	const handleSubmit = async () => {
 		if (!input.trim() || isLoading) return;
@@ -157,24 +139,16 @@ export function ChatView({ threadId: propThreadId, onThreadChange }: Props) {
 		setSubmitError(null);
 
 		try {
-			// Create thread if needed
-			let threadId = activeThreadId;
-			if (!threadId) {
-				const { data } = await client.api.agent.threads.post({
-					source: "chat",
-				});
+			if (!threadIdRef.current) {
+				const { data } = await client.api.agent.threads.post({ source: "chat" });
 				if (data && "id" in data) {
-					threadId = data.id;
-					activeThreadIdRef.current = threadId;
-					skipNextLoadRef.current = true;
-					setActiveThreadId(threadId);
-					onThreadChange?.(threadId);
+					threadIdRef.current = data.id;
+					onThreadChange?.(data.id);
 				} else {
 					throw new Error("Failed to create thread");
 				}
 			}
 
-			// Send message via useChat — SSE stream handles the rest
 			await sendMessage(messageContent);
 		} catch (err) {
 			const message = err instanceof Error ? err.message : "Failed to send message";

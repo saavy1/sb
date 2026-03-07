@@ -1,5 +1,5 @@
 import logger from "@nexus/logger";
-import type { ModelMessage, StreamChunk } from "@tanstack/ai";
+import type { StreamChunk } from "@tanstack/ai";
 import {
 	chat,
 	convertMessagesToModelMessages,
@@ -67,103 +67,49 @@ function threadToDetail(thread: AgentThread) {
 }
 
 /**
- * Async generator that wraps the chat stream with side effects:
- * - Collects messages for DB persistence
- * - Triggers title generation on first exchange
+ * Thin wrapper around the chat stream for logging and title generation.
+ *
+ * Persistence is NOT done here — the client (useChat) sends the full conversation
+ * on each request. We persist those client-sent messages at the start of each /chat
+ * request, which captures the complete state including all prior tool calls/results.
+ * TanStack AI's chat() handles the agent loop; we just pass through events.
  */
-async function* withPersistence(
+async function* withSideEffects(
 	stream: AsyncIterable<StreamChunk>,
 	thread: AgentThread,
-	// Note: existingMessages already includes the user message (persisted before streaming starts)
-	existingMessages: ModelMessage[],
 	firstUserContent: string | null,
 	timeout: ReturnType<typeof setTimeout>,
 	model: string
 ): AsyncIterable<StreamChunk> {
-	const collectedMessages: ModelMessage[] = [];
-	let currentContent = "";
-	let currentToolCalls: Array<{
-		id: string;
-		type: "function";
-		function: { name: string; arguments: string };
-	}> = [];
 	let lastAssistantContent: string | null = null;
-
-	// Track tool call args accumulation
-	const toolCallArgsBuffers = new Map<string, { name: string; args: string }>();
+	let accumulatedContent = "";
 
 	try {
 		for await (const chunk of stream) {
-			// Track state for persistence
 			switch (chunk.type) {
 				case "TEXT_MESSAGE_CONTENT":
-					currentContent += chunk.delta;
-					break;
-
-				case "TEXT_MESSAGE_END":
-					if (currentContent) {
-						const msg: ModelMessage = {
-							role: "assistant",
-							content: currentContent,
-							...(currentToolCalls.length > 0 && { toolCalls: currentToolCalls }),
-						};
-						collectedMessages.push(msg);
-						lastAssistantContent = currentContent;
-					}
-					currentContent = "";
-					currentToolCalls = [];
+					accumulatedContent += chunk.delta;
 					break;
 
 				case "TOOL_CALL_START":
-					toolCallArgsBuffers.set(chunk.toolCallId, { name: chunk.toolName, args: "" });
 					log.info(
 						{ threadId: thread.id, toolName: chunk.toolName, toolCallId: chunk.toolCallId, model },
 						"Tool call started"
 					);
 					break;
 
-				case "TOOL_CALL_ARGS":
-					if (toolCallArgsBuffers.has(chunk.toolCallId)) {
-						const buf = toolCallArgsBuffers.get(chunk.toolCallId)!;
-						buf.args += chunk.delta;
-					}
+				case "TOOL_CALL_END":
+					log.info(
+						{ threadId: thread.id, toolName: chunk.toolName, toolCallId: chunk.toolCallId, model },
+						"Tool call completed"
+					);
 					break;
-
-				case "TOOL_CALL_END": {
-					const buf = toolCallArgsBuffers.get(chunk.toolCallId);
-					if (buf) {
-						currentToolCalls.push({
-							id: chunk.toolCallId,
-							type: "function",
-							function: { name: buf.name, arguments: buf.args },
-						});
-						toolCallArgsBuffers.delete(chunk.toolCallId);
-
-						// Tool result message
-						if (chunk.result !== undefined) {
-							collectedMessages.push({
-								role: "tool",
-								content:
-									typeof chunk.result === "string" ? chunk.result : JSON.stringify(chunk.result),
-								toolCallId: chunk.toolCallId,
-							});
-						} else {
-							log.warn(
-								{ toolCallId: chunk.toolCallId, toolName: buf.name },
-								"TOOL_CALL_END received without result"
-							);
-						}
-
-						log.info(
-							{ threadId: thread.id, toolName: buf.name, toolCallId: chunk.toolCallId, model },
-							"Tool call completed"
-						);
-					}
-					break;
-				}
 
 				case "RUN_FINISHED":
-					// Log token usage if available
+					if (accumulatedContent) {
+						lastAssistantContent = accumulatedContent;
+						accumulatedContent = "";
+					}
 					if (chunk.usage) {
 						log.info(
 							{
@@ -176,24 +122,14 @@ async function* withPersistence(
 							"Agent run finished"
 						);
 					}
-
-					// Persist all collected messages to DB
-					try {
-						await agentRepository.update(thread.id, {
-							messages: [...existingMessages, ...collectedMessages],
-						});
-					} catch (dbErr) {
-						log.error({ dbErr, threadId: thread.id }, "Failed to persist messages to DB");
-					}
 					break;
 			}
 
-			yield chunk; // Forward all events to the client
+			yield chunk;
 		}
 	} finally {
 		clearTimeout(timeout);
 
-		// Title generation on first exchange
 		if (!thread.title && firstUserContent && lastAssistantContent) {
 			generateConversationTitle(firstUserContent, lastAssistantContent, model).then((title) => {
 				if (title) {
@@ -323,8 +259,16 @@ export const agentRoutes = new Elysia({ prefix: "/agent" })
 			}
 
 			// Convert incoming UIMessages → ModelMessages for the LLM
-			// useChat sends the full conversation each time — no need to load from DB
+			// useChat sends the full conversation each time — this IS the source of truth
 			const messages = convertMessagesToModelMessages(body.messages);
+
+			// Persist the client-sent messages immediately — this captures the full
+			// conversation state including all prior tool calls/results from the client
+			try {
+				await agentRepository.update(thread.id, { messages });
+			} catch (dbErr) {
+				log.error({ dbErr, threadId: thread.id }, "Failed to persist client messages");
+			}
 
 			// First exchange? Extract user content for title generation
 			const isFirstExchange =
@@ -333,20 +277,16 @@ export const agentRoutes = new Elysia({ prefix: "/agent" })
 				? (messages.find((m) => m.role === "user")?.content as string | null)
 				: null;
 
-			// Create adapter
 			const { adapter, model } = await createAdapter();
 			const contextStr = getContextStr(thread);
 			const allTools = getAllDomainTools(thread);
 
 			log.info({ threadId: thread.id, model }, "Starting streaming chat");
 
-			// Set up timeout
 			const abortController = new AbortController();
 			const timeout = setTimeout(() => abortController.abort(), 120_000);
 
-			// Run chat with built-in agent loop
-			// Note: convertMessagesToModelMessages returns ModelMessage[] but chat() expects
-			// ConstrainedModelMessage — a TanStack AI type gap between their own functions
+			// chat() handles the full agent loop (tool calls, retries, etc.)
 			const stream = chat({
 				adapter,
 				messages: messages as Parameters<typeof chat>[0]["messages"],
@@ -356,10 +296,9 @@ export const agentRoutes = new Elysia({ prefix: "/agent" })
 				abortController,
 			});
 
-			// Wrap with side effects (DB persistence, title gen, tool/token logging)
-			const wrapped = withPersistence(stream, thread, messages, firstUserContent, timeout, model);
+			// Thin wrapper for logging and title generation only
+			const wrapped = withSideEffects(stream, thread, firstUserContent, timeout, model);
 
-			// Return SSE Response
 			return toServerSentEventsResponse(wrapped, { abortController });
 		},
 		{
@@ -367,6 +306,29 @@ export const agentRoutes = new Elysia({ prefix: "/agent" })
 			query: t.Object({
 				threadId: t.Optional(t.String()),
 			}),
+			body: ChatRequest,
+		}
+	)
+
+	// Persist messages — called by the client after the agent finishes responding.
+	// The client (useChat) is the source of truth for conversation state.
+	// This endpoint captures the final state including the agent's response.
+	.post(
+		"/threads/:id/persist",
+		async ({ params, body, set }) => {
+			const thread = await agentRepository.findById(params.id);
+			if (!thread) {
+				set.status = 404;
+				return { error: "Thread not found" };
+			}
+
+			const messages = convertMessagesToModelMessages(body.messages);
+			await agentRepository.update(params.id, { messages });
+			return { ok: true };
+		},
+		{
+			detail: { tags: ["Agent"], summary: "Persist conversation state from client" },
+			params: ThreadIdParam,
 			body: ChatRequest,
 		}
 	)
