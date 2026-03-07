@@ -1,4 +1,5 @@
 import logger from "@nexus/logger";
+import type { ToolCall } from "@tanstack/ai";
 import { chat, maxIterations, toolDefinition } from "@tanstack/ai";
 import { z } from "zod";
 import { createChatAdapter, generateConversationTitle, hasAiProvider } from "../../infra/ai";
@@ -624,15 +625,18 @@ export async function runAgentLoop(
 		}
 
 		// Run chat with built-in agent loop (non-streaming for workers)
+		// Mirror TanStack AI's TextEngine message tracking for proper persistence
 		const abortController = new AbortController();
 		const timeout = setTimeout(() => abortController.abort(), 120_000);
 
 		let response = "";
+		let accumulatedContent = "";
 		let toolCallCount = 0;
 		let usage: { promptTokens: number; completionTokens: number; totalTokens: number } | undefined;
+		const pendingToolCalls: ToolCall[] = [];
+		const toolCallArgsBuffers = new Map<string, { name: string; args: string }>();
+
 		try {
-			// convertMessagesToModelMessages returns ModelMessage[] but chat() expects
-			// ConstrainedModelMessage — a known TanStack AI type gap (their internal code uses `as any`)
 			const stream = chat({
 				adapter,
 				messages: messages as Parameters<typeof chat>[0]["messages"],
@@ -645,36 +649,83 @@ export async function runAgentLoop(
 			for await (const chunk of stream) {
 				switch (chunk.type) {
 					case "TEXT_MESSAGE_CONTENT":
-						response += chunk.delta;
+						accumulatedContent += chunk.delta;
 						break;
+
 					case "TOOL_CALL_START":
 						toolCallCount++;
+						toolCallArgsBuffers.set(chunk.toolCallId, { name: chunk.toolName, args: "" });
 						log.info(
-							{
-								threadId: thread.id,
-								toolName: chunk.toolName,
-								toolCallId: chunk.toolCallId,
-								model,
-							},
+							{ threadId: thread.id, toolName: chunk.toolName, toolCallId: chunk.toolCallId, model },
 							"Tool call started"
 						);
 						break;
-					case "TOOL_CALL_END":
-						log.info(
-							{
-								threadId: thread.id,
-								toolName: chunk.toolName,
-								toolCallId: chunk.toolCallId,
-								model,
-							},
-							"Tool call completed"
-						);
-						break;
-					case "RUN_FINISHED":
-						if (chunk.usage) {
-							usage = chunk.usage;
+
+					case "TOOL_CALL_ARGS":
+						if (toolCallArgsBuffers.has(chunk.toolCallId)) {
+							toolCallArgsBuffers.get(chunk.toolCallId)!.args += chunk.delta;
 						}
 						break;
+
+					case "TOOL_CALL_END": {
+						const buf = toolCallArgsBuffers.get(chunk.toolCallId);
+						if (buf) {
+							pendingToolCalls.push({
+								id: chunk.toolCallId,
+								type: "function",
+								function: { name: buf.name, arguments: buf.args },
+							});
+							toolCallArgsBuffers.delete(chunk.toolCallId);
+
+							if (chunk.result !== undefined) {
+								messages.push({
+									role: "tool",
+									content:
+										typeof chunk.result === "string" ? chunk.result : JSON.stringify(chunk.result),
+									toolCallId: chunk.toolCallId,
+								});
+							}
+
+							log.info(
+								{ threadId: thread.id, toolName: buf.name, toolCallId: chunk.toolCallId, model },
+								"Tool call completed"
+							);
+						}
+						break;
+					}
+
+					case "RUN_FINISHED": {
+						// Flush pending tool calls as an assistant message
+						if (pendingToolCalls.length > 0) {
+							messages.push({
+								role: "assistant",
+								content: accumulatedContent || null,
+								toolCalls: [...pendingToolCalls],
+							});
+							pendingToolCalls.length = 0;
+						} else if (accumulatedContent) {
+							messages.push({ role: "assistant", content: accumulatedContent });
+						}
+
+						// Track the final text response for return value
+						if (accumulatedContent) response = accumulatedContent;
+						accumulatedContent = "";
+
+						if (chunk.usage) {
+							usage = chunk.usage;
+							log.info(
+								{
+									threadId: thread.id,
+									model,
+									promptTokens: chunk.usage.promptTokens,
+									completionTokens: chunk.usage.completionTokens,
+									totalTokens: chunk.usage.totalTokens,
+								},
+								"Agent run finished"
+							);
+						}
+						break;
+					}
 				}
 			}
 		} finally {
@@ -683,11 +734,8 @@ export async function runAgentLoop(
 
 		span.setAttribute("agent.tool_call_count", toolCallCount);
 
-		// Build new messages to persist: original messages + assistant response
-		const newMessages = [...messages];
-		if (response) {
-			newMessages.push({ role: "assistant" as const, content: response });
-		}
+		// messages already contains all properly structured messages from the stream
+		const newMessages = messages;
 
 		// Persist final state
 		const updatedThread = await agentRepository.findById(thread.id);

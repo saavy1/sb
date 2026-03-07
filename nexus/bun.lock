@@ -19,7 +19,7 @@
     },
     "apps/api": {
       "name": "@nexus/api",
-      "version": "1.0.0",
+      "version": "2.0.0",
       "dependencies": {
         "@elysiajs/cors": "^1.4.0",
         "@elysiajs/openapi": "^1.4.11",
@@ -61,6 +61,7 @@
         "@radix-ui/react-slot": "^1.2.4",
         "@t3-oss/env-core": "^0.13.8",
         "@tailwindcss/vite": "^4.0.6",
+        "@tanstack/ai": "^0.5.1",
         "@tanstack/ai-client": "^0.4.5",
         "@tanstack/ai-react": "^0.5.4",
         "@tanstack/react-devtools": "^0.7.0",
@@ -104,7 +105,7 @@
     },
     "packages/core": {
       "name": "@nexus/core",
-      "version": "1.0.0",
+      "version": "1.2.4",
       "dependencies": {
         "@elysiajs/opentelemetry": "^1.4.9",
         "@modelcontextprotocol/sdk": "^1.27.1",
