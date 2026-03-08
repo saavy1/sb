@@ -29,7 +29,8 @@ export function ChatView({ threadId: propThreadId, onThreadChange }: Props) {
 		}
 
 		setLoading(true);
-		client.api.agent.threads({ id: threadId })
+		client.api.agent
+			.threads({ id: threadId })
 			.get()
 			.then(({ data }) => {
 				if (data && "messages" in data && Array.isArray(data.messages)) {
@@ -78,7 +79,8 @@ function ChatSession({
 
 	const { messages, sendMessage, isLoading, error } = useChat({
 		connection: fetchServerSentEvents(
-			() => `${API_URL}/api/agent/chat${threadIdRef.current ? `?threadId=${threadIdRef.current}` : ""}`,
+			() =>
+				`${API_URL}/api/agent/chat${threadIdRef.current ? `?threadId=${threadIdRef.current}` : ""}`
 		),
 		initialMessages,
 	});

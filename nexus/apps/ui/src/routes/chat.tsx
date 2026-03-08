@@ -61,7 +61,7 @@ function ChatPage() {
 				replace: true,
 			});
 		},
-		[navigate],
+		[navigate]
 	);
 
 	const handleNewChat = () => {

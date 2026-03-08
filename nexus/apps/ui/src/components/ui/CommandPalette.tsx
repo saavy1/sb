@@ -117,7 +117,9 @@ export function CommandPalette() {
 								</kbd>
 							</Command.Item>
 							<Command.Item
-								onSelect={() => runCommand(() => navigate({ to: "/chat", search: { thread: undefined } }))}
+								onSelect={() =>
+									runCommand(() => navigate({ to: "/chat", search: { thread: undefined } }))
+								}
 								className="flex items-center gap-3 px-3 py-2 rounded cursor-pointer text-text-secondary data-[selected=true]:bg-surface-elevated data-[selected=true]:text-text-primary"
 							>
 								<MessageSquare size={16} />
