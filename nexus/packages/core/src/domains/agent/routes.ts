@@ -1,11 +1,6 @@
 import logger from "@nexus/logger";
 import type { StreamChunk } from "@tanstack/ai";
-import {
-	chat,
-	convertMessagesToModelMessages,
-	maxIterations,
-	toServerSentEventsResponse,
-} from "@tanstack/ai";
+import { chat, convertMessagesToModelMessages, maxIterations, toServerSentEventsResponse } from "@tanstack/ai";
 import { Elysia, t } from "elysia";
 import { generateConversationTitle } from "../../infra/ai";
 import { appEvents } from "../../infra/events";
@@ -105,6 +100,18 @@ async function* withSideEffects(
 					);
 					break;
 
+				case "RUN_ERROR":
+					log.error(
+						{
+							threadId: thread.id,
+							model,
+							error: chunk.error?.message ?? "Unknown error",
+							errorCode: chunk.error?.code,
+						},
+						"Agent run error"
+					);
+					break;
+
 				case "RUN_FINISHED":
 					if (accumulatedContent) {
 						lastAssistantContent = accumulatedContent;
@@ -127,6 +134,12 @@ async function* withSideEffects(
 
 			yield chunk;
 		}
+	} catch (err) {
+		log.error(
+			{ threadId: thread.id, model, error: err instanceof Error ? err.message : String(err) },
+			"Agent stream error"
+		);
+		throw err;
 	} finally {
 		clearTimeout(timeout);
 
@@ -258,23 +271,24 @@ export const agentRoutes = new Elysia({ prefix: "/agent" })
 				thread = await createThread("chat");
 			}
 
-			// Convert incoming UIMessages → ModelMessages for the LLM
-			// useChat sends the full conversation each time — this IS the source of truth
-			const messages = convertMessagesToModelMessages(body.messages);
+			// Raw messages from the client (UIMessages from useChat).
+			// Pass directly to chat() — it handles conversion internally and
+			// needs the original UIMessage parts for client state extraction.
+			const { messages } = body;
 
-			// Persist the client-sent messages immediately — this captures the full
-			// conversation state including all prior tool calls/results from the client
+			// Convert to ModelMessages for DB persistence only
+			const modelMessages = convertMessagesToModelMessages(messages);
 			try {
-				await agentRepository.update(thread.id, { messages });
+				await agentRepository.update(thread.id, { messages: modelMessages });
 			} catch (dbErr) {
 				log.error({ dbErr, threadId: thread.id }, "Failed to persist client messages");
 			}
 
 			// First exchange? Extract user content for title generation
 			const isFirstExchange =
-				!thread.title && messages.filter((m) => m.role === "user").length === 1;
+				!thread.title && modelMessages.filter((m) => m.role === "user").length === 1;
 			const firstUserContent = isFirstExchange
-				? (messages.find((m) => m.role === "user")?.content as string | null)
+				? (modelMessages.find((m) => m.role === "user")?.content as string | null)
 				: null;
 
 			const { adapter, model } = await createAdapter();
@@ -287,9 +301,10 @@ export const agentRoutes = new Elysia({ prefix: "/agent" })
 			const timeout = setTimeout(() => abortController.abort(), 120_000);
 
 			// chat() handles the full agent loop (tool calls, retries, etc.)
+			// Pass raw messages — chat() calls convertMessagesToModelMessages internally
 			const stream = chat({
 				adapter,
-				messages: messages as Parameters<typeof chat>[0]["messages"],
+				messages,
 				systemPrompts: [AGENT_SYSTEM_PROMPT + contextStr],
 				tools: allTools,
 				agentLoopStrategy: maxIterations(10),
