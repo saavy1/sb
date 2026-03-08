@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Menu, MessageSquarePlus, Wrench, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { ChatView } from "../components/chat";
@@ -8,6 +8,9 @@ import { useEvents } from "../lib/useEvents";
 
 export const Route = createFileRoute("/chat")({
 	component: ChatPage,
+	validateSearch: (search: Record<string, unknown>) => ({
+		thread: (search.thread as string) || undefined,
+	}),
 });
 
 type AgentThread = NonNullable<
@@ -21,11 +24,14 @@ type ToolEntry = {
 };
 
 function ChatPage() {
+	const { thread: urlThreadId } = Route.useSearch();
+	const navigate = useNavigate();
 	const [threads, setThreads] = useState<AgentThread[]>([]);
-	const [activeId, setActiveId] = useState<string | null>(null);
 	const [drawerOpen, setDrawerOpen] = useState(false);
 	const [toolsOpen, setToolsOpen] = useState(false);
 	const [toolsByCategory, setToolsByCategory] = useState<Record<string, ToolEntry[]>>({});
+
+	const activeId = urlThreadId ?? null;
 
 	const fetchThreads = useCallback(async () => {
 		const { data } = await client.api.agent.threads.get({
@@ -47,19 +53,30 @@ function ChatPage() {
 		);
 	});
 
+	const setActiveThread = useCallback(
+		(id: string | null) => {
+			navigate({
+				to: "/chat",
+				search: { thread: id ?? undefined },
+				replace: true,
+			});
+		},
+		[navigate],
+	);
+
 	const handleNewChat = () => {
-		setActiveId(null);
+		setActiveThread(null);
 		setDrawerOpen(false);
 	};
 
 	const handleThreadChange = (id: string | null) => {
-		setActiveId(id);
+		setActiveThread(id);
 		setDrawerOpen(false);
 		fetchThreads();
 	};
 
 	const handleThreadSelect = (id: string) => {
-		setActiveId(id);
+		setActiveThread(id);
 		setDrawerOpen(false);
 	};
 
