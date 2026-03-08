@@ -9,7 +9,7 @@ controllers:
       main:
         image:
           repository: registry.saavylab.dev/saavy1/nexus-mc-monitor
-          tag: 48667591f056eee1b40de6430cc14f64977ddf1e
+          tag: f74bee3b20bd2c39ce71eae8bfe0cb9ba7f16dbb
           pullPolicy: Always
         env:
           NODE_ENV: production
