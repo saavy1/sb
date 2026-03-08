@@ -12,25 +12,32 @@ type Props = {
 };
 
 export function ChatView({ threadId: propThreadId, onThreadChange }: Props) {
-	const [threadId, setThreadId] = useState<string | undefined>(propThreadId);
-	const [initialMessages, setInitialMessages] = useState<UIMessage[] | null>(null);
-	const [loading, setLoading] = useState(false);
+	const [sessionId, setSessionId] = useState<string>(() => propThreadId ?? "new");
+	const [initialMessages, setInitialMessages] = useState<UIMessage[] | null>(
+		propThreadId ? null : []
+	);
+	const [loading, setLoading] = useState(!!propThreadId);
+	// Tracks the threadId we've already loaded/created — prevents re-loading
+	// when onThreadCreated updates the URL and propThreadId catches up.
+	const knownThreadRef = useRef<string | undefined>(propThreadId);
 
-	// Sync prop changes (e.g. clicking sidebar)
 	useEffect(() => {
-		setThreadId(propThreadId);
-	}, [propThreadId]);
+		// Skip reload if propThreadId matches what our session already knows about.
+		// This happens when ChatSession creates a thread and the URL catches up.
+		if (propThreadId === knownThreadRef.current) return;
 
-	// Load thread messages when threadId changes
-	useEffect(() => {
-		if (!threadId) {
+		knownThreadRef.current = propThreadId;
+		setSessionId(propThreadId ?? "new");
+
+		if (!propThreadId) {
 			setInitialMessages([]);
+			setLoading(false);
 			return;
 		}
 
 		setLoading(true);
 		client.api.agent
-			.threads({ id: threadId })
+			.threads({ id: propThreadId })
 			.get()
 			.then(({ data }) => {
 				if (data && "messages" in data && Array.isArray(data.messages)) {
@@ -41,7 +48,7 @@ export function ChatView({ threadId: propThreadId, onThreadChange }: Props) {
 			})
 			.catch(() => setInitialMessages([]))
 			.finally(() => setLoading(false));
-	}, [threadId]);
+	}, [propThreadId]);
 
 	if (initialMessages === null || loading) {
 		return (
@@ -53,11 +60,12 @@ export function ChatView({ threadId: propThreadId, onThreadChange }: Props) {
 
 	return (
 		<ChatSession
-			key={threadId ?? "new"}
-			threadId={threadId ?? null}
+			key={sessionId}
+			threadId={knownThreadRef.current ?? null}
 			initialMessages={initialMessages}
 			onThreadCreated={(id) => {
-				setThreadId(id);
+				// Update the ref so the effect skips reload when URL catches up
+				knownThreadRef.current = id;
 				onThreadChange?.(id);
 			}}
 		/>
@@ -76,6 +84,7 @@ function ChatSession({
 	const [input, setInput] = useState("");
 	const [submitError, setSubmitError] = useState<string | null>(null);
 	const threadIdRef = useRef(threadId);
+	const messagesRef = useRef<UIMessage[]>(initialMessages);
 
 	const { messages, sendMessage, isLoading, error } = useChat({
 		connection: fetchServerSentEvents(
@@ -83,7 +92,18 @@ function ChatSession({
 				`${API_URL}/api/agent/chat${threadIdRef.current ? `?threadId=${threadIdRef.current}` : ""}`
 		),
 		initialMessages,
+		onFinish: () => {
+			const tid = threadIdRef.current;
+			if (!tid) return;
+			fetch(`${API_URL}/api/agent/threads/${tid}/persist`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ messages: messagesRef.current }),
+			}).catch((err) => console.error("Failed to persist messages:", err));
+		},
 	});
+
+	messagesRef.current = messages;
 
 	const handleSubmit = async () => {
 		if (!input.trim() || isLoading) return;
