@@ -1,5 +1,5 @@
-import { fetchServerSentEvents, modelMessagesToUIMessages } from "@tanstack/ai-client";
 import type { UIMessage } from "@tanstack/ai-client";
+import { fetchServerSentEvents, modelMessagesToUIMessages } from "@tanstack/ai-client";
 import { useChat } from "@tanstack/ai-react";
 import { useEffect, useRef, useState } from "react";
 import { API_URL, client } from "../../lib/api";
