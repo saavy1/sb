@@ -104,7 +104,7 @@
     },
     "packages/core": {
       "name": "@nexus/core",
-      "version": "1.2.6",
+      "version": "1.2.8",
       "dependencies": {
         "@elysiajs/opentelemetry": "^1.4.9",
         "@modelcontextprotocol/sdk": "^1.27.1",
@@ -190,6 +190,9 @@
         "typescript": "catalog:",
       },
     },
+  },
+  "patchedDependencies": {
+    "@tanstack/ai-openrouter@0.6.1": "patches/@tanstack%2Fai-openrouter@0.6.1.patch",
   },
   "catalog": {
     "@biomejs/biome": "2.3.8",

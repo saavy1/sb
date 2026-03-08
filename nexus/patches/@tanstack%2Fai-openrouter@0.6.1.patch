@@ -1,0 +1,26 @@
+diff --git a/dist/esm/adapters/text.js b/dist/esm/adapters/text.js
+index 4e53e73e789da47510db9a0748a973a9ff4dee3e..fab6c8fe7d5ba4046b2f32da5b5bfb9a25828a41 100644
+--- a/dist/esm/adapters/text.js
++++ b/dist/esm/adapters/text.js
+@@ -323,7 +323,7 @@ class OpenRouterTextAdapter extends BaseTextAdapter {
+         toolCallBuffers.clear();
+       }
+     }
+-    if (usage) {
++    if (finishReason || usage) {
+       const computedFinishReason = lastFinishReason === "tool_calls" ? "tool_calls" : lastFinishReason === "length" ? "length" : "stop";
+       if (aguiState.hasEmittedTextMessageStart) {
+         yield {
+@@ -339,9 +339,9 @@ class OpenRouterTextAdapter extends BaseTextAdapter {
+         model: meta.model,
+         timestamp: meta.timestamp,
+         usage: {
+-          promptTokens: usage.promptTokens || 0,
+-          completionTokens: usage.completionTokens || 0,
+-          totalTokens: usage.totalTokens || 0
++          promptTokens: usage?.promptTokens || 0,
++          completionTokens: usage?.completionTokens || 0,
++          totalTokens: usage?.totalTokens || 0
+         },
+         finishReason: computedFinishReason
+       };
