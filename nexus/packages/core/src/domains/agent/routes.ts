@@ -78,9 +78,14 @@ async function* withSideEffects(
 ): AsyncIterable<StreamChunk> {
 	let lastAssistantContent: string | null = null;
 	let accumulatedContent = "";
+	let chunkCount = 0;
+	let lastChunkType = "";
 
 	try {
 		for await (const chunk of stream) {
+			chunkCount++;
+			lastChunkType = chunk.type;
+
 			switch (chunk.type) {
 				case "TEXT_MESSAGE_CONTENT":
 					accumulatedContent += chunk.delta;
@@ -117,26 +122,30 @@ async function* withSideEffects(
 						lastAssistantContent = accumulatedContent;
 						accumulatedContent = "";
 					}
-					if (chunk.usage) {
-						log.info(
-							{
-								threadId: thread.id,
-								model,
-								promptTokens: chunk.usage.promptTokens,
-								completionTokens: chunk.usage.completionTokens,
-								totalTokens: chunk.usage.totalTokens,
-							},
-							"Agent run finished"
-						);
-					}
+					log.info(
+						{
+							threadId: thread.id,
+							model,
+							finishReason: chunk.finishReason,
+							hasUsage: !!chunk.usage,
+							promptTokens: chunk.usage?.promptTokens,
+							completionTokens: chunk.usage?.completionTokens,
+						},
+						"Agent run finished"
+					);
 					break;
 			}
 
 			yield chunk;
 		}
+
+		log.info(
+			{ threadId: thread.id, model, chunkCount, lastChunkType },
+			"Agent stream ended normally"
+		);
 	} catch (err) {
 		log.error(
-			{ threadId: thread.id, model, error: err instanceof Error ? err.message : String(err) },
+			{ threadId: thread.id, model, chunkCount, lastChunkType, error: err instanceof Error ? err.message : String(err) },
 			"Agent stream error"
 		);
 		throw err;
