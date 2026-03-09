@@ -67,6 +67,7 @@ function ChatPage() {
 	const handleNewChat = () => {
 		setActiveThread(null);
 		setDrawerOpen(false);
+		fetchThreads();
 	};
 
 	const handleThreadChange = (id: string | null) => {

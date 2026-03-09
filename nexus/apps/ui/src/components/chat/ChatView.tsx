@@ -12,7 +12,7 @@ type Props = {
 };
 
 export function ChatView({ threadId: propThreadId, onThreadChange }: Props) {
-	const [sessionId, setSessionId] = useState<string>(() => propThreadId ?? "new");
+	const [sessionId, setSessionId] = useState<string>(() => propThreadId ?? crypto.randomUUID());
 	const [initialMessages, setInitialMessages] = useState<UIMessage[] | null>(
 		propThreadId ? null : []
 	);
@@ -22,19 +22,21 @@ export function ChatView({ threadId: propThreadId, onThreadChange }: Props) {
 	const knownThreadRef = useRef<string | undefined>(propThreadId);
 
 	useEffect(() => {
-		// Skip reload if propThreadId matches what our session already knows about.
-		// This happens when ChatSession creates a thread and the URL catches up.
-		if (propThreadId === knownThreadRef.current) return;
-
-		knownThreadRef.current = propThreadId;
-		setSessionId(propThreadId ?? "new");
-
 		if (!propThreadId) {
+			// Always reset for new chat — use a fresh key to force remount
+			knownThreadRef.current = undefined;
+			setSessionId(crypto.randomUUID());
 			setInitialMessages([]);
 			setLoading(false);
 			return;
 		}
 
+		// Skip reload if propThreadId matches what our session already knows about.
+		// This happens when ChatSession creates a thread and the URL catches up.
+		if (propThreadId === knownThreadRef.current) return;
+
+		knownThreadRef.current = propThreadId;
+		setSessionId(propThreadId);
 		setLoading(true);
 		client.api.agent
 			.threads({ id: propThreadId })
