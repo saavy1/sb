@@ -4,7 +4,7 @@ controllers:
       main:
         image:
           repository: docker.io/valkey/valkey
-          tag: "9.0.1"
+          tag: 9.0.3
         command:
           - valkey-server
           - --appendonly
