@@ -39,6 +39,11 @@ export const DEFAULT_MODELS = [
     provider: "NVIDIA",
   },
   {
+    id: "nvidia/nemotron-3-super-120b-a12b:free",
+    name: "Nemotron 3 Super (free)",
+    provider: "NVIDIA",
+  },
+  {
     id: "nvidia/llama-3.3-nemotron-super-49b-v1.5",
     name: "Nemotron Super 49B v1.5",
     provider: "NVIDIA",
