@@ -7,9 +7,3 @@ data:
   buildkitd.toml: |
     [registry."zot.zot.svc.cluster.local:5000"]
       http = true
-
-    [registry."docker.io"]
-      mirrors = ["zot.zot.svc.cluster.local:5000"]
-
-    [registry."gcr.io"]
-      mirrors = ["zot.zot.svc.cluster.local:5000"]

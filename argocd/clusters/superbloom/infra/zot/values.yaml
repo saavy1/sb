@@ -67,7 +67,11 @@ configFiles:
               "tlsVerify": true,
               "maxRetries": 3,
               "retryDelay": "5m",
-              "content": [{ "prefix": "**" }]
+              "content": [
+                { "prefix": "library/**" },
+                { "prefix": "oven/**" },
+                { "prefix": "moby/**" }
+              ]
             },
             {
               "urls": ["https://gcr.io"],
@@ -75,7 +79,9 @@ configFiles:
               "tlsVerify": true,
               "maxRetries": 3,
               "retryDelay": "5m",
-              "content": [{ "prefix": "**" }]
+              "content": [
+                { "prefix": "distroless/**" }
+              ]
             }
           ]
         }
