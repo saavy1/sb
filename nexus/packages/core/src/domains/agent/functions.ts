@@ -1,8 +1,7 @@
 import logger from "@nexus/logger";
-import type { ToolCall } from "@tanstack/ai";
 import { chat, maxIterations, toolDefinition } from "@tanstack/ai";
 import { z } from "zod";
-import { createChatAdapter, generateConversationTitle, hasAiProvider } from "../../infra/ai";
+import { createChatAdapter, hasAiProvider } from "../../infra/ai";
 import { COLORS, notify, sendDiscordNotification } from "../../infra/discord";
 import { appEvents } from "../../infra/events";
 import { mcpManager } from "../../infra/mcp";
@@ -17,6 +16,8 @@ import { lokiTools } from "../loki/functions";
 import { mediaTools } from "../media/functions";
 import { opsTools } from "../ops/functions";
 import { systemInfoTools } from "../system-info/functions";
+import type { AgentLoopCapture } from "./middleware";
+import { createHeadlessMiddleware } from "./middleware";
 import { agentRepository } from "./repository";
 import type { AgentThread } from "./schema";
 
@@ -593,14 +594,15 @@ export async function runAgentLoop(
 	trigger: { type: "message"; content: string } | { type: "wake"; reason: string }
 ): Promise<{ thread: AgentThread; response: string }> {
 	if (!hasAiProvider()) {
-		throw new Error("AI provider not configured — set OPENROUTER_API_KEY or AI_PROVIDER=local with AI_LOCAL_URL");
+		throw new Error(
+			"AI provider not configured — set OPENROUTER_API_KEY or AI_PROVIDER=local with AI_LOCAL_URL"
+		);
 	}
 
 	return withSpan("agent", "agent.runLoop", async (span) => {
 		span.setAttribute("agent.thread_id", thread.id);
 		span.setAttribute("agent.trigger_type", trigger.type);
 
-		// Prepare tools and adapter
 		const allTools = getAllDomainTools(thread);
 		const { adapter, model } = await createAdapter();
 		const contextStr = getContextStr(thread);
@@ -611,31 +613,37 @@ export async function runAgentLoop(
 
 		const messages = [...thread.messages];
 
-		// Add trigger as new message
 		if (trigger.type === "message") {
 			messages.push({ role: "user" as const, content: trigger.content });
 		} else {
-			const wakeContent = `[SYSTEM WAKE] Scheduled wake: ${trigger.reason}`;
-			messages.push({ role: "user" as const, content: wakeContent });
+			messages.push({
+				role: "user" as const,
+				content: `[SYSTEM WAKE] Scheduled wake: ${trigger.reason}`,
+			});
 		}
 
-		// Clear wake state if this was a wake
 		if (trigger.type === "wake") {
 			await agentRepository.clearWake(thread.id);
 		}
 
-		// Run chat with built-in agent loop (non-streaming for workers)
-		// Mirror TanStack AI's TextEngine message tracking for proper persistence
 		const abortController = new AbortController();
 		const timeout = setTimeout(() => abortController.abort(), 120_000);
 
-		let response = "";
-		let accumulatedContent = "";
-		let toolCallCount = 0;
-		let usage: { promptTokens: number; completionTokens: number; totalTokens: number } | undefined;
-		const pendingToolCalls: ToolCall[] = [];
-		const pendingToolResults: { role: "tool"; content: string; toolCallId: string }[] = [];
-		const toolCallArgsBuffers = new Map<string, { name: string; args: string }>();
+		// First user content for title generation
+		const userMessages = messages.filter((m) => m.role === "user");
+		const isFirstExchange = userMessages.length === 1 && !thread.title;
+		const firstUserContent = isFirstExchange
+			? typeof userMessages[0].content === "string"
+				? userMessages[0].content
+				: null
+			: null;
+
+		// Middleware captures response, messages, usage, and tool count
+		const capture: AgentLoopCapture = {
+			response: "",
+			toolCallCount: 0,
+			messages: [],
+		};
 
 		try {
 			const stream = chat({
@@ -645,101 +653,30 @@ export async function runAgentLoop(
 				tools: allTools,
 				agentLoopStrategy: maxIterations(10),
 				abortController,
+				middleware: [
+					createHeadlessMiddleware({
+						threadId: thread.id,
+						model,
+						firstUserContent,
+						hasTitle: !!thread.title,
+						onEnd: () => clearTimeout(timeout),
+						capture,
+					}),
+				],
 			});
 
-			for await (const chunk of stream) {
-				switch (chunk.type) {
-					case "TEXT_MESSAGE_CONTENT":
-						accumulatedContent += chunk.delta;
-						break;
-
-					case "TOOL_CALL_START":
-						toolCallCount++;
-						toolCallArgsBuffers.set(chunk.toolCallId, { name: chunk.toolName, args: "" });
-						log.info(
-							{ threadId: thread.id, toolName: chunk.toolName, toolCallId: chunk.toolCallId, model },
-							"Tool call started"
-						);
-						break;
-
-					case "TOOL_CALL_ARGS":
-						if (toolCallArgsBuffers.has(chunk.toolCallId)) {
-							toolCallArgsBuffers.get(chunk.toolCallId)!.args += chunk.delta;
-						}
-						break;
-
-					case "TOOL_CALL_END": {
-						const buf = toolCallArgsBuffers.get(chunk.toolCallId);
-						if (buf) {
-							pendingToolCalls.push({
-								id: chunk.toolCallId,
-								type: "function",
-								function: { name: buf.name, arguments: buf.args },
-							});
-							toolCallArgsBuffers.delete(chunk.toolCallId);
-
-							if (chunk.result !== undefined) {
-								pendingToolResults.push({
-									role: "tool",
-									content:
-										typeof chunk.result === "string" ? chunk.result : JSON.stringify(chunk.result),
-									toolCallId: chunk.toolCallId,
-								});
-							}
-
-							log.info(
-								{ threadId: thread.id, toolName: buf.name, toolCallId: chunk.toolCallId, model },
-								"Tool call completed"
-							);
-						}
-						break;
-					}
-
-					case "RUN_FINISHED": {
-						// Flush in correct order: assistant message (with toolCalls) first, then tool results
-						if (pendingToolCalls.length > 0) {
-							messages.push({
-								role: "assistant",
-								content: accumulatedContent || null,
-								toolCalls: [...pendingToolCalls],
-							});
-							for (const result of pendingToolResults) {
-								messages.push(result);
-							}
-							pendingToolCalls.length = 0;
-							pendingToolResults.length = 0;
-						} else if (accumulatedContent) {
-							messages.push({ role: "assistant", content: accumulatedContent });
-						}
-
-						if (accumulatedContent) response = accumulatedContent;
-						accumulatedContent = "";
-
-						if (chunk.usage) {
-							usage = chunk.usage;
-							log.info(
-								{
-									threadId: thread.id,
-									model,
-									promptTokens: chunk.usage.promptTokens,
-									completionTokens: chunk.usage.completionTokens,
-									totalTokens: chunk.usage.totalTokens,
-								},
-								"Agent run finished"
-							);
-						}
-						break;
-					}
-				}
+			// Drain stream — middleware handles logging and result capture
+			for await (const _chunk of stream) {
+				// All processing handled by middleware hooks
 			}
 		} finally {
 			clearTimeout(timeout);
 		}
 
-		span.setAttribute("agent.tool_call_count", toolCallCount);
+		span.setAttribute("agent.tool_call_count", capture.toolCallCount);
 
-		// messages already contains all properly structured messages from the stream
-		const newMessages = messages;
+		// Use messages from middleware context (includes all assistant + tool messages)
+		const finalMessages = capture.messages.length > 0 ? [...capture.messages] : messages;
 
 		// Persist final state
 		const updatedThread = await agentRepository.findById(thread.id);
@@ -754,7 +691,7 @@ export async function runAgentLoop(
 		for (let attempt = 0; attempt < 3 && !writeSuccess; attempt++) {
 			try {
 				await agentRepository.update(thread.id, {
-					messages: newMessages,
+					messages: finalMessages,
 					status: finalStatus,
 				});
 				writeSuccess = true;
@@ -772,39 +709,10 @@ export async function runAgentLoop(
 			log.error({ threadId: thread.id }, "All attempts to write final state failed");
 		}
 
-		log.info(
-			{
-				threadId: thread.id,
-				status: finalStatus,
-				model,
-				toolCallCount,
-				...(usage && {
-					promptTokens: usage.promptTokens,
-					completionTokens: usage.completionTokens,
-					totalTokens: usage.totalTokens,
-				}),
-			},
-			"Agent loop completed"
-		);
-
 		// Emit thread:updated so UI knows to refetch if viewing this thread
 		appEvents.emit("thread:updated", { id: thread.id, title: thread.title });
 
-		// Generate title after first user message + response (async, don't block)
-		const userMessages = newMessages.filter((m) => m.role === "user");
-		if (userMessages.length === 1 && response && !thread.title) {
-			const userContent =
-				typeof userMessages[0].content === "string" ? userMessages[0].content : "";
-			generateConversationTitle(userContent, response, model).then((title) => {
-				if (title) {
-					log.info({ threadId: thread.id, title }, "Generated thread title");
-					agentRepository.update(thread.id, { title });
-					appEvents.emit("thread:updated", { id: thread.id, title });
-				}
-			});
-		}
-
-		return { thread, response };
+		return { thread, response: capture.response };
 	});
 }
 

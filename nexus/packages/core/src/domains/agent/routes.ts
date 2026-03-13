@@ -1,9 +1,11 @@
 import logger from "@nexus/logger";
-import type { StreamChunk } from "@tanstack/ai";
-import { chat, convertMessagesToModelMessages, maxIterations, toServerSentEventsResponse } from "@tanstack/ai";
+import {
+	chat,
+	convertMessagesToModelMessages,
+	maxIterations,
+	toServerSentEventsResponse,
+} from "@tanstack/ai";
 import { Elysia, t } from "elysia";
-import { generateConversationTitle } from "../../infra/ai";
-import { appEvents } from "../../infra/events";
 import { getToolSummary, getToolsByCategory, toolRegistry } from "../../infra/tool-registry";
 import {
 	AGENT_SYSTEM_PROMPT,
@@ -15,6 +17,7 @@ import {
 	listThreads,
 	sendMessage,
 } from "./functions";
+import { createStreamingMiddleware } from "./middleware";
 import { agentRepository } from "./repository";
 import type { AgentThread } from "./schema";
 import {
@@ -59,109 +62,6 @@ function threadToDetail(thread: AgentThread) {
 		createdAt: thread.createdAt.toISOString(),
 		updatedAt: thread.updatedAt.toISOString(),
 	};
-}
-
-/**
- * Thin wrapper around the chat stream for logging and title generation.
- *
- * Persistence is NOT done here — the client (useChat) sends the full conversation
- * on each request. We persist those client-sent messages at the start of each /chat
- * request, which captures the complete state including all prior tool calls/results.
- * TanStack AI's chat() handles the agent loop; we just pass through events.
- */
-async function* withSideEffects(
-	stream: AsyncIterable<StreamChunk>,
-	thread: AgentThread,
-	firstUserContent: string | null,
-	timeout: ReturnType<typeof setTimeout>,
-	model: string
-): AsyncIterable<StreamChunk> {
-	let lastAssistantContent: string | null = null;
-	let accumulatedContent = "";
-	let chunkCount = 0;
-	let lastChunkType = "";
-
-	try {
-		for await (const chunk of stream) {
-			chunkCount++;
-			lastChunkType = chunk.type;
-
-			switch (chunk.type) {
-				case "TEXT_MESSAGE_CONTENT":
-					accumulatedContent += chunk.delta;
-					break;
-
-				case "TOOL_CALL_START":
-					log.info(
-						{ threadId: thread.id, toolName: chunk.toolName, toolCallId: chunk.toolCallId, model },
-						"Tool call started"
-					);
-					break;
-
-				case "TOOL_CALL_END":
-					log.info(
-						{ threadId: thread.id, toolName: chunk.toolName, toolCallId: chunk.toolCallId, model },
-						"Tool call completed"
-					);
-					break;
-
-				case "RUN_ERROR":
-					log.error(
-						{
-							threadId: thread.id,
-							model,
-							error: chunk.error?.message ?? "Unknown error",
-							errorCode: chunk.error?.code,
-						},
-						"Agent run error"
-					);
-					break;
-
-				case "RUN_FINISHED":
-					if (accumulatedContent) {
-						lastAssistantContent = accumulatedContent;
-						accumulatedContent = "";
-					}
-					log.info(
-						{
-							threadId: thread.id,
-							model,
-							finishReason: chunk.finishReason,
-							hasUsage: !!chunk.usage,
-							promptTokens: chunk.usage?.promptTokens,
-							completionTokens: chunk.usage?.completionTokens,
-						},
-						"Agent run finished"
-					);
-					break;
-			}
-
-			yield chunk;
-		}
-
-		log.info(
-			{ threadId: thread.id, model, chunkCount, lastChunkType },
-			"Agent stream ended normally"
-		);
-	} catch (err) {
-		log.error(
-			{ threadId: thread.id, model, chunkCount, lastChunkType, error: err instanceof Error ? err.message : String(err) },
-			"Agent stream error"
-		);
-		throw err;
-	} finally {
-		clearTimeout(timeout);
-
-		if (!thread.title && firstUserContent && lastAssistantContent) {
-			generateConversationTitle(firstUserContent, lastAssistantContent, model).then((title) => {
-				if (title) {
-					log.info({ threadId: thread.id, title }, "Generated thread title");
-					agentRepository.update(thread.id, { title });
-					appEvents.emit("thread:updated", { id: thread.id, title });
-				}
-			});
-		}
-	}
 }
 
 export const agentRoutes = new Elysia({ prefix: "/agent" })
@@ -309,8 +209,6 @@ export const agentRoutes = new Elysia({ prefix: "/agent" })
 			const abortController = new AbortController();
 			const timeout = setTimeout(() => abortController.abort(), 120_000);
 
-			// chat() handles the full agent loop (tool calls, retries, etc.)
-			// Pass raw messages — chat() calls convertMessagesToModelMessages internally
 			const stream = chat({
 				adapter,
 				messages,
@@ -318,12 +216,18 @@ export const agentRoutes = new Elysia({ prefix: "/agent" })
 				tools: allTools,
 				agentLoopStrategy: maxIterations(10),
 				abortController,
+				middleware: [
+					createStreamingMiddleware({
+						threadId: thread.id,
+						model,
+						firstUserContent,
+						hasTitle: !!thread.title,
+						onEnd: () => clearTimeout(timeout),
+					}),
+				],
 			});
 
-			// Thin wrapper for logging and title generation only
-			const wrapped = withSideEffects(stream, thread, firstUserContent, timeout, model);
-
-			return toServerSentEventsResponse(wrapped, { abortController });
+			return toServerSentEventsResponse(stream, { abortController });
 		},
 		{
 			detail: { tags: ["Agent"], summary: "Chat with agent (SSE streaming)" },

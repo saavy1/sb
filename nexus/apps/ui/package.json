@@ -22,6 +22,7 @@
 		"@tailwindcss/vite": "^4.0.6",
 		"@tanstack/ai-client": "^0.7.1",
 		"@tanstack/ai-react": "^0.7.1",
+		"@tanstack/ai-react-ui": "^0.6.1",
 		"@tanstack/react-devtools": "^0.7.0",
 		"@tanstack/react-form": "^1.27.3",
 		"@tanstack/react-router": "^1.132.0",
