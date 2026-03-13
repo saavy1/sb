@@ -100,24 +100,19 @@ export const toolRegistry: ToolInfo[] = [
 		category: "System Info",
 	},
 
-	// Apps Tools
+	// Dashboard Bookmark Tools
 	{
-		name: "list_apps",
-		description: "List all registered apps/services with their URLs and status",
-		category: "Apps",
-	},
-	{
-		name: "get_app",
-		description: "Get details about a specific app by name or ID",
-		category: "Apps",
+		name: "get_app_url",
+		description: "Look up a dashboard bookmark URL by app name",
+		category: "Dashboard",
 		parameters: {
-			nameOrId: { type: "string", description: "App name or ID", required: true },
+			name: { type: "string", description: "App name to search for", required: true },
 		},
 	},
 	{
 		name: "add_app",
-		description: "Register a new app/service in the dashboard",
-		category: "Apps",
+		description: "Add a bookmark to the Nexus dashboard",
+		category: "Dashboard",
 		parameters: {
 			name: { type: "string", description: "App display name", required: true },
 			url: { type: "string", description: "App URL", required: true },
@@ -129,11 +124,11 @@ export const toolRegistry: ToolInfo[] = [
 		},
 	},
 	{
-		name: "remove_app",
-		description: "Remove an app from the dashboard",
-		category: "Apps",
+		name: "delete_app",
+		description: "Remove a bookmark from the Nexus dashboard",
+		category: "Dashboard",
 		parameters: {
-			nameOrId: { type: "string", description: "App name or ID to remove", required: true },
+			name: { type: "string", description: "App name to remove", required: true },
 		},
 	},
 
