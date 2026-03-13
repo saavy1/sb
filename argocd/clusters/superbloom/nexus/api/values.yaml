@@ -42,6 +42,7 @@ controllers:
           OPS_FLAKE_TARGET: superbloom
           OTEL_EXPORTER_OTLP_ENDPOINT: http://grafana-k8s-monitoring-alloy-receiver.alloy:4318
           VALKEY_URL: redis://valkey.valkey.svc.cluster.local:6379
+          FALKORDB_URL: redis://falkordb.falkordb.svc.cluster.local:6379
           MC_LOADBALANCER_HOST: minecraft.game-servers.svc.cluster.local
         envFrom:
           - secretRef:

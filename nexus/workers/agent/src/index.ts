@@ -16,7 +16,9 @@ import {
 	startDiscordAsksWorker,
 	startSystemEventsWorker,
 } from "@nexus/core/domains/agent";
+import { startMemoryExtractionWorker } from "@nexus/core/domains/memory";
 import { config } from "@nexus/core/infra/config";
+import { closeGraph } from "@nexus/core/infra/graph";
 import { mcpManager } from "@nexus/core/infra/mcp";
 import { closeQueues } from "@nexus/core/infra/queue";
 import logger from "@nexus/logger";
@@ -45,11 +47,12 @@ await mcpManager.initialize();
 const agentWorker = startAgentWorker();
 const systemEventsWorker = startSystemEventsWorker();
 const discordAsksWorker = startDiscordAsksWorker();
+const memoryWorker = startMemoryExtractionWorker();
 
 log.info(
 	{
 		valkeyUrl: config.VALKEY_URL,
-		workers: ["agent-wake", "system-events", "discord-asks"],
+		workers: ["agent-wake", "system-events", "discord-asks", "memory-extraction"],
 	},
 	"Agent worker started"
 );
@@ -61,8 +64,10 @@ async function shutdown(signal: string) {
 	await agentWorker.close();
 	await systemEventsWorker.close();
 	await discordAsksWorker.close();
+	await memoryWorker.close();
 	await mcpManager.close();
 	await closeQueues();
+	await closeGraph();
 
 	process.exit(0);
 }

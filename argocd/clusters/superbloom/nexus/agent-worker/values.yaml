@@ -21,6 +21,7 @@ controllers:
           OPS_FLAKE_PATH: /home/saavy/dev/sb
           OPS_FLAKE_TARGET: superbloom
           VALKEY_URL: redis://valkey.valkey.svc.cluster.local:6379
+          FALKORDB_URL: redis://falkordb.falkordb.svc.cluster.local:6379
         envFrom:
           - secretRef:
               name: nexus-env

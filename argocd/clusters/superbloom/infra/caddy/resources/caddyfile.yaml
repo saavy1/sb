@@ -143,6 +143,15 @@ data:
         reverse_proxy kube-prometheus-stack-grafana.monitoring.svc.cluster.local:80
     }
 
+    # FalkorDB Browser - protected with forward_auth
+    graph.saavylab.dev {
+        forward_auth authelia.authelia.svc.cluster.local:80 {
+            uri /api/authz/forward-auth
+            copy_headers Remote-User Remote-Groups Remote-Email Remote-Name
+        }
+        reverse_proxy falkordb.falkordb.svc.cluster.local:3000
+    }
+
     # Health endpoint (optional - for k8s probes on the caddy service itself)
     :80 {
         respond /health 200

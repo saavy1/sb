@@ -1,4 +1,5 @@
 import { config } from "@nexus/core/infra/config";
+import { closeGraph } from "@nexus/core/infra/graph";
 import { mcpManager } from "@nexus/core/infra/mcp";
 import { closePubSub, initPubSub } from "@nexus/core/infra/pubsub";
 import { closeQueues, redis } from "@nexus/core/infra/queue";
@@ -49,6 +50,7 @@ async function shutdown(signal: string) {
 	await closePubSub();
 	await mcpManager.close();
 	await closeQueues();
+	await closeGraph();
 	server.stop();
 	process.exit(0);
 }

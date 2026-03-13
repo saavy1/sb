@@ -5,7 +5,7 @@ import { createChatAdapter, hasAiProvider } from "../../infra/ai";
 import { COLORS, notify, sendDiscordNotification } from "../../infra/discord";
 import { appEvents } from "../../infra/events";
 import { mcpManager } from "../../infra/mcp";
-import { agentWakeQueue } from "../../infra/queue";
+import { agentWakeQueue, memoryExtractionQueue } from "../../infra/queue";
 import { withSpan } from "../../infra/telemetry";
 import { appTools } from "../apps/functions";
 import { getAiModel } from "../core/functions";
@@ -14,6 +14,8 @@ import { grafanaTools } from "../grafana/functions";
 import { customInfisicalTools } from "../infisical/functions";
 import { lokiTools } from "../loki/functions";
 import { mediaTools } from "../media/functions";
+import { recallForMessage } from "../memory/functions";
+import { memoryTools } from "../memory/tools";
 import { opsTools } from "../ops/functions";
 import { systemInfoTools } from "../system-info/functions";
 import type { AgentLoopCapture } from "./middleware";
@@ -284,7 +286,15 @@ You may act autonomously for SAFE, REVERSIBLE operations:
 ALWAYS ASK before:
 - Stopping servers with active players
 - Deleting anything
-- Actions that can't be easily undone`;
+- Actions that can't be easily undone
+
+## Long-Term Memory
+You have a graph-based memory that captures knowledge from past conversations. Relevant memories are automatically included when available. You also have tools for explicit memory access:
+- remember: Store an important fact (with associated entities)
+- recall_memory: Search memory by keyword or entity name
+- recall_entity: Get everything known about a specific entity
+
+Trust your memory but verify when information might be stale. Facts include timestamps so you can judge recency.`;
 
 // === Helper functions ===
 
@@ -356,6 +366,11 @@ Example: complete_task({ summary: "Started the Minecraft server" })`,
 		}),
 	}).server(async ({ summary }) => {
 		await agentRepository.update(thread.id, { status: "complete" });
+
+		// Queue memory extraction for this completed thread
+		memoryExtractionQueue
+			.add("extract", { threadId: thread.id })
+			.catch((err) => log.warn({ err, threadId: thread.id }, "Failed to queue memory extraction"));
 
 		log.info({ threadId: thread.id, summary }, "Task completed");
 
@@ -539,6 +554,7 @@ export function getAllDomainTools(thread: AgentThread) {
 		...lokiTools,
 		...grafanaTools,
 		...customInfisicalTools,
+		...memoryTools,
 		...metaTools,
 		...mcpManager.getAllTools(),
 	];
@@ -607,9 +623,13 @@ export async function runAgentLoop(
 		const { adapter, model } = await createAdapter();
 		const contextStr = getContextStr(thread);
 
+		// Recall relevant memory context
+		const triggerText = trigger.type === "message" ? trigger.content : trigger.reason;
+		const memoryStr = await recallForMessage(triggerText, thread.source, thread.context);
+
 		span.setAttribute("ai.model", model);
 
-		log.info({ threadId: thread.id, trigger, model }, "Starting agent loop");
+		log.info({ threadId: thread.id, trigger, model, hasMemory: !!memoryStr }, "Starting agent loop");
 
 		const messages = [...thread.messages];
 
@@ -649,7 +669,7 @@ export async function runAgentLoop(
 			const stream = chat({
 				adapter,
 				messages: messages as Parameters<typeof chat>[0]["messages"],
-				systemPrompts: [AGENT_SYSTEM_PROMPT + contextStr],
+				systemPrompts: [AGENT_SYSTEM_PROMPT + contextStr + (memoryStr ?? "")],
 				tools: allTools,
 				agentLoopStrategy: maxIterations(10),
 				abortController,
@@ -707,6 +727,13 @@ export async function runAgentLoop(
 		}
 		if (!writeSuccess) {
 			log.error({ threadId: thread.id }, "All attempts to write final state failed");
+		}
+
+		// Queue memory extraction if thread completed (covers non-explicit completions)
+		if (finalStatus === "complete") {
+			memoryExtractionQueue
+				.add("extract", { threadId: thread.id })
+				.catch((err) => log.warn({ err, threadId: thread.id }, "Failed to queue memory extraction"));
 		}
 
 		// Emit thread:updated so UI knows to refetch if viewing this thread

@@ -31,15 +31,17 @@ async function getQueueStats(queue: Queue) {
 
 // Emit stats for all queues (exported for use in routes)
 export async function emitAllQueueStats() {
-	const [agentStats, systemStats, discordStats] =
+	const [agentStats, systemStats, discordStats, memoryStats] =
 		await Promise.all([
 			getQueueStats(agentWakeQueue),
 			getQueueStats(systemEventQueue),
 			getQueueStats(discordAsksQueue),
+			getQueueStats(memoryExtractionQueue),
 		]);
 	appEvents.emit("queue:stats:updated", agentStats);
 	appEvents.emit("queue:stats:updated", systemStats);
 	appEvents.emit("queue:stats:updated", discordStats);
+	appEvents.emit("queue:stats:updated", memoryStats);
 }
 
 // Shared Redis connection for all queues
@@ -60,6 +62,7 @@ export const QUEUES = {
 	AGENT_WAKES: "agent-wakes",
 	EVENTS_SYSTEM: "events-system",
 	DISCORD_ASKS: "discord-asks",
+	MEMORY_EXTRACTION: "memory-extraction",
 } as const;
 
 // Create queues
@@ -84,6 +87,14 @@ export const discordAsksQueue = new Queue(QUEUES.DISCORD_ASKS, {
 	defaultJobOptions: {
 		removeOnComplete: 100,
 		removeOnFail: 1000,
+	},
+});
+
+export const memoryExtractionQueue = new Queue(QUEUES.MEMORY_EXTRACTION, {
+	connection: redis,
+	defaultJobOptions: {
+		removeOnComplete: 50,
+		removeOnFail: 200,
 	},
 });
 
@@ -171,6 +182,7 @@ export async function closeQueues() {
 	await agentWakeQueue.close();
 	await systemEventQueue.close();
 	await discordAsksQueue.close();
+	await memoryExtractionQueue.close();
 	await redis.quit();
 	log.info("Queue connections closed");
 }

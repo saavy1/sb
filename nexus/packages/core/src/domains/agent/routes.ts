@@ -17,6 +17,7 @@ import {
 	listThreads,
 	sendMessage,
 } from "./functions";
+import { recallForMessage } from "../memory/functions";
 import { createStreamingMiddleware } from "./middleware";
 import { agentRepository } from "./repository";
 import type { AgentThread } from "./schema";
@@ -204,7 +205,12 @@ export const agentRoutes = new Elysia({ prefix: "/agent" })
 			const contextStr = getContextStr(thread);
 			const allTools = getAllDomainTools(thread);
 
-			log.info({ threadId: thread.id, model }, "Starting streaming chat");
+			// Recall relevant memory context from the latest user message
+			const lastUserMsg = modelMessages.filter((m) => m.role === "user").pop();
+			const userText = lastUserMsg && typeof lastUserMsg.content === "string" ? lastUserMsg.content : "";
+			const memoryStr = await recallForMessage(userText, thread.source, thread.context);
+
+			log.info({ threadId: thread.id, model, hasMemory: !!memoryStr }, "Starting streaming chat");
 
 			const abortController = new AbortController();
 			const timeout = setTimeout(() => abortController.abort(), 120_000);
@@ -212,7 +218,7 @@ export const agentRoutes = new Elysia({ prefix: "/agent" })
 			const stream = chat({
 				adapter,
 				messages,
-				systemPrompts: [AGENT_SYSTEM_PROMPT + contextStr],
+				systemPrompts: [AGENT_SYSTEM_PROMPT + contextStr + (memoryStr ?? "")],
 				tools: allTools,
 				agentLoopStrategy: maxIterations(10),
 				abortController,

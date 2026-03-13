@@ -57,6 +57,9 @@ export const config = {
   // Valkey (Redis-compatible) for BullMQ queues
   VALKEY_URL: Bun.env.VALKEY_URL || "redis://localhost:6379",
 
+  // FalkorDB (graph database for agent memory)
+  FALKORDB_URL: Bun.env.FALKORDB_URL || "redis://falkordb.falkordb.svc.cluster.local:6379",
+
   // Media services (Jellyseerr)
   JELLYSEERR_URL:
     Bun.env.JELLYSEERR_URL ||

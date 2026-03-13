@@ -32,6 +32,7 @@
     "bullmq": "catalog:",
     "drizzle-orm": "^0.45.1",
     "elysia": "catalog:",
+    "falkordb": "^6.6.2",
     "ioredis": "catalog:",
     "zod": "catalog:"
   },
