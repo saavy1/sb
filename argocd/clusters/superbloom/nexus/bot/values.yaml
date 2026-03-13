@@ -9,7 +9,7 @@ controllers:
       main:
         image:
           repository: registry.saavylab.dev/saavy1/nexus-bot
-          tag: 1e2e9cdf79e06c3da0c83b9bbdba6085860bacb8
+          tag: 2f530a34e96f29c12787ab92dafc1c30d270f253
           pullPolicy: Always
         env:
           NODE_ENV: production
