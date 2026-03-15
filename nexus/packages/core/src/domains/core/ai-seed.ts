@@ -1,7 +1,7 @@
 import logger from "@nexus/logger";
 import { config } from "../../infra/config";
-import { providerRepository, modelRepository } from "./ai-registry";
-import { DEFAULT_MODELS, DEFAULT_LOCAL_MODELS } from "./types";
+import { modelRepository, providerRepository } from "./ai-registry";
+import { DEFAULT_LOCAL_MODELS, DEFAULT_MODELS } from "./types";
 
 const log = logger.child({ module: "ai-seed" });
 

@@ -1,12 +1,12 @@
 import { eq } from "drizzle-orm";
 import { agentDb } from "../../infra/db";
 import {
-	aiProviders,
-	aiModels,
-	type AiProvider,
-	type NewAiProvider,
 	type AiModel,
+	type AiProvider,
+	aiModels,
+	aiProviders,
 	type NewAiModel,
+	type NewAiProvider,
 } from "../agent/schema";
 
 // === Provider repository ===

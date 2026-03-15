@@ -4,10 +4,10 @@ import { t } from "elysia";
 // These are the known settings that can be configured
 
 export const SETTING_KEYS = {
-  AI_MODEL: "ai_model",
-  DISCORD_WEBHOOK_URL: "discord_webhook_url",
-  MC_DEFAULT_MEMORY: "mc_default_memory",
-  MC_DEFAULT_STORAGE: "mc_default_storage",
+	AI_MODEL: "ai_model",
+	DISCORD_WEBHOOK_URL: "discord_webhook_url",
+	MC_DEFAULT_MEMORY: "mc_default_memory",
+	MC_DEFAULT_STORAGE: "mc_default_storage",
 } as const;
 
 // === Model options ===
@@ -15,142 +15,142 @@ export const SETTING_KEYS = {
 // Can be extended via AI_MODELS env var (comma-separated)
 
 export const DEFAULT_MODELS = [
-  { id: "deepseek/deepseek-chat", name: "DeepSeek V3", provider: "DeepSeek" },
-  { id: "deepseek/deepseek-v3.2", name: "DeepSeek V3.2", provider: "DeepSeek" },
-  {
-    id: "anthropic/claude-sonnet-4.5",
-    name: "Claude Sonnet 4.5",
-    provider: "Anthropic",
-  },
-  {
-    id: "anthropic/claude-haiku-4.5",
-    name: "Claude Haiku 4.5",
-    provider: "Anthropic",
-  },
-  {
-    id: "google/gemini-2.5-flash-lite",
-    name: "Gemini 2.5 Flash Lite",
-    provider: "Google",
-  },
-  { id: "x-ai/grok-4.1-fast", name: "Grok 4.1 Fast", provider: "X.AI" },
-  {
-    id: "nvidia/nemotron-3-nano-30b-a3b:free",
-    name: "Nemotron 3 Nano 30B A3B Free",
-    provider: "NVIDIA",
-  },
-  {
-    id: "nvidia/nemotron-3-super-120b-a12b:free",
-    name: "Nemotron 3 Super (free)",
-    provider: "NVIDIA",
-  },
-  {
-    id: "nvidia/llama-3.3-nemotron-super-49b-v1.5",
-    name: "Nemotron Super 49B v1.5",
-    provider: "NVIDIA",
-  },
-  {
-    id: "qwen/qwen3.5-35b-a3b",
-    name: "Qwen3.5-35B-A3B",
-    provider: "Qwen",
-  },
+	{ id: "deepseek/deepseek-chat", name: "DeepSeek V3", provider: "DeepSeek" },
+	{ id: "deepseek/deepseek-v3.2", name: "DeepSeek V3.2", provider: "DeepSeek" },
+	{
+		id: "anthropic/claude-sonnet-4.5",
+		name: "Claude Sonnet 4.5",
+		provider: "Anthropic",
+	},
+	{
+		id: "anthropic/claude-haiku-4.5",
+		name: "Claude Haiku 4.5",
+		provider: "Anthropic",
+	},
+	{
+		id: "google/gemini-2.5-flash-lite",
+		name: "Gemini 2.5 Flash Lite",
+		provider: "Google",
+	},
+	{ id: "x-ai/grok-4.1-fast", name: "Grok 4.1 Fast", provider: "X.AI" },
+	{
+		id: "nvidia/nemotron-3-nano-30b-a3b:free",
+		name: "Nemotron 3 Nano 30B A3B Free",
+		provider: "NVIDIA",
+	},
+	{
+		id: "nvidia/nemotron-3-super-120b-a12b:free",
+		name: "Nemotron 3 Super (free)",
+		provider: "NVIDIA",
+	},
+	{
+		id: "nvidia/llama-3.3-nemotron-super-49b-v1.5",
+		name: "Nemotron Super 49B v1.5",
+		provider: "NVIDIA",
+	},
+	{
+		id: "qwen/qwen3.5-35b-a3b",
+		name: "Qwen3.5-35B-A3B",
+		provider: "Qwen",
+	},
 ] as const;
 
 // Local models available when AI_PROVIDER=local (vLLM, Ollama, etc.)
 export const DEFAULT_LOCAL_MODELS = [
-  { id: "meta-llama/Llama-3.3-70B-Instruct", name: "Llama 3.3 70B", provider: "Local" },
-  { id: "deepseek-ai/DeepSeek-V3", name: "DeepSeek V3", provider: "Local" },
-  { id: "Qwen/Qwen2.5-72B-Instruct", name: "Qwen 2.5 72B", provider: "Local" },
+	{ id: "meta-llama/Llama-3.3-70B-Instruct", name: "Llama 3.3 70B", provider: "Local" },
+	{ id: "deepseek-ai/DeepSeek-V3", name: "DeepSeek V3", provider: "Local" },
+	{ id: "Qwen/Qwen2.5-72B-Instruct", name: "Qwen 2.5 72B", provider: "Local" },
 ] as const;
 
 // === AI provider/model API schemas ===
 
 export const AiProviderSchema = t.Object({
-  id: t.String(),
-  name: t.String(),
-  type: t.Union([t.Literal("openrouter"), t.Literal("openai-compatible")]),
-  baseUrl: t.Nullable(t.String()),
-  hasApiKey: t.Boolean(), // true if apiKey is set (never expose the actual key)
-  enabled: t.Boolean(),
-  createdAt: t.String(),
-  updatedAt: t.String(),
+	id: t.String(),
+	name: t.String(),
+	type: t.Union([t.Literal("openrouter"), t.Literal("openai-compatible")]),
+	baseUrl: t.Nullable(t.String()),
+	hasApiKey: t.Boolean(), // true if apiKey is set (never expose the actual key)
+	enabled: t.Boolean(),
+	createdAt: t.String(),
+	updatedAt: t.String(),
 });
 
 export const CreateProviderBody = t.Object({
-  id: t.String(),
-  name: t.String(),
-  type: t.Union([t.Literal("openrouter"), t.Literal("openai-compatible")]),
-  baseUrl: t.Optional(t.Nullable(t.String())),
-  apiKey: t.Optional(t.Nullable(t.String())),
+	id: t.String(),
+	name: t.String(),
+	type: t.Union([t.Literal("openrouter"), t.Literal("openai-compatible")]),
+	baseUrl: t.Optional(t.Nullable(t.String())),
+	apiKey: t.Optional(t.Nullable(t.String())),
 });
 
 export const UpdateProviderBody = t.Object({
-  name: t.Optional(t.String()),
-  baseUrl: t.Optional(t.Nullable(t.String())),
-  apiKey: t.Optional(t.Nullable(t.String())),
-  enabled: t.Optional(t.Boolean()),
+	name: t.Optional(t.String()),
+	baseUrl: t.Optional(t.Nullable(t.String())),
+	apiKey: t.Optional(t.Nullable(t.String())),
+	enabled: t.Optional(t.Boolean()),
 });
 
 export const AiModelSchema = t.Object({
-  id: t.String(),
-  providerId: t.String(),
-  modelId: t.String(),
-  name: t.String(),
-  enabled: t.Boolean(),
-  createdAt: t.String(),
-  updatedAt: t.String(),
+	id: t.String(),
+	providerId: t.String(),
+	modelId: t.String(),
+	name: t.String(),
+	enabled: t.Boolean(),
+	createdAt: t.String(),
+	updatedAt: t.String(),
 });
 
 export const CreateModelBody = t.Object({
-  providerId: t.String(),
-  modelId: t.String(),
-  name: t.String(),
+	providerId: t.String(),
+	modelId: t.String(),
+	name: t.String(),
 });
 
 export const UpdateModelBody = t.Object({
-  name: t.Optional(t.String()),
-  modelId: t.Optional(t.String()),
-  enabled: t.Optional(t.Boolean()),
+	name: t.Optional(t.String()),
+	modelId: t.Optional(t.String()),
+	enabled: t.Optional(t.Boolean()),
 });
 
 // === Settings API schemas ===
 
 export const ModelOption = t.Object({
-  id: t.String(),
-  name: t.String(),
-  provider: t.String(),
+	id: t.String(),
+	name: t.String(),
+	provider: t.String(),
 });
 
 export const SystemInfo = t.Object({
-  version: t.String(),
-  environment: t.String(),
-  uptime: t.Number(),
-  uptimeFormatted: t.String(),
-  apiUrl: t.String(),
-  k8sNamespace: t.String(),
-  k8sInCluster: t.Boolean(),
+	version: t.String(),
+	environment: t.String(),
+	uptime: t.Number(),
+	uptimeFormatted: t.String(),
+	apiUrl: t.String(),
+	k8sNamespace: t.String(),
+	k8sInCluster: t.Boolean(),
 });
 
 export const SettingsResponse = t.Object({
-  // Agent settings
-  aiModel: t.String(),
-  discordWebhookUrl: t.Nullable(t.String()),
-  availableModels: t.Array(ModelOption),
-  // Game server defaults
-  mcDefaultMemory: t.String(),
-  mcDefaultStorage: t.String(),
-  // System info (read-only)
-  system: SystemInfo,
+	// Agent settings
+	aiModel: t.String(),
+	discordWebhookUrl: t.Nullable(t.String()),
+	availableModels: t.Array(ModelOption),
+	// Game server defaults
+	mcDefaultMemory: t.String(),
+	mcDefaultStorage: t.String(),
+	// System info (read-only)
+	system: SystemInfo,
 });
 
 export const UpdateSettingsBody = t.Object({
-  aiModel: t.Optional(t.String()),
-  discordWebhookUrl: t.Optional(t.Nullable(t.String())),
-  mcDefaultMemory: t.Optional(t.String()),
-  mcDefaultStorage: t.Optional(t.String()),
+	aiModel: t.Optional(t.String()),
+	discordWebhookUrl: t.Optional(t.Nullable(t.String())),
+	mcDefaultMemory: t.Optional(t.String()),
+	mcDefaultStorage: t.Optional(t.String()),
 });
 
 export const ApiError = t.Object({
-  error: t.String(),
+	error: t.String(),
 });
 
 // === TypeScript types ===

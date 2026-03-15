@@ -1,5 +1,5 @@
-import { config } from "@nexus/core/infra/config";
 import { seedAiRegistry } from "@nexus/core/domains/core";
+import { config } from "@nexus/core/infra/config";
 import { closeGraph } from "@nexus/core/infra/graph";
 import { mcpManager } from "@nexus/core/infra/mcp";
 import { closePubSub, initPubSub } from "@nexus/core/infra/pubsub";

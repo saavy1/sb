@@ -1,14 +1,14 @@
 import { Elysia, t } from "elysia";
 import type { AiProvider } from "../agent/schema";
-import { providerRepository, modelRepository } from "./ai-registry";
+import { modelRepository, providerRepository } from "./ai-registry";
 import {
-	AiProviderSchema,
 	AiModelSchema,
-	CreateProviderBody,
-	UpdateProviderBody,
-	CreateModelBody,
-	UpdateModelBody,
+	AiProviderSchema,
 	ApiError,
+	CreateModelBody,
+	CreateProviderBody,
+	UpdateModelBody,
+	UpdateProviderBody,
 } from "./types";
 
 /** Map a DB provider row to the API schema (never expose raw apiKey). */
@@ -25,7 +25,15 @@ function toProviderResponse(p: AiProvider) {
 	};
 }
 
-function toModelResponse(m: { id: string; providerId: string; modelId: string; name: string; enabled: number; createdAt: Date; updatedAt: Date }) {
+function toModelResponse(m: {
+	id: string;
+	providerId: string;
+	modelId: string;
+	name: string;
+	enabled: number;
+	createdAt: Date;
+	updatedAt: Date;
+}) {
 	return {
 		id: m.id,
 		providerId: m.providerId,
@@ -231,6 +239,4 @@ const modelRoutes = new Elysia({ prefix: "/models" })
 
 // === Combined AI routes ===
 
-export const aiRoutes = new Elysia({ prefix: "/ai" })
-	.use(providerRoutes)
-	.use(modelRoutes);
+export const aiRoutes = new Elysia({ prefix: "/ai" }).use(providerRoutes).use(modelRoutes);

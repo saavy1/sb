@@ -383,9 +383,10 @@ function ProvidersPanel({
 			});
 
 			if (error) {
-				const msg = error.value && typeof error.value === "object" && "error" in error.value
-					? String(error.value.error)
-					: "Failed to create provider";
+				const msg =
+					error.value && typeof error.value === "object" && "error" in error.value
+						? String(error.value.error)
+						: "Failed to create provider";
 				toast.error(msg);
 				return;
 			}
@@ -515,7 +516,9 @@ function ProvidersPanel({
 
 				{/* Provider list */}
 				{providers.length === 0 ? (
-					<p className="text-xs text-text-tertiary py-2">No providers configured. Add one to get started.</p>
+					<p className="text-xs text-text-tertiary py-2">
+						No providers configured. Add one to get started.
+					</p>
 				) : (
 					<div className="space-y-1">
 						{providers.map((provider) => (
@@ -563,7 +566,10 @@ function ProvidersPanel({
 										onClick={() => handleToggle(provider)}
 										title={provider.enabled ? "Disable" : "Enable"}
 									>
-										<Power size={14} className={provider.enabled ? "text-success" : "text-text-tertiary"} />
+										<Power
+											size={14}
+											className={provider.enabled ? "text-success" : "text-text-tertiary"}
+										/>
 									</Button>
 									<Button
 										size="icon-sm"
@@ -613,10 +619,15 @@ function ModelsPanel({
 		{} as Record<string, AiModel[]>
 	);
 
-	// Auto-expand providers that have models
+	// Auto-expand providers that have models on initial load
+	const [hasInitExpanded, setHasInitExpanded] = useState(false);
 	useEffect(() => {
-		setExpandedProviders(new Set(Object.keys(modelsByProvider)));
-	}, [models.length]);
+		if (!hasInitExpanded && models.length > 0) {
+			const providerIds = new Set(models.map((m) => m.providerId));
+			setExpandedProviders(providerIds);
+			setHasInitExpanded(true);
+		}
+	}, [models, hasInitExpanded]);
 
 	const toggleExpanded = (providerId: string) => {
 		setExpandedProviders((prev) => {
@@ -642,9 +653,10 @@ function ModelsPanel({
 			});
 
 			if (error) {
-				const msg = error.value && typeof error.value === "object" && "error" in error.value
-					? String(error.value.error)
-					: "Failed to add model";
+				const msg =
+					error.value && typeof error.value === "object" && "error" in error.value
+						? String(error.value.error)
+						: "Failed to add model";
 				toast.error(msg);
 				return;
 			}
@@ -749,7 +761,9 @@ function ModelsPanel({
 
 				{/* Models grouped by provider */}
 				{providers.length === 0 ? (
-					<p className="text-xs text-text-tertiary py-2">Add a provider first, then add models to it.</p>
+					<p className="text-xs text-text-tertiary py-2">
+						Add a provider first, then add models to it.
+					</p>
 				) : (
 					<div className="space-y-2">
 						{providers.map((provider) => {
@@ -777,9 +791,7 @@ function ModelsPanel({
 												{providerModels.length} model{providerModels.length !== 1 ? "s" : ""}
 											</span>
 										</div>
-										{!provider.enabled && (
-											<Badge variant="default">disabled</Badge>
-										)}
+										{!provider.enabled && <Badge variant="default">disabled</Badge>}
 									</button>
 
 									{/* Model list */}
@@ -797,14 +809,16 @@ function ModelsPanel({
 													>
 														<div className="min-w-0">
 															<div className="flex items-center gap-2">
-																<span className={`text-sm ${model.enabled ? "text-text-primary" : "text-text-tertiary"}`}>
+																<span
+																	className={`text-sm ${model.enabled ? "text-text-primary" : "text-text-tertiary"}`}
+																>
 																	{model.name}
 																</span>
-																{!model.enabled && (
-																	<Badge variant="default">disabled</Badge>
-																)}
+																{!model.enabled && <Badge variant="default">disabled</Badge>}
 															</div>
-															<span className="text-xs text-text-tertiary font-mono">{model.modelId}</span>
+															<span className="text-xs text-text-tertiary font-mono">
+																{model.modelId}
+															</span>
 														</div>
 
 														<div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
