@@ -1,6 +1,6 @@
 import { agentRoutes } from "@nexus/core/domains/agent";
 import { appRoutes } from "@nexus/core/domains/apps";
-import { settingsRoutes } from "@nexus/core/domains/core";
+import { aiRoutes, settingsRoutes } from "@nexus/core/domains/core";
 import { gameServerRoutes } from "@nexus/core/domains/game-servers";
 import { memoryRoutes } from "@nexus/core/domains/memory";
 import { opsRoutes } from "@nexus/core/domains/ops";
@@ -20,6 +20,7 @@ export const privateRoutes = new Elysia({ prefix: "/api" })
 	.use(agentRoutes)
 	.use(memoryRoutes)
 	.use(settingsRoutes)
+	.use(aiRoutes)
 	.use(debugRoutes)
 	.use(eventsRoutes)
 	.onBeforeHandle(({ user, path }) => {

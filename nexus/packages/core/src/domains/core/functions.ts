@@ -1,8 +1,7 @@
-import { config, isLocalProvider } from "../../infra/config";
+import { config } from "../../infra/config";
+import { modelRepository } from "./ai-registry";
 import { settingsRepository } from "./repository";
 import {
-	DEFAULT_LOCAL_MODELS,
-	DEFAULT_MODELS,
 	type ModelOptionType,
 	SETTING_KEYS,
 	type SettingsResponseType,
@@ -15,24 +14,13 @@ const serverStartTime = Date.now();
 
 // === Model list ===
 
-function getAvailableModels(): ModelOptionType[] {
-	const envModels = config.AI_MODELS;
-
-	const baseModels: ModelOptionType[] = isLocalProvider
-		? [...DEFAULT_LOCAL_MODELS]
-		: [...DEFAULT_MODELS];
-
-	if (!envModels) {
-		return baseModels;
-	}
-
-	// Parse additional models from env var (format: "id:name:provider,id:name:provider")
-	const extraModels = envModels.split(",").map((m) => {
-		const [id, name, provider] = m.split(":");
-		return { id: id.trim(), name: name?.trim() || id, provider: provider?.trim() || "Custom" };
-	});
-
-	return [...baseModels, ...extraModels];
+async function getAvailableModels(): Promise<ModelOptionType[]> {
+	const models = await modelRepository.listEnabled();
+	return models.map((m) => ({
+		id: m.id, // Registry ID (e.g. "openrouter:deepseek/deepseek-v3.2")
+		name: m.name,
+		provider: m.providerId,
+	}));
 }
 
 // === System info ===
@@ -66,12 +54,22 @@ function getSystemInfo(): SystemInfoType {
 
 export async function getSettings(): Promise<SettingsResponseType> {
 	const allSettings = await settingsRepository.getAll();
+	const availableModels = await getAvailableModels();
+
+	// Get current model — fall back to first available if saved model no longer exists
+	let aiModel = allSettings[SETTING_KEYS.AI_MODEL] ?? "";
+	if (aiModel && !availableModels.some((m) => m.id === aiModel)) {
+		aiModel = "";
+	}
+	if (!aiModel && availableModels.length > 0) {
+		aiModel = availableModels[0].id;
+	}
 
 	return {
 		// Agent settings
-		aiModel: allSettings[SETTING_KEYS.AI_MODEL] ?? config.AI_MODEL,
+		aiModel,
 		discordWebhookUrl: allSettings[SETTING_KEYS.DISCORD_WEBHOOK_URL] ?? null,
-		availableModels: getAvailableModels(),
+		availableModels,
 		// Game server defaults
 		mcDefaultMemory: allSettings[SETTING_KEYS.MC_DEFAULT_MEMORY] ?? config.MC_DEFAULT_MEMORY,
 		mcDefaultStorage: allSettings[SETTING_KEYS.MC_DEFAULT_STORAGE] ?? config.MC_STORAGE_SIZE,
@@ -82,9 +80,15 @@ export async function getSettings(): Promise<SettingsResponseType> {
 
 export async function getAiModel(): Promise<string> {
 	const saved = await settingsRepository.get(SETTING_KEYS.AI_MODEL);
-	if (saved) return saved;
-	if (isLocalProvider && config.AI_LOCAL_MODEL) return config.AI_LOCAL_MODEL;
-	return config.AI_MODEL;
+	if (saved) {
+		// Verify the saved model still exists in the registry
+		const model = await modelRepository.get(saved);
+		if (model) return saved;
+	}
+	// Fall back to the first enabled model
+	const models = await modelRepository.listEnabled();
+	if (models.length > 0) return models[0].id;
+	throw new Error("No AI models configured");
 }
 
 export async function getDiscordWebhookUrl(): Promise<string | null> {
@@ -95,9 +99,9 @@ export async function getDiscordWebhookUrl(): Promise<string | null> {
 
 export async function updateSettings(data: UpdateSettingsBodyType): Promise<SettingsResponseType> {
 	if (data.aiModel !== undefined) {
-		// Validate model is in available list
-		const available = getAvailableModels();
-		if (!available.some((m) => m.id === data.aiModel)) {
+		// Validate model exists in registry
+		const model = await modelRepository.get(data.aiModel);
+		if (!model) {
 			throw new Error(`Invalid model: ${data.aiModel}`);
 		}
 		await settingsRepository.set(SETTING_KEYS.AI_MODEL, data.aiModel);

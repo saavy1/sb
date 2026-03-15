@@ -60,3 +60,38 @@ export const settings = agentSchema.table("settings", {
 
 export type Setting = typeof settings.$inferSelect;
 export type NewSetting = typeof settings.$inferInsert;
+
+// AI provider registry (OpenRouter, vLLM endpoints, etc.)
+export const aiProviders = agentSchema.table("ai_providers", {
+	id: text("id").primaryKey(), // e.g. "openrouter", "local-vllm"
+	name: text("name").notNull(), // Display name
+	type: text("type", { enum: ["openrouter", "openai-compatible"] }).notNull(),
+	baseUrl: text("base_url"), // null for OpenRouter (uses SDK default)
+	apiKey: text("api_key"), // null = use env var fallback or not needed
+	enabled: integer("enabled").notNull().default(1), // 1 = true, 0 = false
+	createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+	updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type AiProvider = typeof aiProviders.$inferSelect;
+export type NewAiProvider = typeof aiProviders.$inferInsert;
+
+// AI model registry
+export const aiModels = agentSchema.table(
+	"ai_models",
+	{
+		id: text("id").primaryKey(), // e.g. "openrouter:deepseek/deepseek-v3.2"
+		providerId: text("provider_id")
+			.notNull()
+			.references(() => aiProviders.id, { onDelete: "cascade" }),
+		modelId: text("model_id").notNull(), // The ID sent to the provider API
+		name: text("name").notNull(), // Display name
+		enabled: integer("enabled").notNull().default(1),
+		createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+		updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+	},
+	(table) => [index("idx_ai_models_provider").on(table.providerId)]
+);
+
+export type AiModel = typeof aiModels.$inferSelect;
+export type NewAiModel = typeof aiModels.$inferInsert;

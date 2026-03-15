@@ -1,4 +1,5 @@
 import { config } from "@nexus/core/infra/config";
+import { seedAiRegistry } from "@nexus/core/domains/core";
 import { closeGraph } from "@nexus/core/infra/graph";
 import { mcpManager } from "@nexus/core/infra/mcp";
 import { closePubSub, initPubSub } from "@nexus/core/infra/pubsub";
@@ -27,6 +28,11 @@ process.on("unhandledRejection", (reason, _promise) => {
 
 // Initialize pub/sub for real-time events
 initPubSub(redis);
+
+// Seed AI registry (idempotent — only populates on first run)
+seedAiRegistry().catch((err) => {
+	logger.warn({ err }, "AI registry seeding failed — models may need manual setup");
+});
 
 // Initialize MCP connections (non-blocking — agent works without MCP)
 mcpManager.initialize().catch((err) => {

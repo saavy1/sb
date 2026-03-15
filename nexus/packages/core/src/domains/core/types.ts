@@ -62,7 +62,57 @@ export const DEFAULT_LOCAL_MODELS = [
   { id: "Qwen/Qwen2.5-72B-Instruct", name: "Qwen 2.5 72B", provider: "Local" },
 ] as const;
 
-// === API schemas ===
+// === AI provider/model API schemas ===
+
+export const AiProviderSchema = t.Object({
+  id: t.String(),
+  name: t.String(),
+  type: t.Union([t.Literal("openrouter"), t.Literal("openai-compatible")]),
+  baseUrl: t.Nullable(t.String()),
+  hasApiKey: t.Boolean(), // true if apiKey is set (never expose the actual key)
+  enabled: t.Boolean(),
+  createdAt: t.String(),
+  updatedAt: t.String(),
+});
+
+export const CreateProviderBody = t.Object({
+  id: t.String(),
+  name: t.String(),
+  type: t.Union([t.Literal("openrouter"), t.Literal("openai-compatible")]),
+  baseUrl: t.Optional(t.Nullable(t.String())),
+  apiKey: t.Optional(t.Nullable(t.String())),
+});
+
+export const UpdateProviderBody = t.Object({
+  name: t.Optional(t.String()),
+  baseUrl: t.Optional(t.Nullable(t.String())),
+  apiKey: t.Optional(t.Nullable(t.String())),
+  enabled: t.Optional(t.Boolean()),
+});
+
+export const AiModelSchema = t.Object({
+  id: t.String(),
+  providerId: t.String(),
+  modelId: t.String(),
+  name: t.String(),
+  enabled: t.Boolean(),
+  createdAt: t.String(),
+  updatedAt: t.String(),
+});
+
+export const CreateModelBody = t.Object({
+  providerId: t.String(),
+  modelId: t.String(),
+  name: t.String(),
+});
+
+export const UpdateModelBody = t.Object({
+  name: t.Optional(t.String()),
+  modelId: t.Optional(t.String()),
+  enabled: t.Optional(t.Boolean()),
+});
+
+// === Settings API schemas ===
 
 export const ModelOption = t.Object({
   id: t.String(),
@@ -110,3 +160,9 @@ export type ModelOptionType = (typeof ModelOption)["static"];
 export type SystemInfoType = (typeof SystemInfo)["static"];
 export type SettingsResponseType = (typeof SettingsResponse)["static"];
 export type UpdateSettingsBodyType = (typeof UpdateSettingsBody)["static"];
+export type AiProviderSchemaType = (typeof AiProviderSchema)["static"];
+export type CreateProviderBodyType = (typeof CreateProviderBody)["static"];
+export type UpdateProviderBodyType = (typeof UpdateProviderBody)["static"];
+export type AiModelSchemaType = (typeof AiModelSchema)["static"];
+export type CreateModelBodyType = (typeof CreateModelBody)["static"];
+export type UpdateModelBodyType = (typeof UpdateModelBody)["static"];

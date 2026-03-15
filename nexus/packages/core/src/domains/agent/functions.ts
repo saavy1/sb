@@ -536,7 +536,7 @@ export function getContextStr(thread: AgentThread): string {
 export async function createAdapter() {
 	const aiModel = await getAiModel();
 	return {
-		adapter: createChatAdapter(aiModel),
+		adapter: await createChatAdapter(aiModel),
 		model: aiModel,
 	};
 }
@@ -609,9 +609,9 @@ export async function runAgentLoop(
 	thread: AgentThread,
 	trigger: { type: "message"; content: string } | { type: "wake"; reason: string }
 ): Promise<{ thread: AgentThread; response: string }> {
-	if (!hasAiProvider()) {
+	if (!(await hasAiProvider())) {
 		throw new Error(
-			"AI provider not configured — set OPENROUTER_API_KEY or AI_PROVIDER=local with AI_LOCAL_URL"
+			"No AI providers configured — add a provider via the settings UI or set OPENROUTER_API_KEY"
 		);
 	}
 

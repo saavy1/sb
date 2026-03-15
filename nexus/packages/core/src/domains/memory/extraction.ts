@@ -32,13 +32,13 @@ export async function extractKnowledge(
 	messages: { role: string; content: string }[],
 	knownEntities: string[],
 ): Promise<ExtractionResultType> {
-	if (!hasAiProvider()) {
+	if (!(await hasAiProvider())) {
 		log.warn("AI provider not configured, skipping extraction");
 		return { entities: [], facts: [], relationships: [] };
 	}
 
 	const model = await getAiModel();
-	const adapter = createChatAdapter(model);
+	const adapter = await createChatAdapter(model);
 
 	// Build a condensed conversation transcript
 	const transcript = messages
