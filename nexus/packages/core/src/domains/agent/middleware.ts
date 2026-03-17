@@ -1,10 +1,28 @@
 import logger from "@nexus/logger";
-import type { ChatMiddleware, ModelMessage } from "@tanstack/ai";
+import type { ChatMiddleware, ModelMessage, StreamChunk } from "@tanstack/ai";
 import { generateConversationTitle } from "../../infra/ai";
 import { appEvents } from "../../infra/events";
 import { agentRepository } from "./repository";
 
 const log = logger.child({ module: "agent" });
+
+/**
+ * Log RUN_ERROR chunks from the adapter.
+ * These bypass onError (which only fires for thrown exceptions),
+ * so without this they'd reach the client with zero server-side logging.
+ */
+function logChunkError(threadId: string, model: string, chunk: StreamChunk) {
+	if (chunk.type !== "RUN_ERROR") return;
+	log.error(
+		{
+			threadId,
+			model,
+			error: chunk.error?.message ?? "Unknown provider error",
+			errorCode: (chunk.error as Record<string, unknown>)?.code,
+		},
+		"Provider returned error"
+	);
+}
 
 interface BaseOptions {
 	threadId: string;
@@ -38,6 +56,10 @@ export function createStreamingMiddleware({
 }: BaseOptions): ChatMiddleware {
 	return {
 		name: "agent-streaming",
+
+		onChunk(_ctx, chunk) {
+			logChunkError(threadId, model, chunk);
+		},
 
 		onBeforeToolCall(_ctx, hookCtx) {
 			log.info(
@@ -125,6 +147,10 @@ export function createHeadlessMiddleware({
 }: BaseOptions & { capture: AgentLoopCapture }): ChatMiddleware {
 	return {
 		name: "agent-headless",
+
+		onChunk(_ctx, chunk) {
+			logChunkError(threadId, model, chunk);
+		},
 
 		onBeforeToolCall(_ctx, hookCtx) {
 			log.info(
