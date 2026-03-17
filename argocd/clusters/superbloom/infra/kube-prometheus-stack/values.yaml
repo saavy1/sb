@@ -104,6 +104,7 @@ alertmanager:
       group_interval: 5m
       repeat_interval: 4h
     receivers:
+      - name: "null"
       - name: nexus-webhook
         webhook_configs:
           - url: http://nexus.nexus.svc.cluster.local:3000/api/webhooks/alertmanager
