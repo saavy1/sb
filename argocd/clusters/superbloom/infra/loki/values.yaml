@@ -18,6 +18,8 @@ loki:
     type: filesystem
   limits_config:
     retention_period: 168h  # 7 days
+    ingestion_rate_mb: 10
+    ingestion_burst_size_mb: 20
 
 memberlist:
   service:
@@ -48,6 +50,14 @@ write:
 gateway:
   enabled: true
   replicas: 1
+  nginxConfig:
+    logFormat: |-
+      main escape=json '{"remote_addr":"$remote_addr","remote_user":"$remote_user","time_local":"$time_local","status":"$status","request":"$request","body_bytes_sent":"$body_bytes_sent","http_referer":"$http_referer","http_user_agent":"$http_user_agent","http_x_forwarded_for":"$http_x_forwarded_for"}';
+
+# Disable canary for single-node homelab — reduces ingestion load and avoids
+# rate-limit pressure from canary-push writes
+lokiCanary:
+  enabled: false
 
 # Disable chunk cache for single-node
 chunksCache:
