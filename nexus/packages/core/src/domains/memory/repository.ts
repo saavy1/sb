@@ -236,13 +236,15 @@ export async function getEntityWithContext(
 
 	if (!entityResult.data || entityResult.data.length === 0) return null;
 
-	const row = entityResult.data[0] as string[];
+	const row = entityResult.data[0] as Record<string, unknown>;
 	const entity: MemoryEntityType = {
-		name: row[0],
-		type: row[1] as MemoryEntityType["type"],
-		properties: row[2] ? safeParseJson(row[2]) : undefined,
-		firstSeen: row[3],
-		lastSeen: row[4],
+		name: String(row["e.name"]),
+		type: String(row["e.type"]) as MemoryEntityType["type"],
+		properties: row["e.properties"]
+			? safeParseJson(String(row["e.properties"]))
+			: undefined,
+		firstSeen: String(row["e.firstSeen"]),
+		lastSeen: String(row["e.lastSeen"]),
 	};
 
 	// Get facts
@@ -269,7 +271,9 @@ export async function getKnownEntityNames(): Promise<string[]> {
 	const result = await graph.query("MATCH (e:Entity) RETURN e.name");
 
 	if (!result.data) return [];
-	return (result.data as string[][]).map((row) => row[0]);
+	return (result.data as Record<string, unknown>[]).map((row) =>
+		String(row["e.name"]),
+	);
 }
 
 /**
@@ -292,8 +296,10 @@ export async function getGraphStats(): Promise<{
 
 	const getCount = (result: { data?: unknown[] }) => {
 		if (!result.data || result.data.length === 0) return 0;
-		const row = result.data[0] as number[];
-		return Number(row[0]) || 0;
+		const row = result.data[0] as Record<string, unknown>;
+		// The column name varies per query (e.g. "count(e)", "count(f)"), so take the first value
+		const firstValue = Object.values(row)[0];
+		return Number(firstValue) || 0;
 	};
 
 	return {
@@ -349,24 +355,26 @@ export async function listFacts(
 
 function parseFactRows(data: unknown[] | undefined): MemoryFactType[] {
 	if (!data) return [];
-	return (data as (string | number | boolean)[][]).map((row) => ({
-		id: String(row[0]),
-		content: String(row[1]),
-		confidence: Number(row[2]),
-		source: String(row[3]),
-		createdAt: String(row[4]),
-		superseded: Boolean(row[5]),
+	return (data as Record<string, unknown>[]).map((row) => ({
+		id: String(row["f.id"]),
+		content: String(row["f.content"]),
+		confidence: Number(row["f.confidence"]),
+		source: String(row["f.source"]),
+		createdAt: String(row["f.createdAt"]),
+		superseded: Boolean(row["f.superseded"]),
 	}));
 }
 
 function parseEntityRows(data: unknown[] | undefined): MemoryEntityType[] {
 	if (!data) return [];
-	return (data as string[][]).map((row) => ({
-		name: row[0],
-		type: row[1] as MemoryEntityType["type"],
-		properties: row[2] ? safeParseJson(row[2]) : undefined,
-		firstSeen: row[3],
-		lastSeen: row[4],
+	return (data as Record<string, unknown>[]).map((row) => ({
+		name: String(row["e.name"] ?? row["r.name"]),
+		type: String(row["e.type"] ?? row["r.type"]) as MemoryEntityType["type"],
+		properties: (row["e.properties"] ?? row["r.properties"])
+			? safeParseJson(String(row["e.properties"] ?? row["r.properties"]))
+			: undefined,
+		firstSeen: String(row["e.firstSeen"] ?? row["r.firstSeen"]),
+		lastSeen: String(row["e.lastSeen"] ?? row["r.lastSeen"]),
 	}));
 }
 
