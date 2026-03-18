@@ -59,6 +59,9 @@ gateway:
 lokiCanary:
   enabled: false
 
+test:
+  enabled: false
+
 # Disable chunk cache for single-node
 chunksCache:
   enabled: false
