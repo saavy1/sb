@@ -17,7 +17,7 @@ loki:
   storage:
     type: filesystem
   limits_config:
-    retention_period: 168h  # 7 days
+    retention_period: 168h # 7 days
     ingestion_rate_mb: 10
     ingestion_burst_size_mb: 20
 
@@ -33,10 +33,8 @@ singleBinary:
     size: 10Gi
   resources:
     requests:
-      memory: 512Mi
+      memory: 1Gi
       cpu: 100m
-    limits:
-      memory: 2Gi
 
 # Disable components not needed in single binary mode
 backend:
