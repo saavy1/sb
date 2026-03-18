@@ -77,11 +77,6 @@ export const toolRegistry: ToolInfo[] = [
 		description: "Get the current player count on the Minecraft server",
 		category: "Game Servers",
 	},
-	{
-		name: "list_game_server_pods",
-		description: "List Kubernetes pods for game servers with health and restart info",
-		category: "Game Servers",
-	},
 
 	// System Info Tools
 	{

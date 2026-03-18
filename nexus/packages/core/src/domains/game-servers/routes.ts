@@ -4,7 +4,6 @@ import {
 	deleteServer,
 	get,
 	list,
-	listGameServerPods,
 	queryServerStatus,
 	start,
 	stop,
@@ -180,44 +179,6 @@ export const gameServerRoutes = new Elysia({ prefix: "/gameServers" })
 					playerJoined: t.Optional(t.Array(t.String())),
 					playerLeft: t.Optional(t.Array(t.String())),
 					statusChanged: t.Optional(t.Boolean()),
-				}),
-			},
-		}
-	)
-	.get(
-		"/pods",
-		async () => {
-			try {
-				const pods = await listGameServerPods();
-				return { success: true, pods };
-			} catch (error) {
-				return {
-					success: false,
-					pods: [],
-					error: error instanceof Error ? error.message : "Failed to list pods",
-				};
-			}
-		},
-		{
-			detail: {
-				tags: ["Game Servers"],
-				summary: "List K8s pods for game servers",
-			},
-			response: {
-				200: t.Object({
-					success: t.Boolean(),
-					pods: t.Array(
-						t.Object({
-							name: t.String(),
-							serverName: t.String(),
-							phase: t.String(),
-							ready: t.Boolean(),
-							restarts: t.Number(),
-							podIP: t.Optional(t.String()),
-							startTime: t.Optional(t.String()),
-						})
-					),
-					error: t.Optional(t.String()),
 				}),
 			},
 		}

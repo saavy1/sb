@@ -6,12 +6,14 @@ controllers:
     containers:
       main:
         image:
-          repository: ghcr.io/alexei-led/k8s-mcp-server
+          repository: ghcr.io/containers/kubernetes-mcp-server
           tag: latest
           pullPolicy: Always
-        env:
-          K8S_MCP_TRANSPORT: streamable-http
-          K8S_MCP_SECURITY_MODE: permissive
+        args:
+          - --port
+          - "8000"
+          - --toolsets
+          - core,config,helm
 
 serviceAccount:
   mcp-k8s:

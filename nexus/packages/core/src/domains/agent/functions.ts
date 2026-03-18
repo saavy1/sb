@@ -65,13 +65,13 @@ You have access to tools to:
 You may also have access to tools from MCP (Model Context Protocol) servers. These are prefixed by their server name:
 
 ### Kubernetes (prefixed k8s_)
-Full Kubernetes cluster access via kubectl, helm, and argocd CLI tools. Use these for ALL cluster operations:
-- List/describe pods, deployments, services, nodes, and other resources
-- Get pod logs and events
-- Rollout restarts and scaling
-- Helm operations (list, rollback, status)
-- ArgoCD application management
-- Resource usage (kubectl top)
+Full Kubernetes cluster access via native API. Use these for ALL cluster operations:
+- List/get/delete pods, get pod logs, exec into pods
+- CRUD operations on any Kubernetes resource (deployments, services, configmaps, etc.)
+- Node stats and logs
+- Namespace and event management
+- Helm chart operations (install, uninstall, list)
+- Resource usage (pod top)
 
 ### Grafana (prefixed grafana_)
 Direct access to Grafana: search dashboards, run PromQL/LogQL queries, manage alerts, list datasources, and more.

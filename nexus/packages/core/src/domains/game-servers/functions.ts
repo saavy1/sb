@@ -403,45 +403,6 @@ export const getPlayerCountTool = toolDefinition({
 	}
 );
 
-// === K8s Pod Functions ===
-
-export async function listGameServerPods() {
-	const pods = await record("k8s.listPods", () =>
-		k8sAdapter.listPods("app.kubernetes.io/component=minecraft")
-	);
-	return pods.map((pod) => ({
-		name: pod.metadata.name,
-		serverName: pod.metadata.labels?.app || "unknown",
-		phase: pod.status?.phase || "Unknown",
-		ready: pod.status?.containerStatuses?.every((c) => c.ready) ?? false,
-		restarts: pod.status?.containerStatuses?.[0]?.restartCount ?? 0,
-		podIP: pod.status?.podIP,
-		startTime: pod.status?.startTime,
-	}));
-}
-
-export const listPodsTool = toolDefinition({
-		name: "list_game_server_pods",
-		description:
-			"List all Kubernetes pods for game servers. Shows pod status, readiness, restart count, and IP addresses. Use this to debug server issues or check pod health.",
-		inputSchema: z.object({}),
-	}).server(async () => {
-		try {
-			const pods = await listGameServerPods();
-			return {
-				success: true,
-				pods,
-				count: pods.length,
-			};
-		} catch (error) {
-			return {
-				success: false,
-				error: error instanceof Error ? error.message : "Failed to list pods",
-			};
-		}
-	}
-);
-
 export const gameServerTools = [
 	listServersTool,
 	getServerTool,
@@ -451,5 +412,4 @@ export const gameServerTools = [
 	deleteServerTool,
 	queryServerStatusTool,
 	getPlayerCountTool,
-	listPodsTool,
 ];
