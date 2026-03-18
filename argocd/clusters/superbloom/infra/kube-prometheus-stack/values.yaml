@@ -25,6 +25,7 @@ grafana:
   additionalDataSources:
     - name: Loki
       type: loki
+      uid: loki
       url: http://loki-gateway.monitoring.svc.cluster.local:80
       access: proxy
       isDefault: false
@@ -53,6 +54,142 @@ grafana:
       enabled: true
     datasources:
       enabled: true
+  # Provisioned Grafana alert rules — managed as code, read-only in UI.
+  # NOTE: Delete any matching UI-configured alerts to avoid duplicates.
+  alerting:
+    rules.yaml:
+      apiVersion: 1
+      groups:
+        - orgId: 1
+          name: Infrastructure Alerts
+          folder: Provisioned
+          interval: 5m
+          rules:
+            # Fixed: scoped to external-secrets namespace (was {job=~".+"} scanning ALL logs)
+            - uid: external-secrets-sync-failure
+              title: External Secrets Sync Failure
+              condition: C
+              for: 10m
+              noDataState: OK
+              execErrState: Error
+              data:
+                - refId: A
+                  relativeTimeRange:
+                    from: 900
+                    to: 0
+                  datasourceUid: loki
+                  model:
+                    refId: A
+                    expr: 'count_over_time({namespace="external-secrets"} |= "UpdateFailed" [15m])'
+                - refId: B
+                  relativeTimeRange:
+                    from: 0
+                    to: 0
+                  datasourceUid: __expr__
+                  model:
+                    refId: B
+                    type: reduce
+                    expression: A
+                    reducer: last
+                - refId: C
+                  relativeTimeRange:
+                    from: 0
+                    to: 0
+                  datasourceUid: __expr__
+                  model:
+                    refId: C
+                    type: threshold
+                    expression: B
+                    conditions:
+                      - evaluator:
+                          type: gt
+                          params:
+                            - 0
+        - orgId: 1
+          name: Nexus Alerts
+          folder: Provisioned
+          interval: 5m
+          rules:
+            # Scoped to nexus namespace, excludes sidecar containers
+            - uid: nexus-high-error-rate
+              title: Nexus Service High Error Rate
+              condition: C
+              for: 5m
+              noDataState: OK
+              execErrState: Error
+              data:
+                - refId: A
+                  relativeTimeRange:
+                    from: 300
+                    to: 0
+                  datasourceUid: loki
+                  model:
+                    refId: A
+                    expr: 'sum(count_over_time({namespace="nexus", container!~"tailscale|istio-proxy"} |~ "(?i)(error|exception|fatal)" [5m]))'
+                - refId: B
+                  relativeTimeRange:
+                    from: 0
+                    to: 0
+                  datasourceUid: __expr__
+                  model:
+                    refId: B
+                    type: reduce
+                    expression: A
+                    reducer: last
+                - refId: C
+                  relativeTimeRange:
+                    from: 0
+                    to: 0
+                  datasourceUid: __expr__
+                  model:
+                    refId: C
+                    type: threshold
+                    expression: B
+                    conditions:
+                      - evaluator:
+                          type: gt
+                          params:
+                            - 50
+            # Uses exact string match (|=) instead of regex for efficiency
+            - uid: mcp-server-connection-failures
+              title: MCP Server Connection Failures
+              condition: C
+              for: 10m
+              noDataState: OK
+              execErrState: Error
+              data:
+                - refId: A
+                  relativeTimeRange:
+                    from: 900
+                    to: 0
+                  datasourceUid: loki
+                  model:
+                    refId: A
+                    expr: 'count_over_time({namespace="nexus"} |= "Failed to connect to MCP server" [15m])'
+                - refId: B
+                  relativeTimeRange:
+                    from: 0
+                    to: 0
+                  datasourceUid: __expr__
+                  model:
+                    refId: B
+                    type: reduce
+                    expression: A
+                    reducer: last
+                - refId: C
+                  relativeTimeRange:
+                    from: 0
+                    to: 0
+                  datasourceUid: __expr__
+                  model:
+                    refId: C
+                    type: threshold
+                    expression: B
+                    conditions:
+                      - evaluator:
+                          type: gt
+                          params:
+                            - 5
   service:
     type: ClusterIP
     port: 80
