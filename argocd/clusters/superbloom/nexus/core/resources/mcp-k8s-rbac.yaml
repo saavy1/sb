@@ -26,6 +26,7 @@ rules:
       - endpoints
       - namespaces
       - nodes
+      - nodes/stats
       - events
       - configmaps
       - secrets
@@ -34,6 +35,11 @@ rules:
       - serviceaccounts
       - replicationcontrollers
     verbs: ["get", "list", "watch"]
+  # Exec into pods (for pods_exec)
+  - apiGroups: [""]
+    resources:
+      - pods/exec
+    verbs: ["create"]
   # Read access to apps resources
   - apiGroups: ["apps"]
     resources:
@@ -48,6 +54,12 @@ rules:
       - deployments
       - statefulsets
     verbs: ["patch", "update"]
+  # Scale subresources (for resources_scale)
+  - apiGroups: ["apps"]
+    resources:
+      - deployments/scale
+      - statefulsets/scale
+    verbs: ["get", "patch", "update"]
   # Batch resources (jobs, cronjobs)
   - apiGroups: ["batch"]
     resources:
