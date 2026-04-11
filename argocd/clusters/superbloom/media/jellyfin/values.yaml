@@ -82,7 +82,7 @@ persistence:
     hostPath: /tank/media
     globalMounts:
       - path: /media
-        readOnly: true
+        readOnly: false
   dri:
     enabled: true
     type: hostPath
