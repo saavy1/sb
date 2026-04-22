@@ -169,8 +169,17 @@ spec:
             echo "=== Affected packages ==="
             echo "$AFFECTED"
 
-            # Check each turbo package
-            echo "$AFFECTED" | grep -qx '@nexus/api' && echo true > /tmp/build-api || echo false > /tmp/build-api
+            # Check each turbo package.
+            # @nexus/api's Dockerfile bundles @nexus/ui as a static bundle
+            # (COPY --from=ui-builder apps/ui/dist -> apps/api/public), but
+            # @nexus/api does NOT list @nexus/ui as a workspace dep, so
+            # turbo won't cascade ui-changes to api. Treat @nexus/ui as
+            # an implicit dependency of @nexus/api here.
+            if echo "$AFFECTED" | grep -qx '@nexus/api' || echo "$AFFECTED" | grep -qx '@nexus/ui'; then
+              echo true > /tmp/build-api
+            else
+              echo false > /tmp/build-api
+            fi
             echo "$AFFECTED" | grep -qx '@nexus/bot' && echo true > /tmp/build-bot || echo false > /tmp/build-bot
             echo "$AFFECTED" | grep -qx '@nexus/worker-agent' && echo true > /tmp/build-agent-worker || echo false > /tmp/build-agent-worker
             echo "$AFFECTED" | grep -qx '@nexus/worker-mc-monitor' && echo true > /tmp/build-mc-monitor || echo false > /tmp/build-mc-monitor

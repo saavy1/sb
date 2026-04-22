@@ -153,35 +153,66 @@ export function NewModelDialog({ onClose, onCreated }: Props) {
 							/>
 						)}
 					</div>
-					{results.length > 0 && (
-						<div className="mt-2 max-h-60 overflow-auto border border-border rounded bg-background divide-y divide-border">
-							{results.map((r) => (
-								<button
-									key={r.id}
-									type="button"
-									onClick={() => handleSelect(r.id)}
-									className={`w-full text-left px-3 py-2 hover:bg-surface-elevated transition-colors ${
-										selected?.repoId === r.id ? "bg-surface-elevated" : ""
-									}`}
-								>
-									<div className="flex items-center justify-between">
-										<span className="font-mono text-sm">{r.id}</span>
-										<span className="text-xs text-text-tertiary">
-											{r.downloads?.toLocaleString() ?? "-"} downloads
-										</span>
+					{(() => {
+						const trimmed = query.trim();
+						const isRepoIdShape = /^[^/\s]+\/[^/\s]+$/.test(trimmed);
+						const exactMatch = results.some((r) => r.id === trimmed);
+						const showManualRow = isRepoIdShape && !exactMatch && !searching;
+						if (results.length === 0 && !showManualRow) {
+							if (query && !searching) {
+								return (
+									<div className="mt-2 text-xs text-text-tertiary">
+										No results. Type a full repo id (e.g.{" "}
+										<span className="font-mono">Qwen/Qwen3-VL-235B-A22B-Instruct</span>) to use it
+										directly.
 									</div>
-									{r.pipeline_tag && (
-										<div className="text-xs text-text-tertiary mt-0.5">{r.pipeline_tag}</div>
-									)}
-								</button>
-							))}
-						</div>
-					)}
-					{query && !searching && results.length === 0 && (
-						<div className="mt-2 text-xs text-text-tertiary">
-							No results. You can still paste a repo id above and fill in the slug below.
-						</div>
-					)}
+								);
+							}
+							return null;
+						}
+						return (
+							<div className="mt-2 max-h-60 overflow-auto border border-border rounded bg-background divide-y divide-border">
+								{showManualRow && (
+									<button
+										key="__manual__"
+										type="button"
+										onClick={() => handleSelect(trimmed)}
+										className={`w-full text-left px-3 py-2 hover:bg-surface-elevated transition-colors ${
+											selected?.repoId === trimmed ? "bg-surface-elevated" : ""
+										}`}
+									>
+										<div className="flex items-center justify-between">
+											<span className="font-mono text-sm">{trimmed}</span>
+											<span className="text-xs text-text-tertiary">use as repo id</span>
+										</div>
+										<div className="text-xs text-text-tertiary mt-0.5">
+											Not in search results — will still be validated on download.
+										</div>
+									</button>
+								)}
+								{results.map((r) => (
+									<button
+										key={r.id}
+										type="button"
+										onClick={() => handleSelect(r.id)}
+										className={`w-full text-left px-3 py-2 hover:bg-surface-elevated transition-colors ${
+											selected?.repoId === r.id ? "bg-surface-elevated" : ""
+										}`}
+									>
+										<div className="flex items-center justify-between">
+											<span className="font-mono text-sm">{r.id}</span>
+											<span className="text-xs text-text-tertiary">
+												{r.downloads?.toLocaleString() ?? "-"} downloads
+											</span>
+										</div>
+										{r.pipeline_tag && (
+											<div className="text-xs text-text-tertiary mt-0.5">{r.pipeline_tag}</div>
+										)}
+									</button>
+								))}
+							</div>
+						);
+					})()}
 				</div>
 
 				{/* Optional: import Spark-Arena recipe */}
