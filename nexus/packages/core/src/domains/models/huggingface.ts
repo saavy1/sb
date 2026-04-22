@@ -32,7 +32,12 @@ export async function searchModels(
 	query: string,
 	opts: HfSearchOptions = {}
 ): Promise<HfSearchResultType[]> {
-	const { limit = 20, pipeline = "text-generation", sort = "downloads", direction = -1 } = opts;
+	// NOTE on defaults:
+	//  - No pipeline filter. The HF `filter` param is a *tag* filter and silently
+	//    excludes repos without that tag (e.g. VL models tagged `image-text-to-text`
+	//    rather than `text-generation`). Opt-in via opts.pipeline if you want it.
+	//  - Sort by trendingScore so freshly-released models surface even with 0 downloads.
+	const { limit = 20, pipeline, sort = "trendingScore", direction = -1 } = opts;
 	const params = new URLSearchParams({
 		search: query,
 		limit: String(limit),

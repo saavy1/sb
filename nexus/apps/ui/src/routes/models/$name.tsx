@@ -40,6 +40,7 @@ function ModelDetailPage() {
 	const [maxModelLen, setMaxModelLen] = useState("");
 	const [dtype, setDtype] = useState("");
 	const [toolCallParser, setToolCallParser] = useState("");
+	const [reasoningParser, setReasoningParser] = useState("");
 	const [extraArgs, setExtraArgs] = useState("");
 	const [envVars, setEnvVars] = useState<ModelEnvVarType[]>([]);
 
@@ -50,6 +51,7 @@ function ModelDetailPage() {
 		setMaxModelLen(m.config?.maxModelLen?.toString() ?? "");
 		setDtype(m.config?.dtype ?? "");
 		setToolCallParser(m.config?.toolCallParser ?? "");
+		setReasoningParser(m.config?.reasoningParser ?? "");
 		setExtraArgs((m.config?.extraArgs ?? []).join("\n"));
 		setEnvVars([...(m.config?.env ?? [])]);
 	}, []);
@@ -113,6 +115,7 @@ function ModelDetailPage() {
 				maxModelLen: Number.isFinite(parsedMaxLen) ? (parsedMaxLen as number) : undefined,
 				dtype: dtype || undefined,
 				toolCallParser: toolCallParser || undefined,
+				reasoningParser: reasoningParser || undefined,
 				extraArgs: parsedArgs.length ? parsedArgs : undefined,
 				env: envVars.filter((e) => e.name.trim()),
 			};
@@ -300,6 +303,13 @@ function ModelDetailPage() {
 							value={toolCallParser}
 							onChange={(e) => setToolCallParser(e.target.value)}
 							placeholder="hermes, qwen3_coder..."
+						/>
+					</Field>
+					<Field label="Reasoning Parser">
+						<Input
+							value={reasoningParser}
+							onChange={(e) => setReasoningParser(e.target.value)}
+							placeholder="qwen3, deepseek_r1..."
 						/>
 					</Field>
 					<Field label="Extra vLLM Args (one per line)" fullWidth>

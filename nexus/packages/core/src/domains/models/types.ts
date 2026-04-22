@@ -31,6 +31,9 @@ export const ModelConfig = t.Object({
 	maxModelLen: t.Optional(t.Integer({ minimum: 1 })),
 	dtype: t.Optional(t.String()),
 	toolCallParser: t.Optional(t.String()),
+	// Qwen3/3.5/3.6 and other thinking-mode models set this to "qwen3";
+	// DeepSeek-R1 uses "deepseek_r1"; leave undefined for non-reasoning models.
+	reasoningParser: t.Optional(t.String()),
 	extraArgs: t.Optional(t.Array(t.String())),
 	env: t.Optional(t.Array(ModelEnvVar)),
 });

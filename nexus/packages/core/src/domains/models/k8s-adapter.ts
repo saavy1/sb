@@ -94,6 +94,9 @@ function configToVllmArgs(config: ModelConfigType): string[] {
 	if (config.toolCallParser) {
 		args.push(`--tool-call-parser=${config.toolCallParser}`);
 	}
+	if (config.reasoningParser) {
+		args.push(`--reasoning-parser=${config.reasoningParser}`);
+	}
 	if (config.extraArgs) {
 		args.push(...config.extraArgs);
 	}
