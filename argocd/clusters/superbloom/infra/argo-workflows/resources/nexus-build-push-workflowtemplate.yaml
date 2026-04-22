@@ -10,6 +10,10 @@ spec:
     parameters:
       - name: revision
         value: main
+      # Default to HEAD~1 for manual invocations; overridden with
+      # payload.before on webhook-driven runs to cover full push ranges.
+      - name: previousRevision
+        value: HEAD~1
       - name: repoURL
         value: https://github.com/saavy1/sb.git
       - name: registry
@@ -31,6 +35,8 @@ spec:
               parameters:
                 - name: revision
                   value: "{{workflow.parameters.revision}}"
+                - name: previousRevision
+                  value: "{{workflow.parameters.previousRevision}}"
                 - name: repoURL
                   value: "{{workflow.parameters.repoURL}}"
           - name: build-api
@@ -110,6 +116,7 @@ spec:
       inputs:
         parameters:
           - name: revision
+          - name: previousRevision
           - name: repoURL
         artifacts:
           - name: source
@@ -117,7 +124,10 @@ spec:
             git:
               repo: "{{inputs.parameters.repoURL}}"
               revision: "{{inputs.parameters.revision}}"
-              depth: 2
+              # No `depth` → full clone. Shallow clones can't reach
+              # arbitrary `payload.before` SHAs, which are required to
+              # diff the full push range when multiple commits are pushed
+              # together.
       container:
         image: oven/bun:1.3.9
         command: [sh, -c]
@@ -125,11 +135,34 @@ spec:
           - |
             apt-get update -qq && apt-get install -y -qq git jq > /dev/null 2>&1
 
+            cd /workdir
+
+            # Resolve base for diff. For webhook runs this is payload.before
+            # (the ref's tip prior to the push), covering every commit in the
+            # push — not just HEAD. For manual runs default is HEAD~1.
+            BASE_REF="{{inputs.parameters.previousRevision}}"
+
+            # GitHub sends all-zeros for `before` on brand-new branches /
+            # first push; fall back to HEAD~1 in that case.
+            if [ -z "$BASE_REF" ] || [ "$BASE_REF" = "0000000000000000000000000000000000000000" ]; then
+              BASE_REF="HEAD~1"
+            fi
+
+            # Verify the base commit is reachable; if not (e.g. force push),
+            # fall back to HEAD~1 so we at least build the head commit.
+            if ! git rev-parse --verify "$BASE_REF^{commit}" >/dev/null 2>&1; then
+              echo "WARNING: $BASE_REF not reachable; falling back to HEAD~1"
+              BASE_REF="HEAD~1"
+            fi
+
+            echo "=== Diff range: $BASE_REF..HEAD ==="
+            git log --oneline "$BASE_REF..HEAD" || true
+
             cd /workdir/nexus
             bun install --frozen-lockfile --silent
 
-            # Detect affected turbo packages
-            TURBO_SCM_BASE=HEAD~1 TURBO_SCM_HEAD=HEAD \
+            # Detect affected turbo packages across the full push range
+            TURBO_SCM_BASE="$BASE_REF" TURBO_SCM_HEAD=HEAD \
               bunx turbo ls --affected --output=json 2>/dev/null > /tmp/affected.json || true
 
             AFFECTED=$(jq -r '.packages.items[].name' /tmp/affected.json 2>/dev/null || echo "")
@@ -144,7 +177,7 @@ spec:
 
             # Whisper is not a turbo workspace — check git diff directly
             cd /workdir
-            git diff HEAD~1 --name-only | grep -q '^nexus/services/whisper/' && echo true > /tmp/build-whisper || echo false > /tmp/build-whisper
+            git diff "$BASE_REF" --name-only | grep -q '^nexus/services/whisper/' && echo true > /tmp/build-whisper || echo false > /tmp/build-whisper
 
             echo "api: $(cat /tmp/build-api)"
             echo "bot: $(cat /tmp/build-bot)"

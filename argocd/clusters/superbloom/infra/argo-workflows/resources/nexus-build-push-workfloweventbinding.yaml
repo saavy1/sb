@@ -14,3 +14,10 @@ spec:
         - name: revision
           valueFrom:
             event: payload.after
+        # `payload.before` is the commit the ref pointed at BEFORE this push.
+        # Passing it through lets check-changes diff the full push range
+        # (before..after) instead of just HEAD~1..HEAD, which misses any
+        # non-head commits when multiple commits are pushed at once.
+        - name: previousRevision
+          valueFrom:
+            event: payload.before
