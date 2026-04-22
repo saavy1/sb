@@ -50,6 +50,7 @@ function createApp() {
 						tags: [
 							{ name: "Health", description: "Health and status endpoints" },
 							{ name: "Game Servers", description: "Minecraft server management" },
+							{ name: "Models", description: "KServe model management (vLLM on GB10)" },
 							{
 								name: "System Info",
 								description: "System monitoring and drive management",

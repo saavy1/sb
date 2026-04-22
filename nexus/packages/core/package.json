@@ -15,9 +15,10 @@
     "db:generate:apps": "drizzle-kit generate --config=./drizzle/apps-pg/drizzle.config.ts",
     "db:generate:core": "drizzle-kit generate --config=./drizzle/core-pg/drizzle.config.ts",
     "db:generate:game-servers": "drizzle-kit generate --config=./drizzle/game-servers-pg/drizzle.config.ts",
+    "db:generate:models": "drizzle-kit generate --config=./drizzle/models-pg/drizzle.config.ts",
     "db:generate:ops": "drizzle-kit generate --config=./drizzle/ops-pg/drizzle.config.ts",
     "db:generate:system-info": "drizzle-kit generate --config=./drizzle/system-info-pg/drizzle.config.ts",
-    "db:generate": "bun run db:generate:agent && bun run db:generate:apps && bun run db:generate:core && bun run db:generate:game-servers && bun run db:generate:ops && bun run db:generate:system-info",
+    "db:generate": "bun run db:generate:agent && bun run db:generate:apps && bun run db:generate:core && bun run db:generate:game-servers && bun run db:generate:models && bun run db:generate:ops && bun run db:generate:system-info",
     "db:migrate": "bun --env-file=../../.env run src/infra/migrate.ts"
   },
   "dependencies": {
@@ -34,11 +35,13 @@
     "elysia": "catalog:",
     "falkordb": "^6.6.2",
     "ioredis": "catalog:",
+    "js-yaml": "^4.1.1",
     "zod": "catalog:"
   },
   "devDependencies": {
     "@biomejs/biome": "catalog:",
     "@standard-schema/spec": "^1.1.0",
+    "@types/js-yaml": "^4.0.9",
     "bun-types": "catalog:",
     "drizzle-kit": "^0.31.8",
     "typescript": "catalog:"

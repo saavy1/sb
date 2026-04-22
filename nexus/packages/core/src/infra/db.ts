@@ -7,6 +7,7 @@ import * as agentSchema from "../domains/agent/schema";
 import * as appsSchema from "../domains/apps/schema";
 import * as coreSchema from "../domains/core/schema";
 import * as gameServerSchema from "../domains/game-servers/schema";
+import * as modelsSchema from "../domains/models/schema";
 import * as opsSchema from "../domains/ops/schema";
 import * as systemInfoSchema from "../domains/system-info/schema";
 import { config } from "./config";
@@ -94,6 +95,7 @@ export const agentDb = drizzle(pgClient, { schema: agentSchema, logger: tracedLo
 export const appsDb = drizzle(pgClient, { schema: appsSchema, logger: tracedLogger });
 export const coreDb = drizzle(pgClient, { schema: coreSchema, logger: tracedLogger });
 export const gameServersDb = drizzle(pgClient, { schema: gameServerSchema, logger: tracedLogger });
+export const modelsDb = drizzle(pgClient, { schema: modelsSchema, logger: tracedLogger });
 export const opsDb = drizzle(pgClient, { schema: opsSchema, logger: tracedLogger });
 export const systemInfoDb = drizzle(pgClient, { schema: systemInfoSchema, logger: tracedLogger });
 
@@ -142,7 +144,15 @@ export async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
 }
 
 // Export schemas for easy access
-export { agentSchema, appsSchema, coreSchema, gameServerSchema, opsSchema, systemInfoSchema };
+export {
+	agentSchema,
+	appsSchema,
+	coreSchema,
+	gameServerSchema,
+	modelsSchema,
+	opsSchema,
+	systemInfoSchema,
+};
 
 /**
  * Execute a database operation within an OTEL span.

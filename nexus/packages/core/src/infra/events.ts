@@ -68,6 +68,17 @@ export const MinecraftStatusPayload = t.Object({
 	statusChanged: t.Optional(t.Boolean()),
 });
 
+export const ModelStatusPayload = t.Object({
+	name: t.String(),
+	status: t.String(),
+	lastError: t.Optional(t.Nullable(t.String())),
+});
+
+export const ModelDownloadProgressPayload = t.Object({
+	name: t.String(),
+	phase: t.String(),
+});
+
 // Derived TypeScript types
 export type ConversationUpdatedPayloadType = typeof ConversationUpdatedPayload.static;
 export type ConversationCreatedPayloadType = typeof ConversationCreatedPayload.static;
@@ -78,6 +89,8 @@ export type QueueJobFailedPayloadType = typeof QueueJobFailedPayload.static;
 export type QueueStatsUpdatedPayloadType = typeof QueueStatsUpdatedPayload.static;
 export type ThreadUpdatedPayloadType = typeof ThreadUpdatedPayload.static;
 export type MinecraftStatusPayloadType = typeof MinecraftStatusPayload.static;
+export type ModelStatusPayloadType = typeof ModelStatusPayload.static;
+export type ModelDownloadProgressPayloadType = typeof ModelDownloadProgressPayload.static;
 
 // Event map for type-safe emitter
 export type AppEvents = {
@@ -90,6 +103,8 @@ export type AppEvents = {
 	"queue:stats:updated": QueueStatsUpdatedPayloadType;
 	"thread:updated": ThreadUpdatedPayloadType;
 	"minecraft:status": MinecraftStatusPayloadType;
+	"model:status": ModelStatusPayloadType;
+	"model:download-progress": ModelDownloadProgressPayloadType;
 };
 
 export type AppEventName = keyof AppEvents;

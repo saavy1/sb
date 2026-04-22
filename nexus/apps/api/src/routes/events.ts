@@ -19,6 +19,8 @@ function setupEventBroadcasting() {
 		"queue:job:failed",
 		"queue:stats:updated",
 		"thread:updated",
+		"model:status",
+		"model:download-progress",
 	];
 
 	for (const eventName of eventNames) {

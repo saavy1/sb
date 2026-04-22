@@ -3,6 +3,7 @@ import { appRoutes } from "@nexus/core/domains/apps";
 import { aiRoutes, settingsRoutes } from "@nexus/core/domains/core";
 import { gameServerRoutes } from "@nexus/core/domains/game-servers";
 import { memoryRoutes } from "@nexus/core/domains/memory";
+import { modelRoutes } from "@nexus/core/domains/models";
 import { opsRoutes } from "@nexus/core/domains/ops";
 import { systemInfoRoutes } from "@nexus/core/domains/system-info";
 import logger from "@nexus/logger";
@@ -15,6 +16,7 @@ export const privateRoutes = new Elysia({ prefix: "/api" })
 	.use(autheliaMiddleware)
 	.use(appRoutes)
 	.use(gameServerRoutes)
+	.use(modelRoutes)
 	.use(systemInfoRoutes)
 	.use(opsRoutes)
 	.use(agentRoutes)

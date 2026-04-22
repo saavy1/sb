@@ -18,22 +18,27 @@ spec:
         - python3
         - -m
         - vllm.entrypoints.openai.api_server
+      # Per-InferenceService args (weights live under /mnt/nas/models/<name>/).
+      # Additional runtime flags (tp size, gpu mem utilization, tool-call parser,
+      # etc.) are provided per-model by the InferenceService.spec.predictor.model
+      # resource rendered by Nexus.
       args:
-        - --model=$(MODEL_PATH)
+        - --model=/mnt/nas/models/{{.Name}}
         - --served-model-name={{.Name}}
         - --trust-remote-code
         - --host=0.0.0.0
         - --port=8080
-        - --gpu-memory-utilization=0.92
         - --kv-cache-dtype=fp8
         - --enable-prefix-caching
         - --attention-backend=flashinfer
         - --enable-auto-tool-choice
-        - --tool-call-parser=hermes
       env:
-        - name: MODEL_PATH
-          value: /mnt/nas/models
         - name: VLLM_MARLIN_USE_ATOMIC_ADD
+          value: "1"
+        # Pre-downloaded weights are on disk; disable HF network lookups.
+        - name: HF_HUB_OFFLINE
+          value: "1"
+        - name: TRANSFORMERS_OFFLINE
           value: "1"
       ports:
         - containerPort: 8080

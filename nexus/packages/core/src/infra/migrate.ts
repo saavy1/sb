@@ -20,6 +20,7 @@ const postgresSchemas = [
 	{ name: "apps", migrationsFolder: "apps-pg" },
 	{ name: "core", migrationsFolder: "core-pg" },
 	{ name: "game-servers", migrationsFolder: "game-servers-pg" },
+	{ name: "models", migrationsFolder: "models-pg" },
 	{ name: "ops", migrationsFolder: "ops-pg" },
 	{ name: "system-info", migrationsFolder: "system-info-pg" },
 ] as const;

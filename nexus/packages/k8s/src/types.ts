@@ -34,13 +34,15 @@ export interface PersistentVolumeClaim {
 export interface Container {
 	name: string;
 	image: string;
+	command?: string[];
+	args?: string[];
 	ports?: { containerPort: number; name?: string }[];
 	env?: { name: string; value: string }[];
 	resources?: {
-		requests?: { memory?: string; cpu?: string };
-		limits?: { memory?: string; cpu?: string };
+		requests?: { memory?: string; cpu?: string; [k: string]: string | undefined };
+		limits?: { memory?: string; cpu?: string; [k: string]: string | undefined };
 	};
-	volumeMounts?: { name: string; mountPath: string }[];
+	volumeMounts?: { name: string; mountPath: string; readOnly?: boolean }[];
 	tty?: boolean;
 	stdin?: boolean;
 }
@@ -53,6 +55,7 @@ export interface PodSpec {
 		emptyDir?: Record<string, never>;
 		configMap?: { name: string };
 		secret?: { secretName: string };
+		hostPath?: { path: string; type?: string };
 	}[];
 }
 
@@ -166,6 +169,124 @@ export interface K8sError {
 	reason?: string;
 	body?: unknown;
 }
+
+// === Job (batch/v1) ===
+
+export interface Job {
+	apiVersion: "batch/v1";
+	kind: "Job";
+	metadata: ObjectMeta;
+	spec: {
+		backoffLimit?: number;
+		ttlSecondsAfterFinished?: number;
+		activeDeadlineSeconds?: number;
+		template: {
+			metadata?: { labels?: Record<string, string> };
+			spec: PodSpec & {
+				restartPolicy: "Never" | "OnFailure";
+				nodeSelector?: Record<string, string>;
+				tolerations?: {
+					key?: string;
+					operator?: "Exists" | "Equal";
+					value?: string;
+					effect?: "NoSchedule" | "PreferNoSchedule" | "NoExecute";
+				}[];
+			};
+		};
+	};
+	status?: JobStatus;
+}
+
+export interface JobStatus {
+	active?: number;
+	succeeded?: number;
+	failed?: number;
+	startTime?: string;
+	completionTime?: string;
+	conditions?: {
+		type: "Complete" | "Failed" | "Suspended";
+		status: "True" | "False" | "Unknown";
+		reason?: string;
+		message?: string;
+		lastTransitionTime?: string;
+	}[];
+}
+
+// === Generic CustomResource envelope ===
+// Used for CRD-backed kinds like KServe's InferenceService (serving.kserve.io/v1beta1).
+
+export interface CustomResource<TSpec = unknown, TStatus = unknown> {
+	apiVersion: string;
+	kind: string;
+	metadata: ObjectMeta & {
+		resourceVersion?: string;
+		creationTimestamp?: string;
+		uid?: string;
+	};
+	spec: TSpec;
+	status?: TStatus;
+}
+
+export interface CustomResourceList<T = CustomResource> {
+	apiVersion: string;
+	kind: string;
+	items: T[];
+}
+
+// === KServe: InferenceService (serving.kserve.io/v1beta1) ===
+// Minimal typing - only the fields Nexus produces/consumes.
+
+export interface InferenceServiceSpec {
+	predictor: {
+		minReplicas?: number;
+		maxReplicas?: number;
+		model?: {
+			modelFormat: { name: string; version?: string };
+			storageUri?: string;
+			runtime?: string;
+			args?: string[];
+			env?: { name: string; value: string }[];
+			resources?: {
+				requests?: { memory?: string; cpu?: string; [k: string]: string | undefined };
+				limits?: { memory?: string; cpu?: string; [k: string]: string | undefined };
+			};
+		};
+	};
+}
+
+export interface InferenceServiceCondition {
+	type: string;
+	status: "True" | "False" | "Unknown";
+	reason?: string;
+	message?: string;
+	lastTransitionTime?: string;
+}
+
+export interface InferenceServiceStatus {
+	url?: string;
+	address?: { url?: string };
+	conditions?: InferenceServiceCondition[];
+	modelStatus?: {
+		states?: {
+			activeModelState?: string;
+			targetModelState?: string;
+		};
+		transitionStatus?: string;
+	};
+	components?: Record<
+		string,
+		{
+			url?: string;
+			address?: { url?: string };
+			latestReadyRevision?: string;
+		}
+	>;
+}
+
+export type InferenceService = CustomResource<InferenceServiceSpec, InferenceServiceStatus> & {
+	apiVersion: "serving.kserve.io/v1beta1";
+	kind: "InferenceService";
+};
 
 // === Client config ===
 

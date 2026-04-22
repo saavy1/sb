@@ -78,6 +78,38 @@ export const toolRegistry: ToolInfo[] = [
 		category: "Game Servers",
 	},
 
+	// Model Serving Tools (KServe)
+	{
+		name: "list_models",
+		description: "List all KServe-managed models with their current status",
+		category: "Models",
+	},
+	{
+		name: "start_model",
+		description: "Start a KServe model by name (create/scale InferenceService)",
+		category: "Models",
+		parameters: {
+			name: { type: "string", description: "The model slug", required: true },
+		},
+	},
+	{
+		name: "stop_model",
+		description: "Stop a KServe model by name (scale InferenceService to 0 replicas)",
+		category: "Models",
+		parameters: {
+			name: { type: "string", description: "The model slug", required: true },
+		},
+	},
+	{
+		name: "search_huggingface_models",
+		description: "Search HuggingFace Hub for models by keyword",
+		category: "Models",
+		parameters: {
+			query: { type: "string", description: "Free-text search query", required: true },
+			limit: { type: "number", description: "Max results (default 10)", required: false },
+		},
+	},
+
 	// System Info Tools
 	{
 		name: "get_system_stats",

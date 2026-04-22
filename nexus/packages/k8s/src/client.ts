@@ -8,8 +8,12 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import yaml from "js-yaml";
 import type {
+	CustomResource,
+	CustomResourceList,
 	Deployment,
 	DeploymentStatus,
+	Job,
+	JobStatus,
 	K8sError,
 	K8sStatus,
 	KubeConfig,
@@ -173,11 +177,16 @@ export class K8sClient {
 		return this.config.server;
 	}
 
-	private async request<T>(method: string, path: string, body?: unknown): Promise<T> {
+	private async request<T>(
+		method: string,
+		path: string,
+		body?: unknown,
+		contentType = "application/json"
+	): Promise<T> {
 		const url = `${this.config.server}${path}`;
 
 		const headers: Record<string, string> = {
-			"Content-Type": "application/json",
+			"Content-Type": contentType,
 			Accept: "application/json",
 		};
 
@@ -385,6 +394,144 @@ export class K8sClient {
 			return await this.request<Pod>("GET", `/api/v1/namespaces/${namespace}/pods/${name}`);
 		} catch (err) {
 			if ((err as K8sError).status === 404) return null;
+			throw err;
+		}
+	}
+
+	// === Job operations (batch/v1) ===
+
+	async createJob(namespace: string, job: Job): Promise<Job> {
+		return this.request<Job>("POST", `/apis/batch/v1/namespaces/${namespace}/jobs`, job);
+	}
+
+	async getJob(namespace: string, name: string): Promise<(Job & { status?: JobStatus }) | null> {
+		try {
+			return await this.request<Job & { status?: JobStatus }>(
+				"GET",
+				`/apis/batch/v1/namespaces/${namespace}/jobs/${name}`
+			);
+		} catch (err) {
+			if ((err as K8sError).status === 404) return null;
+			throw err;
+		}
+	}
+
+	async deleteJob(
+		namespace: string,
+		name: string,
+		propagationPolicy = "Background"
+	): Promise<void> {
+		try {
+			await this.request<K8sStatus>(
+				"DELETE",
+				`/apis/batch/v1/namespaces/${namespace}/jobs/${name}?propagationPolicy=${propagationPolicy}`
+			);
+		} catch (err) {
+			if ((err as K8sError).status === 404) return;
+			throw err;
+		}
+	}
+
+	// === Generic Custom Resource operations ===
+	//
+	// Pattern: /apis/<group>/<version>/namespaces/<ns>/<plural>[/<name>]
+	// Used for CRDs like serving.kserve.io/v1beta1 InferenceService.
+
+	private crPath(
+		group: string,
+		version: string,
+		namespace: string,
+		plural: string,
+		name?: string
+	): string {
+		const base = `/apis/${group}/${version}/namespaces/${namespace}/${plural}`;
+		return name ? `${base}/${name}` : base;
+	}
+
+	async createCustomResource<T extends CustomResource>(
+		group: string,
+		version: string,
+		namespace: string,
+		plural: string,
+		body: T
+	): Promise<T> {
+		return this.request<T>("POST", this.crPath(group, version, namespace, plural), body);
+	}
+
+	async getCustomResource<T extends CustomResource>(
+		group: string,
+		version: string,
+		namespace: string,
+		plural: string,
+		name: string
+	): Promise<T | null> {
+		try {
+			return await this.request<T>("GET", this.crPath(group, version, namespace, plural, name));
+		} catch (err) {
+			if ((err as K8sError).status === 404) return null;
+			throw err;
+		}
+	}
+
+	async listCustomResources<T extends CustomResource>(
+		group: string,
+		version: string,
+		namespace: string,
+		plural: string,
+		labelSelector?: string
+	): Promise<T[]> {
+		const params = new URLSearchParams();
+		if (labelSelector) params.set("labelSelector", labelSelector);
+		const query = params.toString();
+		const path = `${this.crPath(group, version, namespace, plural)}${query ? `?${query}` : ""}`;
+		const response = await this.request<CustomResourceList<T>>("GET", path);
+		return response.items;
+	}
+
+	async updateCustomResource<T extends CustomResource>(
+		group: string,
+		version: string,
+		namespace: string,
+		plural: string,
+		name: string,
+		body: T
+	): Promise<T> {
+		return this.request<T>("PUT", this.crPath(group, version, namespace, plural, name), body);
+	}
+
+	async patchCustomResource<T extends CustomResource>(
+		group: string,
+		version: string,
+		namespace: string,
+		plural: string,
+		name: string,
+		patch: unknown,
+		patchType: "merge" | "strategic" | "json" = "merge"
+	): Promise<T> {
+		const contentTypeMap = {
+			merge: "application/merge-patch+json",
+			strategic: "application/strategic-merge-patch+json",
+			json: "application/json-patch+json",
+		} as const;
+		return this.request<T>(
+			"PATCH",
+			this.crPath(group, version, namespace, plural, name),
+			patch,
+			contentTypeMap[patchType]
+		);
+	}
+
+	async deleteCustomResource(
+		group: string,
+		version: string,
+		namespace: string,
+		plural: string,
+		name: string
+	): Promise<void> {
+		try {
+			await this.request<K8sStatus>("DELETE", this.crPath(group, version, namespace, plural, name));
+		} catch (err) {
+			if ((err as K8sError).status === 404) return;
 			throw err;
 		}
 	}

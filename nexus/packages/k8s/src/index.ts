@@ -24,8 +24,16 @@
 export { getK8sClient, isK8sError, K8sClient } from "./client";
 export type {
 	Container,
+	CustomResource,
+	CustomResourceList,
 	Deployment,
 	DeploymentStatus,
+	InferenceService,
+	InferenceServiceCondition,
+	InferenceServiceSpec,
+	InferenceServiceStatus,
+	Job,
+	JobStatus,
 	K8sError,
 	K8sStatus,
 	KubeConfig,
