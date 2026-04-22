@@ -71,7 +71,7 @@ function toNumber(v: unknown): number | undefined {
 	return Number.isFinite(n) ? n : undefined;
 }
 
-function toString(v: unknown): string | undefined {
+function toStringOrUndefined(v: unknown): string | undefined {
 	if (v === undefined || v === null) return undefined;
 	return String(v);
 }
@@ -86,8 +86,8 @@ function recipeDefaultsToConfig(recipe: RawRecipe): ModelConfigType {
 		tensorParallel: toNumber(d.tensor_parallel),
 		gpuMemoryUtilization: toNumber(d.gpu_memory_utilization),
 		maxModelLen: toNumber(d.max_model_len),
-		dtype: toString(d.dtype),
-		toolCallParser: toString(d.tool_call_parser),
+		dtype: toStringOrUndefined(d.dtype),
+		toolCallParser: toStringOrUndefined(d.tool_call_parser),
 		env,
 	};
 
@@ -146,7 +146,7 @@ export async function importRecipe(source: string): Promise<SparkArenaImportResp
 
 	const config = recipeDefaultsToConfig(recipe);
 	const metadata = recipeToMetadata(recipe);
-	const servedModelName = toString((recipe.defaults ?? {}).served_model_name);
+	const servedModelName = toStringOrUndefined((recipe.defaults ?? {}).served_model_name);
 
 	return {
 		source,
