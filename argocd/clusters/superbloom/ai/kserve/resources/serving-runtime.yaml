@@ -18,12 +18,14 @@ spec:
         - python3
         - -m
         - vllm.entrypoints.openai.api_server
-      # Per-InferenceService args (weights live under /mnt/nas/models/<name>/).
+      # Per-InferenceService args (weights live under /tank/models/<name>/).
+      # `/tank/models` is the ZFS dataset on the superbloom host — the same
+      # path Nexus download Jobs write to (see k8s-adapter.ts MODELS_DIR).
       # Additional runtime flags (tp size, gpu mem utilization, tool-call parser,
       # etc.) are provided per-model by the InferenceService.spec.predictor.model
       # resource rendered by Nexus.
       args:
-        - --model=/mnt/nas/models/{{.Name}}
+        - --model=/tank/models/{{.Name}}
         - --served-model-name={{.Name}}
         - --trust-remote-code
         - --host=0.0.0.0
@@ -50,12 +52,12 @@ spec:
           nvidia.com/gpu: "1"
       volumeMounts:
         - name: nas-models
-          mountPath: /mnt/nas/models
+          mountPath: /tank/models
           readOnly: true
   volumes:
     - name: nas-models
       hostPath:
-        path: /mnt/nas/models
+        path: /tank/models
         type: Directory
   tolerations:
     - key: nvidia.com/gpu

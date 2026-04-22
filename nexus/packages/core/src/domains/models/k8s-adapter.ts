@@ -3,8 +3,8 @@
  *
  * Two kinds of K8s resources are produced:
  *  1. A batch/v1 Job that pre-downloads HuggingFace weights to the NAS
- *     under /mnt/nas/models/<name>/. Runs on any NAS-mounting node; the
- *     GB10 GPU node stays focused on inference.
+ *     under /tank/models/<name>/ (the ZFS dataset on superbloom). Path is
+ *     overridable via the KSERVE_MODELS_DIR env var.
  *  2. A serving.kserve.io/v1beta1 InferenceService referencing the
  *     existing `vllm` ClusterServingRuntime via modelFormat.name=vllm.
  *     Per-model args (tp, gpu_memory_utilization, max_model_len, etc.)
@@ -28,7 +28,10 @@ const log = logger.child({ module: "models.k8s-adapter" });
 // Cluster / resource constants. Tightly coupled to serving-runtime.yaml
 // in argocd/, so they live here rather than in infra/config.
 const NAMESPACE = process.env.KSERVE_NAMESPACE || "kserve";
-const MODELS_DIR = "/mnt/nas/models";
+// Canonical local path on the superbloom host (ZFS dataset `tank/models`).
+// Exposed over SMB via samba.nix; mounted directly as a hostPath volume
+// for both download Jobs and the vLLM serving-runtime.
+const MODELS_DIR = process.env.KSERVE_MODELS_DIR || "/tank/models";
 const KSERVE_GROUP = "serving.kserve.io";
 const KSERVE_VERSION = "v1beta1";
 const KSERVE_PLURAL = "inferenceservices";

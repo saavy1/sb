@@ -62,6 +62,47 @@ subjects:
     name: nexus
     namespace: nexus
 ---
+# Role for KServe model management in kserve namespace.
+# nexus creates weight-download Jobs and InferenceService CRs here.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: nexus-model-manager
+  namespace: kserve
+  labels:
+    app.kubernetes.io/name: nexus
+    app.kubernetes.io/managed-by: argocd
+rules:
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get"]
+  - apiGroups: ["serving.kserve.io"]
+    resources: ["inferenceservices"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: nexus-model-manager
+  namespace: kserve
+  labels:
+    app.kubernetes.io/name: nexus
+    app.kubernetes.io/managed-by: argocd
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: nexus-model-manager
+subjects:
+  - kind: ServiceAccount
+    name: nexus
+    namespace: nexus
+---
 # Role for game server management in game-servers namespace
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
