@@ -28,7 +28,10 @@ export async function enqueueModelDownload(name: string): Promise<string> {
 		"download",
 		{ name } satisfies ModelDownloadJobData,
 		{
-			jobId: `model:${name}`, // idempotent: re-enqueue coalesces
+			// BullMQ 5.x rejects `:` in custom job IDs (it's their Redis key
+			// separator). `model-<slug>` keeps the id idempotent per model so
+			// re-clicks coalesce instead of creating parallel downloads.
+			jobId: `model-${name}`,
 			attempts: 1, // one shot; retries go through the UI (stays explicit)
 		}
 	);
