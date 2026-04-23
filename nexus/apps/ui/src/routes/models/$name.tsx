@@ -44,6 +44,17 @@ function ModelDetailPage() {
 	const [extraArgs, setExtraArgs] = useState("");
 	const [envVars, setEnvVars] = useState<ModelEnvVarType[]>([]);
 
+	// Live download-progress from the agent-worker. Null when not downloading.
+	const [downloadProgress, setDownloadProgress] = useState<{
+		phase: string;
+		filesTotal?: number;
+		filesDone?: number;
+		bytesTotal?: number;
+		bytesDone?: number;
+		currentFile?: string;
+		error?: string;
+	} | null>(null);
+
 	const hydrateForm = useCallback((m: ModelWithLiveStatusType) => {
 		setServedModelName(m.servedModelName ?? "");
 		setTensorParallel(m.config?.tensorParallel?.toString() ?? "");
@@ -74,6 +85,24 @@ function ModelDetailPage() {
 	useEffect(() => {
 		fetchModel();
 	}, [fetchModel]);
+
+	useEvents("model:download-progress", (payload) => {
+		if (payload.name !== name) return;
+		setDownloadProgress({
+			phase: payload.phase,
+			filesTotal: payload.filesTotal,
+			filesDone: payload.filesDone,
+			bytesTotal: payload.bytesTotal,
+			bytesDone: payload.bytesDone,
+			currentFile: payload.currentFile,
+			error: payload.error,
+		});
+		if (payload.phase === "complete" || payload.phase === "error") {
+			// Clear the detailed progress a beat after the status event re-fetches
+			// the row; the status badge handles the terminal state.
+			setTimeout(() => setDownloadProgress(null), 1500);
+		}
+	});
 
 	useEvents("model:status", (payload) => {
 		if (payload.name !== name) return;
@@ -244,6 +273,11 @@ function ModelDetailPage() {
 				)}
 			</Panel>
 
+			{/* Live download progress (visible while status=downloading) */}
+			{(model.status === "downloading" || downloadProgress) && (
+				<DownloadProgressPanel progress={downloadProgress} />
+			)}
+
 			{/* Config editor */}
 			<Panel
 				title="vLLM Config"
@@ -388,6 +422,70 @@ function StatusPill({ status }: { status: ModelWithLiveStatusType["status"] }) {
 				{entry.label}
 			</span>
 		</Badge>
+	);
+}
+
+function formatBytes(bytes: number): string {
+	if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
+	const units = ["B", "KB", "MB", "GB", "TB"];
+	const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+	return `${(bytes / 1024 ** i).toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
+}
+
+function DownloadProgressPanel({
+	progress,
+}: {
+	progress: {
+		phase: string;
+		filesTotal?: number;
+		filesDone?: number;
+		bytesTotal?: number;
+		bytesDone?: number;
+		currentFile?: string;
+		error?: string;
+	} | null;
+}) {
+	const p = progress;
+	const bytesPct =
+		p?.bytesTotal && p.bytesTotal > 0 && p.bytesDone !== undefined
+			? Math.min(100, Math.round((p.bytesDone / p.bytesTotal) * 100))
+			: null;
+	const filesLabel =
+		p?.filesTotal !== undefined && p.filesDone !== undefined
+			? `${p.filesDone} / ${p.filesTotal} files`
+			: null;
+	const bytesLabel =
+		p?.bytesTotal !== undefined && p.bytesDone !== undefined
+			? `${formatBytes(p.bytesDone)} / ${formatBytes(p.bytesTotal)}`
+			: null;
+
+	return (
+		<Panel title="Download Progress">
+			<div className="space-y-2">
+				<div className="flex items-center justify-between text-xs">
+					<span className="text-text-tertiary uppercase tracking-wider">
+						{p?.phase ?? "queued"}
+					</span>
+					<span className="text-text-secondary font-mono">
+						{bytesPct !== null ? `${bytesPct}%` : ""}
+					</span>
+				</div>
+				<div className="h-2 rounded bg-surface-elevated overflow-hidden">
+					<div
+						className="h-full bg-accent transition-all duration-300"
+						style={{ width: bytesPct !== null ? `${bytesPct}%` : "0%" }}
+					/>
+				</div>
+				<div className="flex items-center justify-between text-xs text-text-tertiary">
+					<span>{filesLabel ?? "waiting for worker..."}</span>
+					<span>{bytesLabel ?? ""}</span>
+				</div>
+				{p?.currentFile && (
+					<div className="text-xs font-mono text-text-tertiary truncate">{p.currentFile}</div>
+				)}
+				{p?.error && <div className="text-xs text-error">{p.error}</div>}
+			</div>
+		</Panel>
 	);
 }
 

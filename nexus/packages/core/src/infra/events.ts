@@ -76,7 +76,14 @@ export const ModelStatusPayload = t.Object({
 
 export const ModelDownloadProgressPayload = t.Object({
 	name: t.String(),
+	// "listing" | "downloading" | "complete" | "error"
 	phase: t.String(),
+	filesTotal: t.Optional(t.Number()),
+	filesDone: t.Optional(t.Number()),
+	bytesTotal: t.Optional(t.Number()),
+	bytesDone: t.Optional(t.Number()),
+	currentFile: t.Optional(t.String()),
+	error: t.Optional(t.String()),
 });
 
 // Derived TypeScript types

@@ -31,17 +31,19 @@ async function getQueueStats(queue: Queue) {
 
 // Emit stats for all queues (exported for use in routes)
 export async function emitAllQueueStats() {
-	const [agentStats, systemStats, discordStats, memoryStats] =
+	const [agentStats, systemStats, discordStats, memoryStats, downloadStats] =
 		await Promise.all([
 			getQueueStats(agentWakeQueue),
 			getQueueStats(systemEventQueue),
 			getQueueStats(discordAsksQueue),
 			getQueueStats(memoryExtractionQueue),
+			getQueueStats(modelDownloadsQueue),
 		]);
 	appEvents.emit("queue:stats:updated", agentStats);
 	appEvents.emit("queue:stats:updated", systemStats);
 	appEvents.emit("queue:stats:updated", discordStats);
 	appEvents.emit("queue:stats:updated", memoryStats);
+	appEvents.emit("queue:stats:updated", downloadStats);
 }
 
 // Shared Redis connection for all queues
@@ -63,6 +65,7 @@ export const QUEUES = {
 	EVENTS_SYSTEM: "events-system",
 	DISCORD_ASKS: "discord-asks",
 	MEMORY_EXTRACTION: "memory-extraction",
+	MODEL_DOWNLOADS: "model-downloads",
 } as const;
 
 // Create queues
@@ -95,6 +98,17 @@ export const memoryExtractionQueue = new Queue(QUEUES.MEMORY_EXTRACTION, {
 	defaultJobOptions: {
 		removeOnComplete: 50,
 		removeOnFail: 200,
+	},
+});
+
+// Model-weight downloads from HuggingFace. Processed by the agent-worker pod
+// (it has the /tank/models hostPath mounted). Concurrency=1 so bandwidth/disk
+// aren't contended across multi-GB downloads.
+export const modelDownloadsQueue = new Queue(QUEUES.MODEL_DOWNLOADS, {
+	connection: redis,
+	defaultJobOptions: {
+		removeOnComplete: 20,
+		removeOnFail: 100,
 	},
 });
 
@@ -183,6 +197,7 @@ export async function closeQueues() {
 	await systemEventQueue.close();
 	await discordAsksQueue.close();
 	await memoryExtractionQueue.close();
+	await modelDownloadsQueue.close();
 	await redis.quit();
 	log.info("Queue connections closed");
 }

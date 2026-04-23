@@ -3,6 +3,7 @@ import logger from "@nexus/logger";
 import { toolDefinition } from "@tanstack/ai";
 import { z } from "zod";
 import { appEvents } from "../../infra/events";
+import { enqueueModelDownload } from "./download-worker";
 import * as hf from "./huggingface";
 import { kserveAdapter } from "./k8s-adapter";
 import { modelRepository } from "./repository";
@@ -166,48 +167,24 @@ export async function update(
 // Download lifecycle
 // ---------------------------------------------------------------------------
 
+/**
+ * Enqueue a weight-download job on the `model-downloads` BullMQ queue.
+ * The agent-worker pod (which has /tank/models hostPath-mounted) picks it up,
+ * streams the repo via @huggingface/hub, and updates the row + emits
+ * `model:status` / `model:download-progress` events as it goes.
+ */
 export async function downloadWeights(name: string): Promise<ModelResponseType> {
 	const row = await modelRepository.findByName(name);
 	if (!row) throw new Error(`Model '${name}' not found`);
 
-	// If a prior Job is still tracked, clean it up so retries work.
-	if (row.downloadJobName) {
-		await record("kserve.deleteDownload", () => kserveAdapter.deleteDownload(row.downloadJobName!));
-	}
-
-	const jobName = await record("kserve.startDownload", () => kserveAdapter.startDownload(row));
+	const jobId = await enqueueModelDownload(name);
 	const updated = await modelRepository.updateStatus(name, "downloading", {
-		downloadJobName: jobName,
+		downloadJobName: jobId, // reusing the column as a generic job id handle
 		lastError: null,
 	});
 	emitStatus(name, "downloading");
-	log.info({ name, jobName }, "download started");
+	log.info({ name, jobId }, "download enqueued");
 	return toResponse(updated ?? row);
-}
-
-/**
- * Poll the download Job and fold its status into the model row.
- * Returns the post-sync model state.
- */
-export async function syncDownload(name: string): Promise<ModelResponseType | null> {
-	const row = await modelRepository.findByName(name);
-	if (!row || !row.downloadJobName) return row ? toResponse(row) : null;
-
-	const status = await kserveAdapter.getDownloadStatus(row.downloadJobName);
-	if (!status) return toResponse(row);
-
-	if (status.succeeded && status.succeeded > 0) {
-		const updated = await modelRepository.updateStatus(name, "downloaded", { lastError: null });
-		emitStatus(name, "downloaded");
-		return toResponse(updated ?? row);
-	}
-	if (status.failed && status.failed > 0) {
-		const msg = status.conditions?.find((c) => c.type === "Failed")?.message ?? "Download failed";
-		const updated = await modelRepository.updateStatus(name, "error", { lastError: msg });
-		emitStatus(name, "error", msg);
-		return toResponse(updated ?? row);
-	}
-	return toResponse(row);
 }
 
 // ---------------------------------------------------------------------------
@@ -271,11 +248,6 @@ export async function remove(name: string): Promise<void> {
 	} catch (err) {
 		log.warn({ err, name }, "failed to delete InferenceService - continuing");
 	}
-	if (row.downloadJobName) {
-		await record("kserve.deleteDownload", () =>
-			kserveAdapter.deleteDownload(row.downloadJobName!)
-		);
-	}
 	await modelRepository.delete(name);
 	emitStatus(name, "stopped");
 	log.info({ name }, "model deleted");
@@ -294,10 +266,9 @@ export async function syncStatus(name: string): Promise<ModelWithLiveStatusType 
 	const row = await modelRepository.findByName(name);
 	if (!row) return null;
 
-	// If we're in the middle of a download, keep the download sync path.
-	if (row.status === "downloading" && row.downloadJobName) {
-		await syncDownload(name);
-	}
+	// Download status is maintained in-process by the BullMQ worker
+	// (see download-worker.ts), so there's nothing to reconcile here for
+	// the "downloading" phase — we only fold in live InferenceService state.
 
 	const live = await kserveAdapter.getLiveStatus(name).catch((err) => {
 		log.debug({ err, name }, "live status fetch failed");

@@ -1,3 +1,4 @@
+export * from "./download-worker";
 export * from "./functions";
 export * from "./k8s-adapter";
 export * from "./repository";

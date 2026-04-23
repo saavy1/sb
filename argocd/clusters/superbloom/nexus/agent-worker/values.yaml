@@ -57,3 +57,14 @@ persistence:
     type: emptyDir
     globalMounts:
       - path: /var/run/tailscale
+  # HuggingFace weight downloads land here. hostPath to the superbloom-host
+  # ZFS dataset (tank/models), shared with the vLLM ServingRuntime so models
+  # written here are immediately startable without a second copy.
+  tank-models:
+    enabled: true
+    type: hostPath
+    hostPath: /tank/models
+    advancedMounts:
+      main:
+        main:
+          - path: /tank/models

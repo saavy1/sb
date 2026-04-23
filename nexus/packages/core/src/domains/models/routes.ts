@@ -60,7 +60,7 @@ export const modelRoutes = new Elysia({ prefix: "/models" })
 				const limit = query.limit ? Number(query.limit) : 20;
 				const results = await searchHuggingFace(query.q, {
 					limit,
-					pipeline: query.pipeline ?? "text-generation",
+					pipeline: query.pipeline,
 				});
 				return results;
 			} catch (e) {
@@ -162,7 +162,7 @@ export const modelRoutes = new Elysia({ prefix: "/models" })
 			}
 		},
 		{
-			detail: { tags: ["Models"], summary: "Trigger the HuggingFace download Job" },
+			detail: { tags: ["Models"], summary: "Enqueue a HuggingFace weight download" },
 			params: ModelNameParam,
 			response: { 200: ModelResponse, 400: ApiError },
 		}

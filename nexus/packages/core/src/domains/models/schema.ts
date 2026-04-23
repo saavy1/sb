@@ -5,7 +5,7 @@ export const modelsSchema = pgSchema("models");
 
 // Allowed status values, mirrored by the ModelStatus Elysia union in types.ts.
 // - draft       : config saved, weights not on disk yet
-// - downloading : download K8s Job is running
+// - downloading : BullMQ model-downloads job is streaming weights to disk
 // - downloaded  : weights on disk, InferenceService not created
 // - starting    : InferenceService created, pod not Ready
 // - running     : InferenceService Ready

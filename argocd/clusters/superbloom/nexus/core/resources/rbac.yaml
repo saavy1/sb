@@ -63,7 +63,10 @@ subjects:
     namespace: nexus
 ---
 # Role for KServe model management in kserve namespace.
-# nexus creates weight-download Jobs and InferenceService CRs here.
+# nexus creates and manages InferenceService CRs here. Weight downloads used
+# to require batch/jobs perms too — that has moved in-process to the
+# agent-worker pod via @huggingface/hub (see download-worker.ts), so only
+# InferenceService + pod-read perms are needed now.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
@@ -73,9 +76,6 @@ metadata:
     app.kubernetes.io/name: nexus
     app.kubernetes.io/managed-by: argocd
 rules:
-  - apiGroups: ["batch"]
-    resources: ["jobs"]
-    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
   - apiGroups: [""]
     resources: ["pods"]
     verbs: ["get", "list", "watch"]
