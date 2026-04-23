@@ -10,7 +10,7 @@ controllers:
       db-migrate:
         image:
           repository: registry.saavylab.dev/saavy1/nexus
-          tag: b1722a5e0e544650e353947578778b3e15f4f756
+          tag: ccdf342d84c8484b3e06db72a5944ced7d5440b4
         command:
           - bun
           - run
@@ -24,7 +24,7 @@ controllers:
       main:
         image:
           repository: registry.saavylab.dev/saavy1/nexus
-          tag: b1722a5e0e544650e353947578778b3e15f4f756
+          tag: ccdf342d84c8484b3e06db72a5944ced7d5440b4
           pullPolicy: Always
         securityContext:
           privileged: true
