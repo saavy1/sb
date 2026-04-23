@@ -287,6 +287,21 @@ body::after {
 		0 2px 8px 0 hsl(0 0% 0% / 0.3);
 }
 
+/* === Shimmer (indeterminate progress) === */
+
+@keyframes shimmer {
+	0% {
+		transform: translateX(-100%);
+	}
+	100% {
+		transform: translateX(100%);
+	}
+}
+
+.animate-shimmer {
+	animation: shimmer 1.4s ease-in-out infinite;
+}
+
 /* === Thinking Dots Animation === */
 
 @keyframes thinking-bounce {

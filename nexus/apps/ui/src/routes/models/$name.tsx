@@ -4,27 +4,40 @@ import type {
 	ModelWithLiveStatusType,
 } from "@nexus/core/domains/models";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import {
-	ArrowLeft,
-	CheckCircle,
-	Download,
-	Loader2,
-	Play,
-	RefreshCw,
-	Save,
-	Square,
-	Trash2,
-	XCircle,
-} from "lucide-react";
+import { ArrowLeft, Check, ChevronRight, Loader2, Save, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Badge, Button, Input, Label, Panel, PanelRow } from "../../components/ui";
+import { Button, Input, Label } from "../../components/ui";
 import { client } from "../../lib/api";
 import { useEvents } from "../../lib/useEvents";
 
 export const Route = createFileRoute("/models/$name")({
 	component: ModelDetailPage,
 });
+
+// ---- status tokens ---------------------------------------------------------
+
+const STATUS_TONE = {
+	draft: { text: "text-text-tertiary", bg: "bg-text-tertiary", label: "DRAFT" },
+	downloading: { text: "text-info", bg: "bg-info", label: "DOWNLOADING" },
+	downloaded: { text: "text-info", bg: "bg-info/70", label: "READY" },
+	starting: { text: "text-warning", bg: "bg-warning", label: "STARTING" },
+	running: { text: "text-success", bg: "bg-success", label: "ONLINE" },
+	stopping: { text: "text-warning", bg: "bg-warning/70", label: "STOPPING" },
+	stopped: { text: "text-text-tertiary", bg: "bg-text-tertiary", label: "OFFLINE" },
+	error: { text: "text-error", bg: "bg-error", label: "FAULT" },
+} as const;
+
+// Lifecycle phases shown in the status rail at the top of the page.
+// Mapping from status → which phase index is "current".
+const PHASES = ["DRAFT", "PULL", "READY", "ONLINE"] as const;
+function phaseIndex(status: ModelWithLiveStatusType["status"]): number {
+	if (status === "draft") return 0;
+	if (status === "downloading") return 1;
+	if (status === "downloaded" || status === "stopped") return 2;
+	if (status === "starting" || status === "running" || status === "stopping") return 3;
+	return 0;
+}
 
 function ModelDetailPage() {
 	const { name } = Route.useParams();
@@ -98,35 +111,34 @@ function ModelDetailPage() {
 			error: payload.error,
 		});
 		if (payload.phase === "complete" || payload.phase === "error") {
-			// Clear the detailed progress a beat after the status event re-fetches
-			// the row; the status badge handles the terminal state.
 			setTimeout(() => setDownloadProgress(null), 1500);
 		}
 	});
 
 	useEvents("model:status", (payload) => {
 		if (payload.name !== name) return;
-		// Small delay to let the server persist before we re-fetch.
 		setTimeout(fetchModel, 200);
 	});
 
 	if (loading) {
-		return <div className="container mx-auto px-4 py-8 text-text-tertiary">Loading...</div>;
-	}
-	if (!model) {
 		return (
-			<div className="container mx-auto px-4 py-8 text-text-tertiary">
-				Model not found.{" "}
-				<button
-					type="button"
-					className="text-accent underline"
-					onClick={() => navigate({ to: "/models" })}
-				>
-					Back to Models
-				</button>
+			<div className="container mx-auto px-4 py-16 text-center text-text-tertiary font-display tracking-wider text-sm">
+				Loading manifest...
 			</div>
 		);
 	}
+	if (!model) {
+		return (
+			<div className="container mx-auto px-4 py-16 text-center text-text-tertiary">
+				<div className="font-display text-sm mb-4">Model not found.</div>
+				<Button size="sm" variant="outline" onClick={() => navigate({ to: "/models" })}>
+					<ArrowLeft size={12} /> Back to Fleet
+				</Button>
+			</div>
+		);
+	}
+
+	// ---- handlers -----------------------------------------------------------
 
 	const handleSave = async () => {
 		setSaving(true);
@@ -154,7 +166,7 @@ function ModelDetailPage() {
 			});
 			if (error) toast.error(`Save failed: ${errorMessage(error.value)}`);
 			else {
-				toast.success("Saved");
+				toast.success("Config saved");
 				fetchModel();
 			}
 		} finally {
@@ -176,7 +188,7 @@ function ModelDetailPage() {
 		const { error } = await client.api.models({ name }).download.post();
 		if (error) toast.error(`Download failed: ${errorMessage(error.value)}`);
 		else {
-			toast.success("Download started");
+			toast.success("Pull queued");
 			fetchModel();
 		}
 	};
@@ -200,69 +212,174 @@ function ModelDetailPage() {
 	const canStop = model.status === "running" || model.status === "starting";
 	const canDownload = model.status === "draft" || model.status === "error";
 
+	const tone = STATUS_TONE[model.status];
+	const currentPhase = phaseIndex(model.status);
+
 	return (
-		<div className="container mx-auto space-y-4 px-4 py-4">
-			{/* Header */}
-			<div className="flex items-center justify-between px-3 py-2 bg-surface border border-border rounded text-xs">
-				<div className="flex items-center gap-3">
-					<Button size="sm" variant="ghost" onClick={() => navigate({ to: "/models" })}>
-						<ArrowLeft size={12} /> Back
-					</Button>
-					<span className="text-text-primary font-medium">{model.name}</span>
-					<span className="text-text-tertiary font-mono">{model.hfRepoId}</span>
-					{model.hfRevision && (
-						<span className="text-text-tertiary/70 font-mono">@{model.hfRevision.slice(0, 8)}</span>
-					)}
-				</div>
-				<div className="flex items-center gap-2">
-					{canDownload && (
-						<Button size="sm" variant="outline" onClick={handleDownload}>
-							<Download size={12} /> Download
-						</Button>
-					)}
-					{canStart && (
-						<Button size="sm" onClick={handleStart}>
-							<Play size={12} /> Start
-						</Button>
-					)}
-					{canStop && (
-						<Button size="sm" variant="outline" onClick={handleStop}>
-							<Square size={12} /> Stop
-						</Button>
-					)}
-					<Button size="sm" variant="ghost" onClick={handleSync} title="Refresh status">
-						<RefreshCw size={12} />
-					</Button>
-					<Button size="sm" variant="ghost" onClick={handleDelete} title="Delete">
-						<Trash2 size={12} />
-					</Button>
-				</div>
+		<div className="container mx-auto px-4 py-6 space-y-5">
+			{/* =============== Breadcrumb =============== */}
+			<div className="flex items-center gap-2 text-[11px] font-display uppercase tracking-[0.25em] text-text-tertiary animate-panel stagger-1">
+				<button
+					type="button"
+					onClick={() => navigate({ to: "/models" })}
+					className="hover:text-text-secondary transition-colors flex items-center gap-1"
+				>
+					<ArrowLeft size={10} /> fleet
+				</button>
+				<ChevronRight size={10} />
+				<span className="text-text-secondary">{model.name}</span>
 			</div>
 
-			{/* Status panel */}
-			<Panel title="Status">
-				<div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
-					<PanelRow label="Status" value={<StatusPill status={model.status} />} />
-					<PanelRow label="Runtime" value={model.runtime} />
-					<PanelRow label="Served as" value={model.servedModelName ?? "-"} mono />
-					<PanelRow
-						label="Last started"
-						value={model.lastStartedAt ? new Date(model.lastStartedAt).toLocaleString() : "never"}
-					/>
-					{model.live?.url && <PanelRow label="URL" value={model.live.url} mono />}
-					{model.live && <PanelRow label="Ready" value={model.live.ready ? "yes" : "no"} />}
+			{/* =============== Header + action strip =============== */}
+			<header className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 animate-panel stagger-2">
+				<div>
+					<div className="flex items-baseline gap-3">
+						<h1 className="font-display text-4xl font-semibold tracking-tight text-text-primary">
+							{model.name}
+						</h1>
+						<span className={`font-display text-xs uppercase tracking-[0.25em] ${tone.text}`}>
+							● {tone.label}
+						</span>
+					</div>
+					<div className="mt-1 font-mono text-sm text-text-tertiary">
+						{model.hfRepoId}
+						{model.hfRevision && (
+							<span className="text-text-tertiary/60"> @{model.hfRevision.slice(0, 12)}</span>
+						)}
+					</div>
+				</div>
+				<div className="flex flex-wrap items-center gap-1.5">
+					{canStart && <CommandButton onClick={handleStart} label="START" kbd="⏵" primary />}
+					{canStop && <CommandButton onClick={handleStop} label="STOP" kbd="◼" />}
+					{canDownload && <CommandButton onClick={handleDownload} label="PULL" kbd="↓" />}
+					<CommandButton onClick={handleSync} label="SYNC" kbd="↻" />
+					<CommandButton onClick={handleDelete} label="RM" kbd="×" danger />
+				</div>
+			</header>
+
+			{/* =============== Phase rail =============== */}
+			<section className="animate-panel stagger-3">
+				<div className="flex items-center gap-0">
+					{PHASES.map((p, i) => {
+						const done = i < currentPhase;
+						const current = i === currentPhase;
+						const trailColor = i < currentPhase ? "bg-accent" : "bg-border";
+						return (
+							<div key={p} className="flex items-center flex-1 last:flex-none">
+								<div className="flex flex-col items-center gap-1.5">
+									<div className="relative flex items-center justify-center w-5 h-5">
+										{current && (
+											<span
+												className={`absolute inset-0 animate-ping rounded-full ${tone.bg} opacity-30`}
+											/>
+										)}
+										<div
+											className={`relative w-2.5 h-2.5 rounded-full ${
+												current
+													? tone.bg
+													: done
+														? "bg-accent"
+														: "bg-surface-elevated border border-border-strong"
+											}`}
+										/>
+									</div>
+									<span
+										className={`font-display text-[10px] uppercase tracking-[0.2em] whitespace-nowrap ${
+											current ? tone.text : done ? "text-accent" : "text-text-tertiary"
+										}`}
+									>
+										{p}
+									</span>
+								</div>
+								{i < PHASES.length - 1 && <div className={`flex-1 h-px mx-2 mb-5 ${trailColor}`} />}
+							</div>
+						);
+					})}
 				</div>
 				{model.lastError && (
-					<div className="mt-3 px-3 py-2 rounded bg-error-bg border border-error text-error text-xs">
-						{model.lastError}
+					<div className="mt-4 rounded-sm border border-error/40 bg-error-bg/70 px-3 py-2 text-xs text-error flex items-start gap-2">
+						<span className="font-display uppercase tracking-wider shrink-0">fault·</span>
+						<span>{model.lastError}</span>
 					</div>
 				)}
-				{model.live?.conditions && model.live.conditions.length > 0 && (
-					<div className="mt-3 space-y-1">
-						<div className="text-xs text-text-tertiary uppercase tracking-wider">Conditions</div>
+			</section>
+
+			{/* =============== Dossier grid =============== */}
+			<section className="grid grid-cols-1 md:grid-cols-3 gap-px bg-border border border-border rounded overflow-hidden animate-panel stagger-4">
+				<DossierColumn
+					label="Identity"
+					rows={[
+						{ k: "slug", v: model.name, mono: true },
+						{ k: "hf repo", v: model.hfRepoId, mono: true },
+						{ k: "revision", v: model.hfRevision ?? "main", mono: true },
+						{ k: "served as", v: model.servedModelName ?? model.name, mono: true },
+					]}
+				/>
+				<DossierColumn
+					label="Runtime"
+					rows={[
+						{ k: "engine", v: model.runtime.toUpperCase(), mono: true },
+						{
+							k: "readiness",
+							v: model.live?.ready ? "ready" : "not ready",
+							highlight: model.live?.ready ? "text-success" : "text-text-tertiary",
+						},
+						{ k: "url", v: model.live?.url ?? "–", mono: true, truncate: true },
+						{
+							k: "last start",
+							v: model.lastStartedAt
+								? new Date(model.lastStartedAt).toLocaleString(undefined, {
+										month: "short",
+										day: "numeric",
+										hour: "2-digit",
+										minute: "2-digit",
+									})
+								: "never",
+						},
+					]}
+				/>
+				<DossierColumn
+					label="Storage"
+					rows={[
+						{
+							k: "weights",
+							v:
+								model.status === "draft"
+									? "not pulled"
+									: model.status === "downloading"
+										? "pulling…"
+										: "resident",
+							highlight:
+								model.status === "draft"
+									? "text-text-tertiary"
+									: model.status === "downloading"
+										? "text-info"
+										: "text-success",
+						},
+						{ k: "nas path", v: `/tank/models/${model.name}`, mono: true, truncate: true },
+						...(model.metadata?.modelParams
+							? [{ k: "params", v: String(model.metadata.modelParams), mono: true }]
+							: []),
+						...(model.metadata?.modelDtype
+							? [{ k: "dtype", v: String(model.metadata.modelDtype), mono: true }]
+							: []),
+					]}
+				/>
+			</section>
+
+			{/* =============== Live download telemetry =============== */}
+			{(model.status === "downloading" || downloadProgress) && (
+				<DownloadTelemetry progress={downloadProgress} />
+			)}
+
+			{/* =============== Conditions (k8s InferenceService) =============== */}
+			{model.live?.conditions && model.live.conditions.length > 0 && (
+				<section className="border border-border rounded bg-surface animate-panel stagger-5">
+					<SectionHeader num="··" title="Conditions" />
+					<div className="p-4 space-y-1.5">
 						{model.live.conditions.map((c, idx) => (
-							<div key={`${c.type}-${idx}`} className="flex items-center gap-2 text-xs">
-								<span className="font-mono text-text-secondary w-32">{c.type}</span>
+							<div key={`${c.type}-${idx}`} className="flex items-center gap-3 text-xs font-mono">
+								<span className="text-text-secondary w-40 truncate">{c.type}</span>
 								<span className={c.status === "True" ? "text-success" : "text-warning"}>
 									{c.status}
 								</span>
@@ -270,33 +387,31 @@ function ModelDetailPage() {
 							</div>
 						))}
 					</div>
-				)}
-			</Panel>
-
-			{/* Live download progress (visible while status=downloading) */}
-			{(model.status === "downloading" || downloadProgress) && (
-				<DownloadProgressPanel progress={downloadProgress} />
+				</section>
 			)}
 
-			{/* Config editor */}
-			<Panel
-				title="vLLM Config"
-				actions={
-					<Button size="sm" onClick={handleSave} disabled={saving}>
-						{saving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
-						Save
-					</Button>
-				}
-			>
-				<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-					<Field label="Served Model Name">
+			{/* =============== Config spec =============== */}
+			<section className="border border-border rounded bg-surface animate-panel stagger-6">
+				<SectionHeader
+					num="01"
+					title="Config · vLLM"
+					action={
+						<Button size="sm" onClick={handleSave} disabled={saving}>
+							{saving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
+							Save
+						</Button>
+					}
+				/>
+				<div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+					<Field label="Served model name" hint="exposed over OpenAI API">
 						<Input
 							value={servedModelName}
 							onChange={(e) => setServedModelName(e.target.value)}
 							placeholder={model.name}
+							className="font-mono"
 						/>
 					</Field>
-					<Field label="Tensor Parallel (GPU count)">
+					<Field label="Tensor parallel" hint="GPU count">
 						<Input
 							type="number"
 							min={1}
@@ -304,9 +419,10 @@ function ModelDetailPage() {
 							value={tensorParallel}
 							onChange={(e) => setTensorParallel(e.target.value)}
 							placeholder="1"
+							className="font-mono"
 						/>
 					</Field>
-					<Field label="GPU Memory Utilization (0.1-1.0)">
+					<Field label="GPU memory util" hint="0.1 – 1.0">
 						<Input
 							type="number"
 							step="0.05"
@@ -315,124 +431,189 @@ function ModelDetailPage() {
 							value={gpuMemoryUtilization}
 							onChange={(e) => setGpuMemoryUtilization(e.target.value)}
 							placeholder="0.9"
+							className="font-mono"
 						/>
 					</Field>
-					<Field label="Max Model Length (tokens)">
+					<Field label="Max model len" hint="tokens">
 						<Input
 							type="number"
 							value={maxModelLen}
 							onChange={(e) => setMaxModelLen(e.target.value)}
-							placeholder="e.g. 32768"
+							placeholder="32768"
+							className="font-mono"
 						/>
 					</Field>
 					<Field label="Dtype">
 						<Input
 							value={dtype}
 							onChange={(e) => setDtype(e.target.value)}
-							placeholder="bfloat16, float16, auto"
+							placeholder="bfloat16 / float16 / auto"
+							className="font-mono"
 						/>
 					</Field>
-					<Field label="Tool Call Parser">
+					<Field label="Tool-call parser">
 						<Input
 							value={toolCallParser}
 							onChange={(e) => setToolCallParser(e.target.value)}
-							placeholder="hermes, qwen3_coder..."
+							placeholder="hermes, qwen3_coder…"
+							className="font-mono"
 						/>
 					</Field>
-					<Field label="Reasoning Parser">
+					<Field label="Reasoning parser" fullWidth>
 						<Input
 							value={reasoningParser}
 							onChange={(e) => setReasoningParser(e.target.value)}
-							placeholder="qwen3, deepseek_r1..."
+							placeholder="qwen3, deepseek_r1…"
+							className="font-mono"
 						/>
-					</Field>
-					<Field label="Extra vLLM Args (one per line)" fullWidth>
-						<textarea
-							className="w-full min-h-[80px] px-3 py-2 bg-background border border-border rounded text-sm font-mono focus:outline-none focus:border-accent"
-							value={extraArgs}
-							onChange={(e) => setExtraArgs(e.target.value)}
-							placeholder="--kv-cache-dtype=fp8&#10;--enable-prefix-caching"
-						/>
-					</Field>
-					<Field label="Environment Variables" fullWidth>
-						<EnvEditor env={envVars} onChange={setEnvVars} />
 					</Field>
 				</div>
-			</Panel>
+			</section>
 
-			{/* Metadata panel (spark-arena inheritance, etc.) */}
+			<section className="border border-border rounded bg-surface animate-panel stagger-7">
+				<SectionHeader num="02" title="Extra args" />
+				<div className="p-4">
+					<textarea
+						className="w-full min-h-[80px] px-3 py-2 bg-background border border-border rounded-sm text-sm font-mono text-text-primary focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30 resize-y"
+						value={extraArgs}
+						onChange={(e) => setExtraArgs(e.target.value)}
+						placeholder="--kv-cache-dtype=fp8&#10;--enable-prefix-caching"
+					/>
+				</div>
+			</section>
+
+			<section className="border border-border rounded bg-surface animate-panel stagger-8">
+				<SectionHeader num="03" title="Environment" />
+				<div className="p-4">
+					<EnvEditor env={envVars} onChange={setEnvVars} />
+				</div>
+			</section>
+
 			{model.metadata && Object.keys(model.metadata).length > 0 && (
-				<Panel title="Recipe Metadata">
-					<div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+				<section className="border border-border rounded bg-surface animate-panel stagger-8">
+					<SectionHeader num="04" title="Recipe metadata" />
+					<div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-2 text-xs font-mono">
 						{model.metadata.description && (
-							<PanelRow label="Description" value={model.metadata.description} />
+							<MetaRow k="description" v={model.metadata.description} mono={false} />
 						)}
-						{model.metadata.maintainer && (
-							<PanelRow label="Maintainer" value={model.metadata.maintainer} />
-						)}
-						{model.metadata.modelParams && (
-							<PanelRow label="Params" value={model.metadata.modelParams} mono />
-						)}
+						{model.metadata.maintainer && <MetaRow k="maintainer" v={model.metadata.maintainer} />}
+						{model.metadata.modelParams && <MetaRow k="params" v={model.metadata.modelParams} />}
 						{model.metadata.modelDtype && (
-							<PanelRow label="Weight dtype" value={model.metadata.modelDtype} mono />
+							<MetaRow k="weight dtype" v={model.metadata.modelDtype} />
 						)}
-						{model.metadata.kvDtype && (
-							<PanelRow label="KV dtype" value={model.metadata.kvDtype} mono />
-						)}
+						{model.metadata.kvDtype && <MetaRow k="kv dtype" v={model.metadata.kvDtype} />}
 					</div>
 					{model.sparkArenaSource && (
-						<div className="mt-2 text-xs text-text-tertiary">
-							Imported from <span className="font-mono">{model.sparkArenaSource}</span>
+						<div className="px-4 pb-4 text-[11px] text-text-tertiary">
+							imported from <span className="font-mono">{model.sparkArenaSource}</span>
 						</div>
 					)}
-				</Panel>
+				</section>
 			)}
 		</div>
 	);
 }
 
-function StatusPill({ status }: { status: ModelWithLiveStatusType["status"] }) {
-	const map = {
-		draft: { variant: "default", icon: null, label: "draft" },
-		downloading: {
-			variant: "info",
-			icon: <Loader2 size={10} className="animate-spin" />,
-			label: "downloading",
-		},
-		downloaded: { variant: "info", icon: <CheckCircle size={10} />, label: "downloaded" },
-		starting: {
-			variant: "warning",
-			icon: <Loader2 size={10} className="animate-spin" />,
-			label: "starting",
-		},
-		running: { variant: "success", icon: <CheckCircle size={10} />, label: "running" },
-		stopping: {
-			variant: "warning",
-			icon: <Loader2 size={10} className="animate-spin" />,
-			label: "stopping",
-		},
-		stopped: { variant: "default", icon: <Square size={10} />, label: "stopped" },
-		error: { variant: "error", icon: <XCircle size={10} />, label: "error" },
-	} as const;
-	const entry = map[status];
+// ---------------------------------------------------------------------------
+// Command-bar button — bracketed, keyboard-hint style
+// ---------------------------------------------------------------------------
+
+function CommandButton({
+	onClick,
+	label,
+	kbd,
+	primary,
+	danger,
+}: {
+	onClick: () => void;
+	label: string;
+	kbd: string;
+	primary?: boolean;
+	danger?: boolean;
+}) {
+	const base =
+		"inline-flex items-center gap-2 px-3 py-1.5 rounded-sm text-[11px] font-display uppercase tracking-[0.2em] border transition-colors";
+	const tone = primary
+		? "border-accent/50 bg-accent/10 text-accent hover:bg-accent/20"
+		: danger
+			? "border-border text-text-tertiary hover:border-error/40 hover:text-error hover:bg-error-bg/50"
+			: "border-border text-text-secondary hover:border-border-strong hover:text-text-primary hover:bg-surface-elevated";
 	return (
-		<Badge variant={entry.variant}>
-			<span className="flex items-center gap-1">
-				{entry.icon}
-				{entry.label}
-			</span>
-		</Badge>
+		<button type="button" onClick={onClick} className={`${base} ${tone}`}>
+			<span className="font-mono text-sm leading-none">[{kbd}]</span>
+			{label}
+		</button>
 	);
 }
 
-function formatBytes(bytes: number): string {
-	if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
-	const units = ["B", "KB", "MB", "GB", "TB"];
-	const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
-	return `${(bytes / 1024 ** i).toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
+// ---------------------------------------------------------------------------
+// Section header with numeric prefix — "01 Config"
+// ---------------------------------------------------------------------------
+
+function SectionHeader({
+	num,
+	title,
+	action,
+}: {
+	num: string;
+	title: string;
+	action?: React.ReactNode;
+}) {
+	return (
+		<header className="flex items-center justify-between px-4 py-2.5 border-b border-border bg-surface-elevated/30">
+			<div className="flex items-baseline gap-3">
+				<span className="font-display text-[10px] text-text-tertiary tabular-nums">{num}</span>
+				<span className="font-display text-xs uppercase tracking-[0.2em] text-text-secondary">
+					{title}
+				</span>
+			</div>
+			{action}
+		</header>
+	);
 }
 
-function DownloadProgressPanel({
+// ---------------------------------------------------------------------------
+// Dossier column (identity / runtime / storage)
+// ---------------------------------------------------------------------------
+
+interface DossierRow {
+	k: string;
+	v: string;
+	mono?: boolean;
+	highlight?: string;
+	truncate?: boolean;
+}
+
+function DossierColumn({ label, rows }: { label: string; rows: DossierRow[] }) {
+	return (
+		<div className="bg-surface px-5 py-4">
+			<div className="font-display text-[10px] uppercase tracking-[0.3em] text-text-tertiary mb-3">
+				{label}
+			</div>
+			<div className="space-y-2">
+				{rows.map((r) => (
+					<div key={r.k} className="flex items-start justify-between gap-3 text-xs">
+						<span className="text-text-tertiary/80 font-display shrink-0">{r.k}</span>
+						<span
+							className={`text-right min-w-0 ${r.mono ? "font-mono" : ""} ${
+								r.highlight ?? "text-text-primary"
+							} ${r.truncate ? "truncate" : ""}`}
+							title={r.v}
+						>
+							{r.v}
+						</span>
+					</div>
+				))}
+			</div>
+		</div>
+	);
+}
+
+// ---------------------------------------------------------------------------
+// Download telemetry — live progress panel
+// ---------------------------------------------------------------------------
+
+function DownloadTelemetry({
 	progress,
 }: {
 	progress: {
@@ -448,60 +629,122 @@ function DownloadProgressPanel({
 	const p = progress;
 	const bytesPct =
 		p?.bytesTotal && p.bytesTotal > 0 && p.bytesDone !== undefined
-			? Math.min(100, Math.round((p.bytesDone / p.bytesTotal) * 100))
-			: null;
-	const filesLabel =
-		p?.filesTotal !== undefined && p.filesDone !== undefined
-			? `${p.filesDone} / ${p.filesTotal} files`
-			: null;
-	const bytesLabel =
-		p?.bytesTotal !== undefined && p.bytesDone !== undefined
-			? `${formatBytes(p.bytesDone)} / ${formatBytes(p.bytesTotal)}`
+			? Math.min(100, (p.bytesDone / p.bytesTotal) * 100)
 			: null;
 
 	return (
-		<Panel title="Download Progress">
-			<div className="space-y-2">
-				<div className="flex items-center justify-between text-xs">
-					<span className="text-text-tertiary uppercase tracking-wider">
-						{p?.phase ?? "queued"}
+		<section className="border border-info/30 bg-info-bg/30 rounded overflow-hidden animate-panel stagger-5">
+			<header className="flex items-center justify-between px-4 py-2.5 border-b border-info/30 bg-info/5">
+				<div className="flex items-baseline gap-3">
+					<span className="relative flex h-2 w-2">
+						<span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-info opacity-60" />
+						<span className="relative inline-flex h-2 w-2 rounded-full bg-info" />
 					</span>
-					<span className="text-text-secondary font-mono">
-						{bytesPct !== null ? `${bytesPct}%` : ""}
+					<span className="font-display text-xs uppercase tracking-[0.2em] text-info">
+						Telemetry · {p?.phase ?? "queued"}
 					</span>
 				</div>
-				<div className="h-2 rounded bg-surface-elevated overflow-hidden">
-					<div
-						className="h-full bg-accent transition-all duration-300"
-						style={{ width: bytesPct !== null ? `${bytesPct}%` : "0%" }}
+				<span className="font-mono text-xs text-info tabular-nums">
+					{bytesPct !== null ? `${bytesPct.toFixed(1)}%` : "—"}
+				</span>
+			</header>
+			<div className="p-4 space-y-3">
+				<div className="relative h-1.5 rounded-full bg-surface-elevated overflow-hidden">
+					{bytesPct !== null ? (
+						<div
+							className="absolute inset-y-0 left-0 bg-gradient-to-r from-info/80 to-info transition-all duration-500"
+							style={{ width: `${bytesPct}%` }}
+						/>
+					) : (
+						<div className="absolute inset-y-0 w-1/3 bg-gradient-to-r from-info/0 via-info/60 to-info/0 animate-shimmer" />
+					)}
+				</div>
+				<div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+					<TelemetryStat label="files" value={`${p?.filesDone ?? 0} / ${p?.filesTotal ?? "—"}`} />
+					<TelemetryStat
+						label="bytes"
+						value={
+							p?.bytesDone !== undefined && p?.bytesTotal !== undefined
+								? `${formatBytes(p.bytesDone)} / ${formatBytes(p.bytesTotal)}`
+								: "—"
+						}
 					/>
-				</div>
-				<div className="flex items-center justify-between text-xs text-text-tertiary">
-					<span>{filesLabel ?? "waiting for worker..."}</span>
-					<span>{bytesLabel ?? ""}</span>
+					<TelemetryStat
+						label="remaining"
+						value={
+							p?.bytesTotal !== undefined && p?.bytesDone !== undefined
+								? formatBytes(Math.max(0, p.bytesTotal - p.bytesDone))
+								: "—"
+						}
+					/>
+					<TelemetryStat label="phase" value={p?.phase ?? "queued"} highlight="text-info" />
 				</div>
 				{p?.currentFile && (
-					<div className="text-xs font-mono text-text-tertiary truncate">{p.currentFile}</div>
+					<div className="flex items-start gap-2 font-mono text-[11px] text-text-secondary border-t border-info/20 pt-3">
+						<ChevronRight size={11} className="text-info mt-0.5 shrink-0" />
+						<span className="truncate">{p.currentFile}</span>
+					</div>
 				)}
-				{p?.error && <div className="text-xs text-error">{p.error}</div>}
+				{p?.error && (
+					<div className="text-xs text-error font-mono border-t border-error/30 pt-3">
+						{p.error}
+					</div>
+				)}
 			</div>
-		</Panel>
+		</section>
 	);
 }
 
+function TelemetryStat({
+	label,
+	value,
+	highlight,
+}: {
+	label: string;
+	value: string;
+	highlight?: string;
+}) {
+	return (
+		<div>
+			<div className="font-display text-[10px] uppercase tracking-[0.25em] text-text-tertiary mb-0.5">
+				{label}
+			</div>
+			<div className={`font-mono tabular-nums text-text-primary ${highlight ?? ""}`}>{value}</div>
+		</div>
+	);
+}
+
+// ---------------------------------------------------------------------------
+// Field + Env editor
+// ---------------------------------------------------------------------------
+
 function Field({
 	label,
+	hint,
 	fullWidth,
 	children,
 }: {
 	label: string;
+	hint?: string;
 	fullWidth?: boolean;
 	children: React.ReactNode;
 }) {
 	return (
 		<div className={fullWidth ? "md:col-span-2" : ""}>
-			<Label className="block text-xs text-text-tertiary mb-1">{label}</Label>
+			<Label className="flex items-baseline justify-between text-[11px] mb-1.5">
+				<span className="font-display uppercase tracking-[0.15em] text-text-tertiary">{label}</span>
+				{hint && <span className="text-text-tertiary/60 text-[10px]">{hint}</span>}
+			</Label>
 			{children}
+		</div>
+	);
+}
+
+function MetaRow({ k, v, mono = true }: { k: string; v: string; mono?: boolean }) {
+	return (
+		<div className="flex items-start gap-3">
+			<span className="text-text-tertiary shrink-0 w-28">{k}</span>
+			<span className={mono ? "font-mono text-text-primary" : "text-text-primary"}>{v}</span>
 		</div>
 	);
 }
@@ -522,6 +765,11 @@ function EnvEditor({
 
 	return (
 		<div className="space-y-2">
+			{env.length === 0 && (
+				<div className="text-[11px] font-display uppercase tracking-wider text-text-tertiary italic">
+					no variables
+				</div>
+			)}
 			{env.map((e, idx) => (
 				<div key={`env-${idx}`} className="flex gap-2">
 					<Input
@@ -531,7 +779,7 @@ function EnvEditor({
 						onChange={(event) => update(idx, { name: event.target.value })}
 					/>
 					<Input
-						className="flex-1 font-mono"
+						className="flex-[2] font-mono"
 						placeholder="value"
 						value={e.value}
 						onChange={(event) => update(idx, { value: event.target.value })}
@@ -542,10 +790,21 @@ function EnvEditor({
 				</div>
 			))}
 			<Button size="sm" variant="ghost" onClick={add}>
-				+ Add env var
+				<Check size={10} />+ Add variable
 			</Button>
 		</div>
 	);
+}
+
+// ---------------------------------------------------------------------------
+// helpers
+// ---------------------------------------------------------------------------
+
+function formatBytes(bytes: number): string {
+	if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
+	const units = ["B", "KB", "MB", "GB", "TB"];
+	const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+	return `${(bytes / 1024 ** i).toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
 }
 
 function errorMessage(value: unknown): string {
