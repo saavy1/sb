@@ -67,15 +67,17 @@ export function downloadJobName(modelName: string): string {
 function buildDownloadScript(model: Model): string {
 	const dest = `${MODELS_DIR}/${model.name}`;
 	const revisionFlag = model.hfRevision ? `--revision ${shellQuote(model.hfRevision)}` : "";
-	// huggingface_hub is pure-python, so pip-installing inside a minimal
-	// python:3.12-slim image is fast (~5s). Avoids baking a custom image.
+	// huggingface_hub is pure-python; pip-installing inside python:3.12-slim
+	// is fast (~5s), avoids baking a custom image. As of huggingface_hub 1.x
+	// the CLI is `hf` (legacy `huggingface-cli` is deprecated) and the [cli]
+	// extra no longer exists — the CLI is bundled with the base package.
 	return [
 		"set -eu",
 		'echo "[$(date -Iseconds)] installing huggingface_hub"',
-		"pip install --quiet --no-cache-dir 'huggingface_hub[cli]>=0.24.0'",
+		"pip install --quiet --no-cache-dir 'huggingface_hub>=1.0.0'",
 		`mkdir -p ${dest}`,
 		`echo "[$(date -Iseconds)] downloading ${model.hfRepoId}${model.hfRevision ? `@${model.hfRevision}` : ""} -> ${dest}"`,
-		`huggingface-cli download ${shellQuote(model.hfRepoId)} ${revisionFlag} --local-dir ${dest} --local-dir-use-symlinks False`,
+		`hf download ${shellQuote(model.hfRepoId)} ${revisionFlag} --local-dir ${dest}`,
 		'echo "[$(date -Iseconds)] download complete"',
 	].join("\n");
 }
