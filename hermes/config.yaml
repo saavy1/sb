@@ -1,0 +1,30 @@
+# Initial config - DeepSeek API as primary until KServe is ready
+model:
+  provider: deepseek
+  model: deepseek-chat
+  context_length: 131072
+
+gateway:
+  platforms:
+    discord:
+      enabled: true
+      token: ${DISCORD_TOKEN}
+    cli:
+      enabled: true
+
+terminal:
+  backend: docker
+
+memory:
+  persist: true
+  honcho: false
+
+skills:
+  auto_create: true
+  hub_sync: true
+
+cron:
+  enabled: true
+
+mcp_servers: []
+# Will add: k8s, github, grafana, kserve, kubeflow

@@ -9,6 +9,7 @@ resources:
   - cert-manager/
   - ddns/
   - external-secrets/
+  - hermes/
   - home-assistant/
   - kube-prometheus-stack/
   - loki/
