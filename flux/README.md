@@ -7,22 +7,17 @@ Flux CD is used **only for bootstrapping** components that ArgoCD depends on. Al
 | Component | Purpose |
 |-----------|---------|
 | **ArgoCD** | The primary GitOps engine |
-| **CNPG Operator** | CloudNativePG PostgreSQL operator |
 
 ## Structure
 
 ```
 flux/clusters/superbloom/
 ├── flux-system/        # Flux bootstrap controllers
-├── kustomization.yaml  # Root: flux-system, infra, argocd, data
+├── kustomization.yaml  # Root: flux-system, infra, argocd
 ├── infra.yaml          # Infrastructure kustomization
 ├── argocd.yaml         # ArgoCD kustomization
-├── data.yaml           # Data services kustomization
-├── infra/
-│   ├── argocd/         # ArgoCD Helm chart + config
-│   └── cnpg-operator.yaml
-└── data/
-    └── postgres/       # PostgreSQL cluster (migrating to ArgoCD)
+└── infra/
+    └── argocd/         # ArgoCD Helm chart + config
 ```
 
 ## Why Flux for Bootstrap?

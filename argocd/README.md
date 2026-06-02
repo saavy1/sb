@@ -1,6 +1,6 @@
 # ArgoCD — Primary GitOps
 
-ArgoCD manages all Kubernetes workloads on the Superbloom K3s cluster. Flux handles only the bootstrap layer (ArgoCD itself, CNPG operator).
+ArgoCD manages all Kubernetes workloads on the Superbloom K3s cluster. Flux handles only the bootstrap layer (ArgoCD itself).
 
 ## Structure
 
