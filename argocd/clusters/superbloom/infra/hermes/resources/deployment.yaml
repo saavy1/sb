@@ -14,11 +14,9 @@ spec:
         app: hermes
     spec:
       serviceAccountName: hermes
-      imagePullSecrets:
-        - name: ghcr-pull
       containers:
         - name: hermes
-          image: ghcr.io/nousresearch/hermes-agent:latest
+          image: nousresearch/hermes-agent:latest
           args: ["gateway", "run"]
           envFrom:
             - secretRef:
