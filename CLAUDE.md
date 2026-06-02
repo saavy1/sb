@@ -1,6 +1,6 @@
 # Claude Code Guide
 
-Development patterns and conventions for the Superbloom monorepo.
+Development patterns and conventions for the Superbloom homelab.
 
 ## Philosophy
 
@@ -10,186 +10,143 @@ This is a personal homelab project. **Do things properly, not quickly.** There a
 
 ```
 sb/
-├── nixos/              # NixOS system configuration
-├── flux/               # Kubernetes GitOps with Flux CD
-└── nexus/              # Application services (Turborepo + Bun workspace)
-    ├── apps/
-    │   ├── api/        # Elysia API control plane
-    │   ├── bot/        # Discord bot (The Machine)
-    │   └── ui/         # React web dashboard
-    ├── packages/
-    │   ├── core/       # Shared business logic, Drizzle schemas
-    │   ├── k8s/        # Kubernetes client wrapper
-    │   ├── logger/     # Structured JSON logging (Pino)
-    │   └── mc-monitor/ # Minecraft server protocol library
-    └── workers/
-        ├── agent/      # AI agent background worker
-        └── mc-monitor/ # Game server status polling
+├── nixos/              # NixOS system configuration (K3s, ZFS, Tailscale)
+├── argocd/             # Primary GitOps — ArgoCD application definitions
+├── flux/               # Bootstrap-only — installs ArgoCD
+├── hermes/             # Hermes Agent config, skills, and SOUL
+├── mcp-servers/        # Standalone Python MCP servers
+└── docs/               # Documentation and research notes
 ```
 
-## Type System
+## NixOS
 
-**Never use `type` or `interface` directly.** Use schema-first definitions:
+- Uses Nix Flakes with Home Manager
+- Modular configuration in `nixos/modules/` directory
+- Rebuild command: `sudo nixos-rebuild switch --flake ./nixos#superbloom`
+- Keep modules focused and single-purpose
 
-| Location | Schema Library | Example |
-|----------|---------------|---------|
-| Server-side (Nexus) | Elysia `t.*` | `t.Object({ id: t.String() })` |
-| Client-only | Zod | `z.object({ id: z.string() })` |
+## Hermes Agent
 
-### Server Types (Elysia)
-
-Define schemas in `types.ts`, derive TypeScript types with `.static`:
-
-```typescript
-// packages/core/src/domains/agent/types.ts
-import { t } from "elysia";
-
-export const MessagePartSchema = t.Object({
-  type: t.String(),
-  content: t.Optional(t.String()),
-});
-
-// Derive TS type from schema
-export type MessagePartType = typeof MessagePartSchema.static;
-```
-
-### Client Types
-
-UI and Bot **never define their own types** for API data. They import from API via Eden Treaty:
-
-```typescript
-// CORRECT - types flow from API
-import type { App } from "@nexus/api/app";
-const client = treaty<App>(API_URL);
-const { data } = await client.api.servers.get();
-// data is fully typed from API schemas
-
-// WRONG - never duplicate types
-interface Server { name: string; } // Don't do this
-```
-
-## Domain Structure
-
-Each domain in `packages/core/src/domains/<name>/`:
+Hermes is the autonomous operator of the homelab. Configuration lives in `hermes/`:
 
 ```
-├── schema.ts      # Drizzle table definitions
-├── types.ts       # Elysia t.* schemas + derived types
-├── functions.ts   # Business logic
-├── repository.ts  # Database queries (optional)
-├── routes.ts      # Elysia route handlers
-├── index.ts       # Re-exports
-└── k8s-adapter.ts # K8s integration (if needed)
+hermes/
+├── config.yaml       # Runtime config: model provider, MCP servers, cron jobs
+├── SOUL.md           # Personality, directives, constraints
+└── skills/           # Procedure documents Hermes can execute
+    ├── self-healer.md
+    └── model-manager.md
 ```
 
-**apps/api** is the thin API layer that composes routes from core:
-- `apps/api/src/app.ts` - Elysia app composition
-- `apps/api/src/routes/` - Route groups (private, public, webhooks)
+### Configuring Hermes
 
-### Type Flow
+Edit `hermes/config.yaml` to adjust:
+- **Model provider** — `deepseek` or local KServe endpoint
+- **MCP servers** — List of stdio-based MCP servers with commands and env
+- **Cron jobs** — Scheduled prompts (e.g. cluster triage every 2 minutes)
+- **Skills** — `auto_create: true` lets Hermes generate new skills on demand
 
+ArgoCD deploys Hermes; push to `main` and the agent redeploys automatically.
+
+### Creating a Skill
+
+Skills are Markdown files in `hermes/skills/`:
+
+```markdown
+# Skill Name
+
+## Purpose
+What this skill does and when to use it.
+
+## Procedure
+1. Step one
+2. Step two
+3. Expected outcomes
+
+## Recovery Patterns
+**Pattern: Something Bad**
+1. Detect via MCP
+2. Attempt fix
+3. Escalate if unresolved
+
+## Annotations
+After execution, annotate Grafana with what happened.
 ```
-types.ts (MessagePartSchema)
-    ↓
-functions.ts (uses MessagePartType)
-    ↓
-routes.ts (validates with MessagePartSchema, returns typed responses)
-    ↓
-Eden Treaty (infers types for UI/Bot)
-```
 
-## Real-time Events
+Skills should be procedural, not imperative. Hermes reads them and decides how to execute.
 
-WebSocket events via `/api/events`:
+## MCP Server Development
 
-**Backend** - Emit events from anywhere:
-```typescript
-import { appEvents } from "@nexus/core/infra/events";
-appEvents.emit("conversation:updated", { id, title });
-```
+MCP servers are standalone Python tools in `mcp-servers/`. Each exposes capabilities via the Model Context Protocol over stdio.
 
-**Frontend** - Subscribe with hook:
-```typescript
-import { useEvents } from "../lib/useEvents";
-useEvents("conversation:updated", (payload) => {
-  // payload is typed
-});
-```
+### Conventions
 
-Event types defined in `packages/core/src/infra/events.ts`.
+- One server per domain (k8s, kserve, grafana)
+- Use `asyncio` for I/O — Hermes may call multiple tools in parallel
+- Return structured JSON; include error context, not just messages
+- Keep servers stateless; Hermes handles state in MEMORY.md
+- Log to stderr, return JSON on stdout
 
-## Commands
+### Adding a New MCP Server
 
-**All commands run from `sb/nexus/` workspace root:**
+1. Create directory under `mcp-servers/mcp-<name>/`
+2. Implement `server.py` with MCP protocol handlers
+3. Add to `hermes/config.yaml` under `mcp_servers`
+4. Add ArgoCD app in `argocd/clusters/superbloom/hermes/` if it should be deployed alongside Hermes
+5. Push to main — ArgoCD deploys
+
+### Existing MCP Servers
+
+| Server | Tools | Purpose |
+|--------|-------|---------|
+| `mcp-k8s` | get_pods, get_logs, describe_resource, restart_deployment | Cluster operations |
+| `mcp-kserve` | list_models, load_model, get_model_status | Model serving lifecycle |
+| `mcp-grafana` | promql, alert_status, annotate_dashboard | Monitoring and alerts |
+
+## Ops Architecture
+
+All infrastructure operations (kubectl, flux, helm) execute via **Tailscale SSH** to the `superbloom` host. The Tailscale operator handles cluster networking; individual apps no longer need sidecars.
 
 ```bash
-# Development (uses Turborepo)
-bun run dev:all        # All services with Turbo TUI
-bun run dev:api        # API on :3000
-bun run dev:ui         # Dashboard on :3001
-bun run dev:bot        # Discord bot
-bun run dev:workers    # All background workers
-
-# Quality checks (parallel via Turborepo)
-bun run test           # Run all tests
-bun run typecheck      # TypeScript check all packages
-bun run check          # Biome check all packages
-
-# Docker builds
-bun run docker:build:all  # Build all Docker images
-
-# Drizzle migrations
-bun run db:generate    # Generate all migrations
-bun run db:migrate     # Run migrations
+# Example: run kubectl via Tailscale SSH
+ssh superbloom "kubectl get pods -A"
 ```
 
 ## Shell Tools
 
 | Tool | Purpose | Example |
 |------|---------|---------|
-| `rg` (ripgrep) | Fast text search | `rg "pattern" --type ts` |
-| `fd` | Fast file finder | `fd "schema" --extension ts` |
+| `rg` (ripgrep) | Fast text search | `rg "pattern" --type py` |
+| `fd` | Fast file finder | `fd "server.py" mcp-servers/` |
 | `fzf` | Fuzzy finder | `fd \| fzf` |
-| `eza` | Better ls | `eza --tree --level=2 apps/` |
+| `eza` | Better ls | `eza --tree --level=2 mcp-servers/` |
 
 ### Useful Searches
 
 ```bash
-# Find all route definitions
-rg "new Elysia" packages/core/src
+# Find all MCP server entry points
+fd "server.py" mcp-servers/
 
-# Find all Drizzle schemas
-fd schema.ts packages/core
+# Find all Hermes skills
+fd "*.md" hermes/skills/
 
-# Find all API endpoints
-rg "\.get\(|\.post\(|\.patch\(|\.delete\(" packages/core/src/domains
+# Find Hermes config references
+rg "mcp_servers" hermes/
 
-# Find environment variable usage
-rg "config\." packages/core/src
+# Find ArgoCD app definitions
+fd "app.yaml" argocd/
 
-# Find event emissions
-rg "appEvents.emit" packages/core/src
+# Find SOPS-encrypted secrets
+rg "sops" argocd/
 ```
 
 ## Key Files
 
 | File | Purpose |
 |------|---------|
-| `packages/core/src/domains/*/types.ts` | Domain schemas |
-| `packages/core/src/infra/events.ts` | WebSocket event definitions |
-| `packages/core/src/infra/config.ts` | Environment variables |
-| `apps/api/src/app.ts` | Elysia API composition |
-| `apps/ui/src/lib/api.ts` | Eden Treaty client |
-| `apps/ui/src/lib/useEvents.ts` | WebSocket hook |
-
-## Ops Architecture
-
-All infrastructure operations (kubectl, flux, helm) execute via **Tailscale SSH** to the `superbloom` host. This applies whether running locally or in-cluster - the pods have Tailscale sidecars configured.
-
-```typescript
-// packages/core/src/domains/ops/functions.ts
-// Always uses SSH, never local execution
-async function executeKubectl(command: string) {
-  return executeSSH(`kubectl ${command}`);
-}
-```
+| `hermes/config.yaml` | Agent runtime configuration |
+| `hermes/SOUL.md` | Agent personality and directives |
+| `hermes/skills/*.md` | Executable procedures |
+| `argocd/clusters/superbloom/infra/caddy/resources/caddyfile.yaml` | Reverse proxy routes |
+| `argocd/clusters/superbloom/infra/ddns/values.yaml` | Dynamic DNS domains |
+| `.sops.yaml` | SOPS encryption configuration |
