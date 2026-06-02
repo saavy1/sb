@@ -5,6 +5,22 @@ metadata:
   namespace: caddy-system
 data:
   Caddyfile: |
+    # ---------------------------------------------------------------------------
+    # ACCESS PATTERNS:
+    #
+    # PUBLIC (internet):
+    #   1. Add domain to ddns/values.yaml DOMAINS list
+    #   2. Add Caddy route below
+    #   Example: jellyfin, sonarr, grafana
+    #
+    # TAILSCALE-ONLY (tailnet):
+    #   1. Do NOT add domain to DDNS (keeps it off public DNS)
+    #   2. Add Caddy route below (still served, just not publicly resolvable)
+    #   3. Access via tailnet: http://<tailscale-ip>:<port>
+    #      Or add to /etc/hosts: 100.x.x.x  app.saavylab.dev
+    #   Example: hermes
+    # ---------------------------------------------------------------------------
+
     # Global options
     {
         email jayson@saavylab.com
