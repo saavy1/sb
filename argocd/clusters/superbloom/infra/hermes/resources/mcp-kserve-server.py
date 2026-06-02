@@ -1,28 +1,29 @@
 """Hermes MCP server for KServe model lifecycle management."""
 import asyncio
 import json
-import subprocess
-
 from mcp.server.fastmcp import FastMCP
 
 mcp = FastMCP("mcp-kserve")
 
-async def kubectl_json(command: str) -> dict:
-    proc = await asyncio.create_subprocess_shell(
-        f"kubectl {command} -o json",
+async def run_kubectl(*args: str, stdin_data: str | None = None) -> str:
+    """Execute kubectl with explicit args (no shell). Optionally pipe stdin."""
+    proc = await asyncio.create_subprocess_exec(
+        "kubectl", *args,
+        stdin=asyncio.subprocess.PIPE if stdin_data else None,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )
-    stdout, stderr = await proc.communicate()
+    stdout, stderr = await proc.communicate(stdin_data.encode() if stdin_data else None)
     if proc.returncode != 0:
-        raise RuntimeError(stderr.decode())
-    return json.loads(stdout.decode())
+        return f"Error: {stderr.decode()}"
+    return stdout.decode()
 
 @mcp.tool()
 async def list_models() -> str:
     """List all InferenceServices and their status."""
     try:
-        svcs = await kubectl_json("get inferenceservices --all-namespaces")
+        result = await run_kubectl("get", "inferenceservices", "--all-namespaces", "-o", "json")
+        svcs = json.loads(result)
         return json.dumps([{
             "name": s["metadata"]["name"],
             "namespace": s["metadata"]["namespace"],
@@ -35,7 +36,13 @@ async def list_models() -> str:
 
 @mcp.tool()
 async def load_model(name: str, model_uri: str, runtime: str = "vllm") -> str:
-    """Create or update an InferenceService to load a model."""
+    """Create or update an InferenceService to load a model.
+
+    Args:
+        name: Name for the InferenceService
+        model_uri: HuggingFace model URI or storage path
+        runtime: Serving runtime name (default: vllm)
+    """
     yaml = f"""apiVersion: serving.kserve.io/v1beta1
 kind: InferenceService
 metadata:
@@ -48,34 +55,19 @@ spec:
         name: {runtime}
       storageUri: {model_uri}
 """
-    proc = await asyncio.create_subprocess_shell(
-        f"echo '{yaml}' | kubectl apply -f -",
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
-    )
-    stdout, stderr = await proc.communicate()
-    if proc.returncode != 0:
-        return f"Failed to load model: {stderr.decode()}"
-    return f"Model {name} loading from {model_uri}. Check status with list_models."
+    return await run_kubectl("apply", "-f", "-", stdin_data=yaml)
 
 @mcp.tool()
 async def unload_model(name: str) -> str:
     """Remove an InferenceService to free GPU memory."""
-    proc = await asyncio.create_subprocess_shell(
-        f"kubectl delete inferenceservice {name} -n kserve",
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
-    )
-    stdout, stderr = await proc.communicate()
-    if proc.returncode != 0:
-        return f"Error: {stderr.decode()}"
-    return f"Model {name} unloaded."
+    return await run_kubectl("delete", "inferenceservice", name, "-n", "kserve")
 
 @mcp.tool()
 async def get_model_status(name: str) -> str:
     """Get detailed status of a specific model."""
     try:
-        svc = await kubectl_json(f"get inferenceservice {name} -n kserve")
+        result = await run_kubectl("get", "inferenceservice", name, "-n", "kserve", "-o", "json")
+        svc = json.loads(result)
         return json.dumps(svc.get("status", {}), indent=2)
     except Exception as e:
         return f"Error: {e}"

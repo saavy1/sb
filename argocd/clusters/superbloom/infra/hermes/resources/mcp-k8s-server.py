@@ -1,16 +1,14 @@
 """Hermes MCP server for Kubernetes and ArgoCD operations."""
 import asyncio
 import json
-import subprocess
 from mcp.server.fastmcp import FastMCP
 
 mcp = FastMCP("mcp-k8s")
 
-@mcp.tool()
-async def kubectl(command: str) -> str:
-    """Execute a kubectl command against the cluster."""
-    proc = await asyncio.create_subprocess_shell(
-        f"kubectl {command}",
+async def run_kubectl(*args: str) -> str:
+    """Execute kubectl with explicit args (no shell)."""
+    proc = await asyncio.create_subprocess_exec(
+        "kubectl", *args,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )
@@ -22,8 +20,12 @@ async def kubectl(command: str) -> str:
 @mcp.tool()
 async def get_pods(namespace: str = "all") -> str:
     """Get pod status across namespaces."""
-    ns_flag = f"-n {namespace}" if namespace != "all" else "--all-namespaces"
-    result = await kubectl(f"get pods {ns_flag} -o json")
+    args = ["get", "pods", "-o", "json"]
+    if namespace != "all":
+        args.extend(["-n", namespace])
+    else:
+        args.append("--all-namespaces")
+    result = await run_kubectl(*args)
     pods = json.loads(result)
     return json.dumps([
         {"name": p["metadata"]["name"],
@@ -36,8 +38,12 @@ async def get_pods(namespace: str = "all") -> str:
 @mcp.tool()
 async def get_events(namespace: str = "all", limit: int = 20) -> str:
     """Get recent Kubernetes events."""
-    ns_flag = f"-n {namespace}" if namespace != "all" else "--all-namespaces"
-    result = await kubectl(f"get events {ns_flag} --sort-by='.lastTimestamp' -o json")
+    args = ["get", "events", "--sort-by=.lastTimestamp", "-o", "json"]
+    if namespace != "all":
+        args.extend(["-n", namespace])
+    else:
+        args.append("--all-namespaces")
+    result = await run_kubectl(*args)
     events = json.loads(result)
     recent = sorted(
         events.get("items", []),
@@ -55,17 +61,17 @@ async def get_events(namespace: str = "all", limit: int = 20) -> str:
 @mcp.tool()
 async def restart_deployment(name: str, namespace: str) -> str:
     """Restart a deployment by triggering a rollout restart."""
-    return await kubectl(f"rollout restart deployment/{name} -n {namespace}")
+    return await run_kubectl("rollout", "restart", f"deployment/{name}", "-n", namespace)
 
 @mcp.tool()
 async def describe_resource(kind: str, name: str, namespace: str) -> str:
     """Describe a Kubernetes resource."""
-    return await kubectl(f"describe {kind} {name} -n {namespace}")
+    return await run_kubectl("describe", kind, name, "-n", namespace)
 
 @mcp.tool()
 async def get_logs(name: str, namespace: str, tail: int = 100) -> str:
     """Get logs from a pod or deployment."""
-    return await kubectl(f"logs deployment/{name} -n {namespace} --tail={tail}")
+    return await run_kubectl("logs", f"deployment/{name}", "-n", namespace, f"--tail={tail}")
 
 if __name__ == "__main__":
     mcp.run()
