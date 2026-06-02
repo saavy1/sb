@@ -17,11 +17,11 @@ cat > /tmp/tailscale-creds.yaml << 'EOF'
 apiVersion: v1
 kind: Secret
 metadata:
-  name: tailscale-operator-oauth
+  name: operator-oauth
   namespace: tailscale
 stringData:
-  clientId: "<oauth-client-id>"
-  clientSecret: "<oauth-client-secret>"
+  client_id: "<oauth-client-id>"
+  client_secret: "<oauth-client-secret>"
 EOF
 
 sops --encrypt --age age1776wth2d8psy2swdcuw5t5ptj4hdegnjzh2eppz4gahas6waks7q37cf57 \

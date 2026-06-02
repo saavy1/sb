@@ -13,12 +13,7 @@ spec:
     targetRevision: 1.8.0
     helm:
       valuesObject:
-        oauth:
-          clientId: ""
-          clientSecret:
-            existingSecret:
-              name: tailscale-operator-oauth
-              key: clientSecret
+        oauth: {}
   destination:
     server: https://kubernetes.default.svc
     namespace: tailscale
