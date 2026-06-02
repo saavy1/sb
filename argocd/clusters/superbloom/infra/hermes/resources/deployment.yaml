@@ -18,9 +18,17 @@ spec:
         - name: hermes
           image: nousresearch/hermes-agent:latest
           args: ["gateway", "run"]
+          env:
+            - name: HERMES_DASHBOARD
+              value: "1"
+            - name: HERMES_DASHBOARD_INSECURE
+              value: "1"
           envFrom:
             - secretRef:
                 name: hermes-env
+          ports:
+            - containerPort: 9119
+              name: dashboard
           volumeMounts:
             - name: hermes-data
               mountPath: /opt/data
