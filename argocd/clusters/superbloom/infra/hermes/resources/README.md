@@ -1,4 +1,4 @@
-# Hermes Secrets Setup
+# Hermes Deployment
 
 The `hermes-env` ExternalSecret references a SOPS-encrypted secret created manually.
 
@@ -16,7 +16,6 @@ metadata:
 stringData:
   DISCORD_TOKEN: "your-discord-bot-token"
   DEEPSEEK_API_KEY: "sk-your-deepseek-key"
-  GRAFANA_API_TOKEN: "your-grafana-token"
 EOF
 
 sops --encrypt --age age1776wth2d8psy2swdcuw5t5ptj4hdegnjzh2eppz4gahas6waks7q37cf57 \
@@ -26,3 +25,7 @@ rm /tmp/hermes-env.yaml
 ```
 
 Then commit the encrypted file.
+
+## MCP Servers
+
+Only the custom `mcp-kserve` server is bundled. Community MCP servers for Kubernetes and Grafana should be added to the Hermes container image or installed at runtime.

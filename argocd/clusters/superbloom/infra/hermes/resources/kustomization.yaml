@@ -14,12 +14,6 @@ configMapGenerator:
   - name: hermes-soul
     files:
       - SOUL.md
-  - name: mcp-k8s
-    files:
-      - server.py=mcp-k8s-server.py
   - name: mcp-kserve
     files:
       - server.py=mcp-kserve-server.py
-  - name: mcp-grafana
-    files:
-      - server.py=mcp-grafana-server.py

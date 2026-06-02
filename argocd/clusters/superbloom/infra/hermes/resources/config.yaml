@@ -37,15 +37,9 @@ cron:
       prompt: "Run the Self-Healer daily report and post to Discord."
 
 mcp_servers:
-  - name: k8s
-    command: python
-    args: ["/opt/mcp/mcp-k8s/server.py"]
   - name: kserve
     command: python
     args: ["/opt/mcp/mcp-kserve/server.py"]
-  - name: grafana
-    command: python
-    args: ["/opt/mcp/mcp-grafana/server.py"]
-    env:
-      GRAFANA_URL: "https://grafana.saavylab.dev"
-      GRAFANA_API_TOKEN: ${GRAFANA_API_TOKEN}
+  # Community MCP servers to add:
+  # - name: kubernetes (https://github.com/containers/mcp-kubernetes)
+  # - name: grafana (https://github.com/grafana/mcp-grafana)
