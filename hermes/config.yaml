@@ -26,5 +26,16 @@ skills:
 cron:
   enabled: true
 
-mcp_servers: []
-# Will add: k8s, github, grafana, kserve, kubeflow
+mcp_servers:
+  - name: k8s
+    command: python
+    args: ["/opt/mcp/mcp-k8s/server.py"]
+  - name: kserve
+    command: python
+    args: ["/opt/mcp/mcp-kserve/server.py"]
+  - name: grafana
+    command: python
+    args: ["/opt/mcp/mcp-grafana/server.py"]
+    env:
+      GRAFANA_URL: "https://grafana.saavylab.dev"
+      GRAFANA_API_TOKEN: ${GRAFANA_API_TOKEN}
