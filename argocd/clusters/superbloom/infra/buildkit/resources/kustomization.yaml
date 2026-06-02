@@ -5,3 +5,4 @@ resources:
   - configmap.yaml
   - statefulset.yaml
   - service.yaml
+  - zot-push.enc.yaml

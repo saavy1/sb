@@ -4,8 +4,8 @@ resources:
   - namespace.yaml
   - deployment.yaml
   - pvc.yaml
-  - external-secret.yaml
   - rbac.yaml
+  - hermes-env.enc.yaml
 
 configMapGenerator:
   - name: hermes-config

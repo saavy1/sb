@@ -1,0 +1,24 @@
+apiVersion: v1
+kind: Secret
+metadata:
+    name: hermes-env
+    namespace: hermes
+stringData:
+    DISCORD_TOKEN: ENC[AES256_GCM,data:lCGIssLKhWIxESXbMT/kPpH40hcr8m5uTXHKCb8nDWPAGvD6EbnLC+H4ruqvUGbOXvzqHbe3Aa52yUZOnbX2KACOIJ7cVxPJ,iv:Q5vQ7TQv3lEOwF3fuSCQ3clFGC16x0Z8puLpcSA2Vpk=,tag:eDaOdoJk1gkHsD4FK1bWuA==,type:str]
+    DEEPSEEK_API_KEY: ENC[AES256_GCM,data:nT2V1CYTW4ijc588H1/onazuNprhCVml8VTk5tduez6VTLk=,iv:wkm7PwNxn2fFT6hSgyzbFKxJEXtWPjaPxzWmtMNQlCI=,tag:I8Vc75AmlSSdhnnauzvC5A==,type:str]
+    GRAFANA_API_TOKEN: ENC[AES256_GCM,data:4+8ATD/vEh8U9FXc/qL1Bbk6+BKVhyE6,iv:rx8OqFxKKkYPE2byLi0YfxxpZND0DVUsjeelTz1mLlE=,tag:lwH7FZLXNSz+KlVHXtDt9Q==,type:str]
+sops:
+    age:
+        - recipient: age1776wth2d8psy2swdcuw5t5ptj4hdegnjzh2eppz4gahas6waks7q37cf57
+          enc: |
+            -----BEGIN AGE ENCRYPTED FILE-----
+            YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSA4QWFDdXZsakxFdHBaYWk5
+            UnZhNjNBclZTOHN5V09kZk5HaUFvalI0Qmh3Clo5MzFwSFR1SXhFQnRGNFF1cXRZ
+            K1NVRFRndm1XNTFoZFN6bnNZRlM0QlUKLS0tIFQ0bmR4YVVDbmdhQnNoZWRuL0lW
+            WllwNEtjZzFaa2IwNFNHYWdkVld1UmMK+WPT7mXgfCuIRCzhAqKQO1hDI4wOoaF9
+            jNZykZ49v2KsKLMcednQ8f/qbIrAnLKAbCk++g9jfrqorg0XcnBLjw==
+            -----END AGE ENCRYPTED FILE-----
+    lastmodified: "2026-06-02T20:52:08Z"
+    mac: ENC[AES256_GCM,data:zDMb9OK4/fEBWgY6S8UpHza6HOJXV/z462fuyxFMW05SBkMIZVefnd0f9dTfvzz+p1ZxrejYdMZ7E6p/0eY/MzcwIczlTEqktOkJkJnQ2qolHnmwhXJcE8+bzt/vhIgLQ5TdlovBEsyw4kSj996jf71ozGJ4w7A9JRPG7an4YFw=,iv:eKv5w/V5qMcLc8VCedwpRWAxdwn6qWS11oj9+MNOF8w=,tag:GvSDDeK2amoUNRmdmXKN1w==,type:str]
+    encrypted_regex: ^(data|stringData)$
+    version: 3.11.0
