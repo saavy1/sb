@@ -3,6 +3,8 @@ kind: Service
 metadata:
   name: hermes
   namespace: hermes
+  annotations:
+    tailscale.com/proxy-group: homelab
 spec:
   selector:
     app: hermes
