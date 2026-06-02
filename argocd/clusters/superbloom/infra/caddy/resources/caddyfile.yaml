@@ -15,13 +15,9 @@ data:
         reverse_proxy argocd-server.argocd.svc.cluster.local:80
     }
 
-    # Hermes Agent - Tailscale only
+    # Hermes Agent - tailnet only (not on public DNS)
     hermes.saavylab.dev {
-        @tailscale remote_ip 100.64.0.0/10
-        handle @tailscale {
-            reverse_proxy hermes.hermes.svc.cluster.local:80
-        }
-        respond 403
+        reverse_proxy hermes.hermes.svc.cluster.local:80
     }
 
     # Jellyfin - uses built-in auth
