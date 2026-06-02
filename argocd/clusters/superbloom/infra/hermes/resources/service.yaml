@@ -4,7 +4,7 @@ metadata:
   name: hermes
   namespace: hermes
   annotations:
-    tailscale.com/proxy-group: homelab
+    tailscale.com/expose: "true"
 spec:
   selector:
     app: hermes
