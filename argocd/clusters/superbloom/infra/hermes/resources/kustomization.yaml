@@ -6,6 +6,9 @@ resources:
   - pvc.yaml
   - rbac.yaml
 
+generatorOptions:
+  disableNameSuffixHash: true
+
 configMapGenerator:
   - name: hermes-config
     files:
