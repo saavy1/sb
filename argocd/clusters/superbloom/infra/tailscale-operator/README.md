@@ -20,8 +20,8 @@ metadata:
   name: tailscale-operator-oauth
   namespace: tailscale
 stringData:
-  TAILSCALE_OAUTH_CLIENT_ID: "<oauth-client-id>"
-  TAILSCALE_OAUTH_CLIENT_SECRET: "<oauth-client-secret>"
+  clientId: "<oauth-client-id>"
+  clientSecret: "<oauth-client-secret>"
 EOF
 
 sops --encrypt --age age1776wth2d8psy2swdcuw5t5ptj4hdegnjzh2eppz4gahas6waks7q37cf57 \

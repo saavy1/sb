@@ -3,6 +3,8 @@ kind: Application
 metadata:
   name: tailscale-operator
   namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
 spec:
   project: default
   source:
@@ -10,10 +12,13 @@ spec:
     repoURL: https://pkgs.tailscale.com/helmcharts
     targetRevision: 1.8.0
     helm:
-      values: |
+      valuesObject:
         oauth:
-          clientId: ${TAILSCALE_OAUTH_CLIENT_ID}
-          clientSecret: ${TAILSCALE_OAUTH_CLIENT_SECRET}
+          clientId: ""
+          clientSecret:
+            existingSecret:
+              name: tailscale-operator-oauth
+              key: clientSecret
   destination:
     server: https://kubernetes.default.svc
     namespace: tailscale
