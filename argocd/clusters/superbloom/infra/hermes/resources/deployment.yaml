@@ -14,29 +14,6 @@ spec:
         app: hermes
     spec:
       serviceAccountName: hermes
-      initContainers:
-        - name: seed-config
-          image: busybox
-          command:
-            - sh
-            - -c
-            - |
-              if [ ! -f /opt/data/config.yaml ]; then
-                cp /seed/config.yaml /opt/data/config.yaml
-              else
-                chown 1000:1000 /opt/data/config.yaml 2>/dev/null || true
-              fi
-              if [ ! -f /opt/data/SOUL.md ]; then
-                cp /seed-soul/SOUL.md /opt/data/SOUL.md
-              fi
-              chown 1000:1000 /opt/data/config.yaml /opt/data/SOUL.md 2>/dev/null || true
-          volumeMounts:
-            - name: hermes-data
-              mountPath: /opt/data
-            - name: hermes-config
-              mountPath: /seed
-            - name: hermes-soul
-              mountPath: /seed-soul
       containers:
         - name: hermes
           image: nousresearch/hermes-agent:latest
@@ -63,12 +40,6 @@ spec:
         - name: hermes-data
           persistentVolumeClaim:
             claimName: hermes-data
-        - name: hermes-config
-          configMap:
-            name: hermes-config
-        - name: hermes-soul
-          configMap:
-            name: hermes-soul
         - name: docker-sock
           hostPath:
             path: /var/run/docker.sock

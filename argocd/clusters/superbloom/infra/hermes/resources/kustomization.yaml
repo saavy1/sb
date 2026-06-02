@@ -11,12 +11,6 @@ generatorOptions:
   disableNameSuffixHash: true
 
 configMapGenerator:
-  - name: hermes-config
-    files:
-      - config.yaml
-  - name: hermes-soul
-    files:
-      - SOUL.md
   - name: mcp-kserve
     files:
       - server.py=mcp-kserve-server.py
