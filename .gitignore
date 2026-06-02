@@ -3,3 +3,6 @@ sops_age_keys.txt
 .worktrees/
 __pycache__/
 *.pyc
+.claude/
+.factory/
+nexus/

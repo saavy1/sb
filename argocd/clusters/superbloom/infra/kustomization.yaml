@@ -1,19 +1,15 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-  - alloy/
-  - argo-workflows/
-  - buildkit/
-  - authelia/
-  - caddy/
-  - cert-manager/
-  - ddns/
   - external-secrets/
-  - hermes/
+  - cert-manager/
+  - caddy/
+  - ddns/
   - home-assistant/
-  - kube-prometheus-stack/
-  - loki/
-  - nvidia-gpu-operator/
   - tailscale-operator/
+  - alloy/
+  - loki/
   - tempo/
-  - zot/
+  - kube-prometheus-stack/
+  - nvidia-gpu-operator/
+  - hermes/

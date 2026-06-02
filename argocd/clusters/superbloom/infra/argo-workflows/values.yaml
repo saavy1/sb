@@ -1,6 +1,0 @@
-singleNamespace: true
-server:
-  authModes:
-    - server
-  clusterWorkflowTemplates:
-    enabled: false
