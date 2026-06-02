@@ -4,4 +4,3 @@ resources:
   - flux-system/
   - infra.yaml
   - argocd.yaml
-  - data.yaml
