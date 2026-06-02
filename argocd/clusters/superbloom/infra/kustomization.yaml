@@ -14,5 +14,6 @@ resources:
   - kube-prometheus-stack/
   - loki/
   - nvidia-gpu-operator/
+  - tailscale-operator/
   - tempo/
   - zot/

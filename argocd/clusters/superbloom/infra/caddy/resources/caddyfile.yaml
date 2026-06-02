@@ -15,32 +15,8 @@ data:
         reverse_proxy authelia.authelia.svc.cluster.local:80
     }
 
-    # Nexus dashboard - protected with forward_auth
-    nexus.saavylab.dev {
-        # GitHub webhook bypasses auth (signature verified in app)
-        # Other webhooks (alertmanager, etc.) use internal ClusterIP
-        @github_webhook path /webhooks/github
-        handle @github_webhook {
-            reverse_proxy nexus.nexus.svc.cluster.local:3000
-        }
-
-        # Everything else requires auth
-        handle {
-            forward_auth authelia.authelia.svc.cluster.local:80 {
-                uri /api/authz/forward-auth
-                copy_headers Remote-User Remote-Groups Remote-Email Remote-Name
-            }
-            reverse_proxy nexus.nexus.svc.cluster.local:3000
-        }
-    }
-
-    # Argo Workflows - GitHub webhook bypasses auth, UI stays protected
+    # Argo Workflows - UI protected with forward_auth
     workflows.saavylab.dev {
-        @github_workflows_webhook path /api/v1/events/argo/nexus-build-push
-        handle @github_workflows_webhook {
-            reverse_proxy argo-workflows-server.argo.svc.cluster.local:2746
-        }
-
         handle {
             forward_auth authelia.authelia.svc.cluster.local:80 {
                 uri /api/authz/forward-auth
