@@ -1,0 +1,51 @@
+# Initial config - DeepSeek API as primary until KServe is ready
+model:
+  provider: deepseek
+  model: deepseek-chat
+  context_length: 131072
+
+gateway:
+  platforms:
+    discord:
+      enabled: true
+      token: ${DISCORD_TOKEN}
+    cli:
+      enabled: true
+
+terminal:
+  backend: docker
+
+memory:
+  persist: true
+  honcho: false
+
+skills:
+  auto_create: true
+  hub_sync: true
+
+cron:
+  enabled: true
+  jobs:
+    - name: model-health-check
+      schedule: "*/5 * * * *"
+      prompt: "Run the Model Manager skill: check KServe model health, swap if needed, fallback to DeepSeek if down."
+    - name: cluster-triage
+      schedule: "*/2 * * * *"
+      prompt: "Run the Self-Healer skill: check PromStack alerts and resolve any known patterns."
+    - name: morning-report
+      schedule: "0 9 * * *"
+      prompt: "Run the Self-Healer daily report and post to Discord."
+
+mcp_servers:
+  - name: k8s
+    command: python
+    args: ["/opt/mcp/mcp-k8s/server.py"]
+  - name: kserve
+    command: python
+    args: ["/opt/mcp/mcp-kserve/server.py"]
+  - name: grafana
+    command: python
+    args: ["/opt/mcp/mcp-grafana/server.py"]
+    env:
+      GRAFANA_URL: "https://grafana.saavylab.dev"
+      GRAFANA_API_TOKEN: ${GRAFANA_API_TOKEN}

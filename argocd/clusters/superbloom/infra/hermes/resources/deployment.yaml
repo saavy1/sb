@@ -13,6 +13,7 @@ spec:
       labels:
         app: hermes
     spec:
+      serviceAccountName: hermes
       containers:
         - name: hermes
           image: ghcr.io/nousresearch/hermes-agent:latest
