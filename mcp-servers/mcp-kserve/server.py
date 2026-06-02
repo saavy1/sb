@@ -46,8 +46,7 @@ spec:
   predictor:
     model:
       modelFormat:
-        name: {model_uri}
-      runtime: {runtime}
+        name: {runtime}
       storageUri: {model_uri}
 """
     proc = await asyncio.create_subprocess_shell(

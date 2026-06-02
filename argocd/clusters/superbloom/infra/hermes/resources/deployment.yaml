@@ -31,6 +31,12 @@ spec:
               subPath: SOUL.md
             - name: docker-sock
               mountPath: /var/run/docker.sock
+            - name: mcp-k8s
+              mountPath: /opt/mcp/mcp-k8s
+            - name: mcp-kserve
+              mountPath: /opt/mcp/mcp-kserve
+            - name: mcp-grafana
+              mountPath: /opt/mcp/mcp-grafana
       volumes:
         - name: hermes-data
           persistentVolumeClaim:
@@ -44,3 +50,15 @@ spec:
         - name: docker-sock
           hostPath:
             path: /var/run/docker.sock
+        - name: mcp-k8s
+          configMap:
+            name: mcp-k8s
+            defaultMode: 0755
+        - name: mcp-kserve
+          configMap:
+            name: mcp-kserve
+            defaultMode: 0755
+        - name: mcp-grafana
+          configMap:
+            name: mcp-grafana
+            defaultMode: 0755

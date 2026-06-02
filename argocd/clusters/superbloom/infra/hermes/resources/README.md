@@ -16,6 +16,7 @@ metadata:
 stringData:
   DISCORD_TOKEN: "your-discord-bot-token"
   DEEPSEEK_API_KEY: "sk-your-deepseek-key"
+  GRAFANA_API_TOKEN: "your-grafana-token"
 EOF
 
 sops --encrypt --age age1776wth2d8psy2swdcuw5t5ptj4hdegnjzh2eppz4gahas6waks7q37cf57 \

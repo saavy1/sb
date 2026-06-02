@@ -35,14 +35,14 @@ Everything remains declarative and version-controlled. NixOS configures the meta
 ┌────────────────────▼────────────────────────────────────────┐
 │  ArgoCD — Primary GitOps                                   │
 │  ├─ Infra: Caddy, Authelia, DDNS, PromStack,            │
-│  │    Zot Registry, Kargo, External Secrets,             │
+│  │    Zot Registry, External Secrets,                  │
 │  │    Argo Workflows, NVIDIA GPU Operator,               │
 │  │    Home Assistant                                       │
 │  ├─ AI: KServe (model serving), vLLM ServingRuntime      │
 │  ├─ Hermes: Agent deployment + MCP servers                │
 │  ├─ Media: Jellyfin, Sonarr, Radarr, SABnzbd, etc.       │
 │  ├─ Games: Minecraft server infrastructure                │
-│  └─ Data: Valkey (Redis-compatible)                      │
+│  └─ Data:                                                 │
 └────────────────────────────────────────────────────────────┘
 ```
 
@@ -79,7 +79,7 @@ sb/
 |-------|-------------|
 | OS | NixOS, K3s, Tailscale |
 | GPU | NVIDIA GPU Operator, KServe, vLLM, Kubeflow |
-| GitOps | ArgoCD (primary), Flux (bootstrap only), Kargo |
+| GitOps | ArgoCD (primary), Flux (bootstrap only) |
 | Secrets | SOPS + External Secrets Operator (replaced Infisical) |
 | Ingress | Caddy, Authelia (SSO), Cloudflare DDNS |
 | Monitoring | Prometheus, Grafana, Loki, Tempo, Alloy |
@@ -87,7 +87,7 @@ sb/
 | Registry | Zot (self-hosted OCI registry) |
 | Storage | ZFS RAIDZ2, Samba (NAS), local-path provisioner |
 | Agent | Hermes Agent, MCP servers, DeepSeek fallback |
-| Databases | SQLite (Hermes memory), PostgreSQL, Valkey |
+| Databases | SQLite (Hermes memory), PostgreSQL |
 
 ## Development
 

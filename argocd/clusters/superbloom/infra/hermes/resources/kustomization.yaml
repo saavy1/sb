@@ -9,7 +9,16 @@ resources:
 configMapGenerator:
   - name: hermes-config
     files:
-      - config.yaml=../../../../../hermes/config.yaml
+      - config.yaml=../../../../../../hermes/config.yaml
   - name: hermes-soul
     files:
-      - SOUL.md=../../../../../hermes/SOUL.md
+      - SOUL.md=../../../../../../hermes/SOUL.md
+  - name: mcp-k8s
+    files:
+      - server.py=../../../../../../mcp-servers/mcp-k8s/server.py
+  - name: mcp-kserve
+    files:
+      - server.py=../../../../../../mcp-servers/mcp-kserve/server.py
+  - name: mcp-grafana
+    files:
+      - server.py=../../../../../../mcp-servers/mcp-grafana/server.py
