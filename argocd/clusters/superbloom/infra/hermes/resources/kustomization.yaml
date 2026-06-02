@@ -1,0 +1,19 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - namespace.yaml
+  - deployment.yaml
+  - pvc.yaml
+  - external-secret.yaml
+  - rbac.yaml
+
+configMapGenerator:
+  - name: hermes-config
+    files:
+      - config.yaml
+  - name: hermes-soul
+    files:
+      - SOUL.md
+  - name: mcp-kserve
+    files:
+      - server.py=mcp-kserve-server.py

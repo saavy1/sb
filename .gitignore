@@ -1,2 +1,5 @@
 sops_age_keys.txt
 .claude/worktrees/*
+.worktrees/
+__pycache__/
+*.pyc

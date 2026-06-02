@@ -9,11 +9,11 @@ resources:
   - cert-manager/
   - ddns/
   - external-secrets/
+  - hermes/
   - home-assistant/
-  - infisical/
-  - kargo/
   - kube-prometheus-stack/
   - loki/
   - nvidia-gpu-operator/
+  - tailscale-operator/
   - tempo/
   - zot/

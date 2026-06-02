@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hermes
+  namespace: hermes
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hermes
+  template:
+    metadata:
+      labels:
+        app: hermes
+    spec:
+      serviceAccountName: hermes
+      containers:
+        - name: hermes
+          image: ghcr.io/nousresearch/hermes-agent:latest
+          args: ["gateway", "run"]
+          envFrom:
+            - secretRef:
+                name: hermes-env
+          volumeMounts:
+            - name: hermes-data
+              mountPath: /opt/data
+            - name: hermes-config
+              mountPath: /opt/data/config.yaml
+              subPath: config.yaml
+            - name: hermes-soul
+              mountPath: /opt/data/SOUL.md
+              subPath: SOUL.md
+            - name: docker-sock
+              mountPath: /var/run/docker.sock
+            - name: mcp-kserve
+              mountPath: /opt/mcp/mcp-kserve
+      volumes:
+        - name: hermes-data
+          persistentVolumeClaim:
+            claimName: hermes-data
+        - name: hermes-config
+          configMap:
+            name: hermes-config
+        - name: hermes-soul
+          configMap:
+            name: hermes-soul
+        - name: docker-sock
+          hostPath:
+            path: /var/run/docker.sock
+        - name: mcp-kserve
+          configMap:
+            name: mcp-kserve
+            defaultMode: 0755

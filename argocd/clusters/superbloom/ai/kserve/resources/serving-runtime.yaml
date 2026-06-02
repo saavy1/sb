@@ -19,11 +19,9 @@ spec:
         - -m
         - vllm.entrypoints.openai.api_server
       # Per-InferenceService args (weights live under /tank/models/<name>/).
-      # `/tank/models` is the ZFS dataset on the superbloom host — the same
-      # path Nexus download Jobs write to (see k8s-adapter.ts MODELS_DIR).
+      # `/tank/models` is the ZFS dataset on the superbloom host.
       # Additional runtime flags (tp size, gpu mem utilization, tool-call parser,
-      # etc.) are provided per-model by the InferenceService.spec.predictor.model
-      # resource rendered by Nexus.
+      # etc.) are provided per-model by the InferenceService.spec.predictor.model.
       args:
         - --model=/tank/models/{{.Name}}
         - --served-model-name={{.Name}}

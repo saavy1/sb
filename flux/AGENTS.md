@@ -4,33 +4,35 @@ Guidelines for AI agents working on this homelab infrastructure.
 
 ## Project Overview
 
-This is a NixOS-based homelab running K3s with Flux GitOps. The infrastructure is organized as a monorepo with three main components.
+This is a NixOS-based homelab running K3s. **Flux is used only for bootstrapping** — it installs ArgoCD, and then ArgoCD manages all remaining workloads. This file covers the Flux bootstrap layer only. For the primary GitOps layer, see `argocd/README.md`.
 
 ### Monorepo Structure
 
 | Directory | Purpose |
 |-----------|---------|
 | `nixos/` | NixOS system configuration for the Superbloom server |
-| `flux/` | Flux GitOps manifests, Kubernetes app deployments |
-| `apps/` | Custom application services (Bun workspace) |
+| `flux/` | Bootstrap-only — installs ArgoCD |
+| `argocd/` | Primary GitOps — all Kubernetes app deployments |
+| `hermes/` | Hermes Agent configuration and skills |
+| `mcp-servers/` | Standalone Python MCP servers |
 
 ### Server: Superbloom
 
 - **OS:** NixOS (nixos-25.11)
 - **Hardware:** AMD Ryzen 7 5700G, 64GB RAM, Intel Arc A380 (transcode), ZFS storage
 - **Orchestration:** K3s
-- **GitOps:** Flux CD
-- **Network:** Tailscale, 8Gb Google Fiber
+- **GitOps:** ArgoCD (primary), Flux (bootstrap only)
+- **Network:** Tailscale operator, 8Gb Google Fiber
 
 ## Development Environments
 
 Development happens across three environments:
 
 1. **WSL2 (primary)** - Main Windows machine
-2. **Fedora (secondary)** - Laptop
+2. **Mac Mini (secondary)** - Apple Silicon, local testing
 3. **NixOS (server)** - Direct server access when needed
 
-All code is version controlled in a single Git repository. Changes to Kubernetes manifests in `flux/clusters/` are automatically reconciled by Flux.
+All code is version controlled in a single Git repository. Changes to `flux/clusters/` are reconciled by Flux; changes to `argocd/clusters/` are reconciled by ArgoCD.
 
 ## Repository Structure
 
@@ -48,55 +50,53 @@ sb/
 │       ├── ssh.nix
 │       ├── tailscale.nix
 │       ├── firewall.nix
+│       ├── zfs.nix
 │       └── users.nix
 │
-├── flux/                    # Flux GitOps
+├── flux/                    # Flux — Bootstrap Layer ONLY
 │   └── clusters/
 │       └── superbloom/     # Cluster-specific manifests
-│           ├── flux-system/ # Flux bootstrap
+│           ├── flux-system/ # Flux bootstrap controllers
+│           ├── infra/       # ArgoCD Helm chart
+│           └── kustomization.yaml
+│
+├── argocd/                # ArgoCD — Primary GitOps
+│   └── clusters/
+│       └── superbloom/
 │           ├── infra/       # Infrastructure (caddy, authelia, ddns, alloy)
-│           └── apps/        # Applications (nexus, nexus-worker, postgres, valkey)
+│           ├── hermes/      # Hermes Agent + MCP servers
+│           ├── media/       # Jellyfin, Sonarr, Radarr, etc.
+│           ├── games/       # Minecraft infrastructure
+│           └── data/        # Valkey, databases
 │
-├── apps/                    # Bun workspace for custom applications
-│   ├── nexus/              # Elysia API control plane
-│   ├── the-machine/        # Discord bot for game server management
-│   ├── dashboard/          # React web dashboard
-│   └── package.json        # Workspace root
+├── hermes/                # Hermes Agent configuration
+│   ├── config.yaml         # Runtime config
+│   ├── SOUL.md             # Agent personality
+│   └── skills/             # Built-in skills
 │
-└── .github/workflows/       # CI/CD for building and pushing to GHCR
-    ├── nexus.yml
-    ├── the-machine.yml
-    └── dashboard.yml
+├── mcp-servers/           # Standalone Python MCP servers
+│   ├── mcp-k8s/
+│   ├── mcp-kserve/
+│   └── mcp-grafana/
+│
+└── .github/workflows/     # CI/CD — NixOS deploy, image builds
 ```
-
-## Application Architecture
-
-### Nexus
-The core Elysia API control plane providing multi-domain backend services:
-- **SQLite databases** (one per domain) for game-servers, ops, apps, system-info, core
-- **PostgreSQL** for agent state (supports concurrent workers)
-- **Valkey + BullMQ** for background job queues
-- Domain-driven architecture with clear boundaries
-- Kubernetes integration for dynamic workload management
-- OpenAPI/Swagger documentation
-- Runs in two modes: `api` (HTTP server) and `worker` (job processor)
-
-### The Machine
-Discord bot for managing game servers. Thin client consuming the game-servers domain from Nexus via Eden Treaty (type-safe RPC).
-
-### Dashboard
-React web dashboard consuming multiple domains from Nexus API. Built with TanStack Router, Tailwind CSS, and Vite.
 
 ## Conventions
 
-### Kubernetes/Flux
+### Kubernetes / Flux (Bootstrap Only)
 
-- Infrastructure apps are under `flux/clusters/<cluster>/infra/`
-- Application deployments are under `flux/clusters/<cluster>/apps/`
-- Each app has its own directory with `kustomization.yaml`, `release.yaml` (HelmRelease), and optional `secrets.yaml`
-- Namespaces are defined in `ns.yaml` files
+- Flux manages **only** the components ArgoCD depends on (currently just ArgoCD itself)
+- Do **not** add application deployments to `flux/clusters/` — use `argocd/clusters/` instead
+- See `flux/README.md` for bootstrap details
+
+### ArgoCD (Primary GitOps)
+
+- Infrastructure apps are under `argocd/clusters/<cluster>/infra/`
+- Application deployments are under `argocd/clusters/<cluster>/<category>/`
+- Each app has its own directory with `app.yaml` (ArgoCD Application CRD), `kustomization.yaml`, and optional `values.yaml`
 - Use bjw-s app-template Helm chart where applicable
-- Secrets use SOPS encryption
+- Secrets use SOPS encryption + External Secrets Operator
 
 ### NixOS
 
@@ -105,24 +105,31 @@ React web dashboard consuming multiple domains from Nexus API. Built with TanSta
 - Rebuild command: `sudo nixos-rebuild switch --flake ./nixos#superbloom`
 - Keep modules focused and single-purpose
 
-### Applications (Bun Workspace)
+### Hermes Agent
 
-- Each app is a workspace package in `apps/`
-- TypeScript with strict type checking
-- Bun for runtime and package management
-- Images auto-build on push to main via GitHub Actions
-- Published to `ghcr.io/saavy1/<image-name>:latest`
+- Configuration lives in `hermes/` and is deployed by ArgoCD
+- Edit `config.yaml` or `skills/` to change agent behavior
+- ArgoCD redeploys on push to `main`
+
+### MCP Servers
+
+- Standalone Python tools in `mcp-servers/`
+- Each exposes tools via the Model Context Protocol over stdio
+- Hermes connects to them via `hermes/config.yaml`
 
 ## Common Tasks
 
 ### Adding a new Kubernetes app
 
-1. Create directory under appropriate category:
-   - `flux/clusters/superbloom/infra/` for infrastructure (ingress, auth, logging)
-   - `flux/clusters/superbloom/apps/` for applications (services, databases)
-2. Add `ns.yaml` (namespace), `release.yaml` (HelmRelease), `kustomization.yaml`
-3. Reference in parent `kustomization.yaml`
-4. Commit and push - Flux will reconcile
+**Do not use Flux.** Use ArgoCD:
+
+1. Create directory under `argocd/clusters/superbloom/<category>/`
+2. Add `app.yaml` (ArgoCD Application), `kustomization.yaml`
+3. Add `values.yaml` (if Helm) or `resources/` (if raw manifests)
+4. Reference in parent `kustomization.yaml`
+5. Push to main — ArgoCD syncs automatically
+
+For full instructions, see `argocd/README.md`.
 
 ### Modifying NixOS configuration
 
@@ -130,17 +137,15 @@ React web dashboard consuming multiple domains from Nexus API. Built with TanSta
 2. Test with `nixos-rebuild dry-run --flake ./nixos#superbloom`
 3. Apply on server with `sudo nixos-rebuild switch --flake ./nixos#superbloom`
 
-### Working with applications
+### Working with Hermes / MCP servers
 
-1. Navigate to `apps/` directory
-2. `bun install` to install dependencies
-3. `bun run dev:api`, `bun run dev:bot`, or `bun run dev:dashboard`
-4. Push to main - GitHub Actions handles build and push to GHCR
+1. Edit `hermes/config.yaml` or add a skill to `hermes/skills/`
+2. Or edit MCP server code in `mcp-servers/`
+3. Push to `main` — ArgoCD redeploys Hermes
 
 ## Important Notes
 
-- **GitOps:** Changes to `flux/clusters/` auto-deploy via Flux - be careful with commits to main
+- **GitOps:** Changes to `argocd/clusters/` auto-deploy via ArgoCD; changes to `flux/clusters/` auto-deploy via Flux. Be careful with commits to main.
 - **Secrets:** Never commit plaintext secrets; use SOPS encryption
 - **Testing:** Prefer `--dry-run` flags when available before applying changes
-- **Container registry:** Images are at `ghcr.io/saavy1/`
-- **Monorepo:** All three components live in one repository for easier cross-layer changes
+- **Monorepo:** All components live in one repository for easier cross-layer changes

@@ -3,7 +3,5 @@ kind: Kustomization
 resources:
   - infra/
   - ai/
-  - data/
   - media/
   - games/
-  - nexus/
