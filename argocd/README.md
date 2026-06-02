@@ -17,12 +17,6 @@ argocd/clusters/superbloom/
 │   ├── loki/                 # Log storage (Grafana Loki)
 │   ├── tempo/                # Trace storage (Grafana Tempo)
 │   └── zot/                  # OCI container registry
-├── nexus/                    # Nexus application platform
-│   ├── core/                 # Shared resources: namespace, RBAC, secrets
-│   ├── api/                  # Nexus API (Elysia control plane)
-│   ├── bot/                  # Discord bot (The Machine)
-│   ├── agent-worker/         # AI agent background worker
-│   └── mc-monitor/           # Minecraft server status poller
 ├── media/                    # Media services
 │   ├── jellyfin/             # Media server
 │   ├── sonarr/               # TV show management
@@ -33,9 +27,6 @@ argocd/clusters/superbloom/
 │   └── jellyseerr/           # Media request management
 ├── games/                    # Game server infrastructure
 │   └── (Minecraft LoadBalancer service, namespace)
-└── data/                     # Data services
-    ├── core/                 # Shared data namespace
-    └── valkey/               # Valkey (Redis-compatible, BullMQ backend)
 ```
 
 ## App Pattern
@@ -59,7 +50,7 @@ Every ArgoCD app follows the same structure:
 | Type | Sources | Example |
 |------|---------|---------|
 | **Helm** | Chart + values ref | `authelia`, `zot`, `loki` |
-| **Helm + Resources** | Chart + values ref + raw manifests | `nexus/api`, `alloy` |
+| **Helm + Resources** | Chart + values ref + raw manifests | `cert-manager`, `media/jellyfin` |
 | **Raw** | Git path to manifests only | `caddy`, `games` |
 
 ### Sync Policy
@@ -108,13 +99,13 @@ Or manually:
 ## Monitoring Stack
 
 ```
-nexus pods ──OTLP──► Alloy ──► Tempo (traces)
-                           ──► Prometheus (metrics)
-pod logs ──────────► Alloy ──► Loki (logs)
-kube metrics ──────► Prometheus (via kube-prometheus-stack)
+workload pods ──OTLP──► Alloy ──► Tempo (traces)
+                              ──► Prometheus (metrics)
+pod logs ─────────────► Alloy ──► Loki (logs)
+kube metrics ───────────► Prometheus (via kube-prometheus-stack)
 
 Grafana UI queries all three backends
-Alertmanager ──webhook──► Nexus API ──► AI Agent
+Alertmanager ──webhook──► Hermes ──► AI Agent
 ```
 
 Accessible at `grafana.saavylab.dev`.

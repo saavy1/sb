@@ -105,91 +105,7 @@ grafana:
                           type: gt
                           params:
                             - 0
-        - orgId: 1
-          name: Nexus Alerts
-          folder: Provisioned
-          interval: 5m
-          rules:
-            # Scoped to nexus namespace, excludes sidecar containers
-            - uid: nexus-high-error-rate
-              title: Nexus Service High Error Rate
-              condition: C
-              for: 5m
-              noDataState: OK
-              execErrState: Error
-              data:
-                - refId: A
-                  relativeTimeRange:
-                    from: 300
-                    to: 0
-                  datasourceUid: loki
-                  model:
-                    refId: A
-                    expr: 'sum(count_over_time({namespace="nexus", container!~"tailscale|istio-proxy"} |~ "(?i)(error|exception|fatal)" [5m]))'
-                - refId: B
-                  relativeTimeRange:
-                    from: 0
-                    to: 0
-                  datasourceUid: __expr__
-                  model:
-                    refId: B
-                    type: reduce
-                    expression: A
-                    reducer: last
-                - refId: C
-                  relativeTimeRange:
-                    from: 0
-                    to: 0
-                  datasourceUid: __expr__
-                  model:
-                    refId: C
-                    type: threshold
-                    expression: B
-                    conditions:
-                      - evaluator:
-                          type: gt
-                          params:
-                            - 50
-            # Uses exact string match (|=) instead of regex for efficiency
-            - uid: mcp-server-connection-failures
-              title: MCP Server Connection Failures
-              condition: C
-              for: 10m
-              noDataState: OK
-              execErrState: Error
-              data:
-                - refId: A
-                  relativeTimeRange:
-                    from: 900
-                    to: 0
-                  datasourceUid: loki
-                  model:
-                    refId: A
-                    expr: 'count_over_time({namespace="nexus"} |= "Failed to connect to MCP server" [15m])'
-                - refId: B
-                  relativeTimeRange:
-                    from: 0
-                    to: 0
-                  datasourceUid: __expr__
-                  model:
-                    refId: B
-                    type: reduce
-                    expression: A
-                    reducer: last
-                - refId: C
-                  relativeTimeRange:
-                    from: 0
-                    to: 0
-                  datasourceUid: __expr__
-                  model:
-                    refId: C
-                    type: threshold
-                    expression: B
-                    conditions:
-                      - evaluator:
-                          type: gt
-                          params:
-                            - 5
+
   service:
     type: ClusterIP
     port: 80
@@ -220,7 +136,7 @@ prometheus:
     podMonitorSelectorNilUsesHelmValues: false
     ruleSelectorNilUsesHelmValues: false
 
-# Alertmanager - fires webhooks to nexus API
+# Alertmanager - routing disabled until Hermes webhook endpoint is configured
 alertmanager:
   alertmanagerSpec:
     storage:
@@ -235,17 +151,18 @@ alertmanager:
     global:
       resolve_timeout: 5m
     route:
-      receiver: nexus-webhook
+      receiver: "null"
       group_by: ["alertname", "namespace"]
       group_wait: 30s
       group_interval: 5m
       repeat_interval: 4h
     receivers:
       - name: "null"
-      - name: nexus-webhook
-        webhook_configs:
-          - url: http://nexus.nexus.svc.cluster.local:3000/api/webhooks/alertmanager
-            send_resolved: true
+      # TODO: re-enable when Hermes webhook endpoint is ready
+      # - name: hermes-webhook
+      #   webhook_configs:
+      #     - url: http://hermes.hermes.svc.cluster.local:8080/api/webhooks/alertmanager
+      #       send_resolved: true
 
 # Alloy owns all metric collection — kube-prometheus-stack is storage + UI + alerting only
 nodeExporter:
