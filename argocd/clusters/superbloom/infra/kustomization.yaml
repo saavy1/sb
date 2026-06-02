@@ -10,8 +10,6 @@ resources:
   - ddns/
   - external-secrets/
   - home-assistant/
-  - infisical/
-  - kargo/
   - kube-prometheus-stack/
   - loki/
   - nvidia-gpu-operator/

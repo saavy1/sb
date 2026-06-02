@@ -1,6 +1,6 @@
 # ArgoCD — Primary GitOps
 
-ArgoCD manages all Kubernetes workloads on the Superbloom K3s cluster. Flux handles only the bootstrap layer (ArgoCD itself, Infisical, CNPG operator).
+ArgoCD manages all Kubernetes workloads on the Superbloom K3s cluster. Flux handles only the bootstrap layer (ArgoCD itself, CNPG operator).
 
 ## Structure
 
@@ -13,14 +13,12 @@ argocd/clusters/superbloom/
 │   ├── caddy/                # Reverse proxy + TLS termination
 │   ├── ddns/                 # Cloudflare Dynamic DNS
 │   ├── external-secrets/     # External Secrets Operator
-│   ├── infisical/            # Infisical app (secrets UI)
-│   ├── kargo/                # Kargo — GitOps promotion engine
 │   ├── kube-prometheus-stack/ # Prometheus + Grafana + Alertmanager
 │   ├── loki/                 # Log storage (Grafana Loki)
 │   ├── tempo/                # Trace storage (Grafana Tempo)
 │   └── zot/                  # OCI container registry
 ├── nexus/                    # Nexus application platform
-│   ├── core/                 # Shared resources: namespace, RBAC, secrets, Kargo pipeline
+│   ├── core/                 # Shared resources: namespace, RBAC, secrets
 │   ├── api/                  # Nexus API (Elysia control plane)
 │   ├── bot/                  # Discord bot (The Machine)
 │   ├── agent-worker/         # AI agent background worker
@@ -80,34 +78,9 @@ syncPolicy:
 
 ## Secrets
 
-Secrets are managed via **External Secrets Operator** pulling from **Infisical**:
+Secrets are managed via **External Secrets Operator** with **SOPS-encrypted secrets** stored in Git. Infisical has been removed in favor of a Git-native workflow.
 
-```yaml
-apiVersion: external-secrets.io/v1
-kind: ExternalSecret
-metadata:
-  name: my-secret
-spec:
-  secretStoreRef:
-    name: infisical
-    kind: ClusterSecretStore
-  data:
-    - secretKey: API_KEY
-      remoteRef:
-        key: API_KEY
-```
-
-No SOPS, no plaintext secrets in Git.
-
-## Image Promotion (Kargo)
-
-Nexus images flow through a Kargo pipeline:
-
-```
-Zot Registry (Warehouse) → prod Stage → ArgoCD apps update
-```
-
-Kargo watches for new image tags in the Zot registry and promotes them to the ArgoCD apps by updating image digests.
+No plaintext secrets in Git.
 
 ## Networking
 
@@ -129,7 +102,7 @@ Or manually:
 2. Add to parent `kustomization.yaml`
 3. Add DDNS record (if web-facing)
 4. Add Caddy route (if web-facing)
-5. Add secrets to Infisical (if needed)
+5. Add SOPS-encrypted secrets (if needed)
 6. Push to main — ArgoCD syncs automatically
 
 ## Monitoring Stack

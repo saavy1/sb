@@ -7,7 +7,6 @@ Flux CD is used **only for bootstrapping** components that ArgoCD depends on. Al
 | Component | Purpose |
 |-----------|---------|
 | **ArgoCD** | The primary GitOps engine |
-| **Infisical** | Secrets management (External Secrets backend) |
 | **CNPG Operator** | CloudNativePG PostgreSQL operator |
 
 ## Structure
@@ -21,7 +20,6 @@ flux/clusters/superbloom/
 ├── data.yaml           # Data services kustomization
 ├── infra/
 │   ├── argocd/         # ArgoCD Helm chart + config
-│   ├── infisical/      # Infisical Helm chart
 │   └── cnpg-operator.yaml
 └── data/
     └── postgres/       # PostgreSQL cluster (migrating to ArgoCD)
