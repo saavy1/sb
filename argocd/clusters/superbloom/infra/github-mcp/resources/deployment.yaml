@@ -13,6 +13,8 @@ spec:
       app.kubernetes.io/name: github-mcp-server
   template:
     metadata:
+      annotations:
+        saavylab.dev/github-mcp-proxy-config-version: "2026-06-03-1"
       labels:
         app.kubernetes.io/name: github-mcp-server
         app.kubernetes.io/part-of: hermes
