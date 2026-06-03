@@ -1,0 +1,23 @@
+fullnameOverride: kubernetes-mcp-server
+
+image:
+  version: latest
+  pullPolicy: Always
+
+ingress:
+  enabled: false
+
+service:
+  type: ClusterIP
+  port: 8080
+
+rbac:
+  create: true
+  extraClusterRoleBindings:
+    - name: cluster-admin
+      roleRef:
+        name: cluster-admin
+        external: true
+
+extraArgs:
+  - --disable-multi-cluster

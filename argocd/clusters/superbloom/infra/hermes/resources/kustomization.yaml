@@ -6,6 +6,4 @@ resources:
   - service.yaml
   - pvc.yaml
   - rbac.yaml
-  - mcp/grafana-mcp.yaml
-  - mcp/kubernetes-mcp.yaml
 

@@ -1,0 +1,30 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: infra-grafana-mcp
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: hermes
+  sources:
+    - repoURL: https://grafana-community.github.io/helm-charts
+      chart: grafana-mcp
+      targetRevision: "*"
+      helm:
+        releaseName: grafana-mcp-server
+        valueFiles:
+          - $values/argocd/clusters/superbloom/infra/grafana-mcp/values.yaml
+    - repoURL: https://github.com/saavy1/sb.git
+      targetRevision: main
+      ref: values
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ApplyOutOfSyncOnly=true

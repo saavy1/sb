@@ -1,0 +1,30 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: infra-kubernetes-mcp
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: hermes
+  sources:
+    - repoURL: ghcr.io/containers/charts
+      chart: kubernetes-mcp-server
+      targetRevision: "*"
+      helm:
+        releaseName: kubernetes-mcp-server
+        valueFiles:
+          - $values/argocd/clusters/superbloom/infra/kubernetes-mcp/values.yaml
+    - repoURL: https://github.com/saavy1/sb.git
+      targetRevision: main
+      ref: values
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ApplyOutOfSyncOnly=true

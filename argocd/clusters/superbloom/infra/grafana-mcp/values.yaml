@@ -1,0 +1,19 @@
+fullnameOverride: grafana-mcp-server
+
+image:
+  tag: latest
+  pullPolicy: Always
+
+grafana:
+  url: http://kube-prometheus-stack-grafana.monitoring.svc.cluster.local
+  apiKeySecret:
+    name: hermes-env
+    key: GRAFANA_API_TOKEN
+
+disableWrite: false
+
+extraArgs:
+  - -t
+  - streamable-http
+  - --address
+  - :8000

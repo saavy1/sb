@@ -11,5 +11,7 @@ resources:
   - loki/
   - tempo/
   - kube-prometheus-stack/
+  - grafana-mcp/
+  - kubernetes-mcp/
   - nvidia-gpu-operator/
   - hermes/
