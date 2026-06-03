@@ -1,0 +1,53 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: model-catalog-mcp
+  namespace: hermes
+  labels:
+    app.kubernetes.io/name: model-catalog-mcp
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: model-catalog-mcp
+  labels:
+    app.kubernetes.io/name: model-catalog-mcp
+rules:
+  # Download Jobs (ensure_weights)
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["get", "list", "watch", "create"]
+  - apiGroups: ["batch"]
+    resources: ["jobs/status"]
+    verbs: ["get"]
+  # InferenceServices (apply_plan)
+  - apiGroups: ["serving.kserve.io"]
+    resources: ["inferenceservices"]
+    verbs: ["get", "list", "watch", "create"]
+  - apiGroups: ["serving.kserve.io"]
+    resources: ["inferenceservices/status"]
+    verbs: ["get"]
+  # Pods and events (status, logs)
+  - apiGroups: [""]
+    resources: ["pods", "pods/log", "events"]
+    verbs: ["get", "list"]
+  # Secrets (read HF token reference)
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get"]
+    resourceNames: ["hermes-env"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: model-catalog-mcp
+  labels:
+    app.kubernetes.io/name: model-catalog-mcp
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: model-catalog-mcp
+subjects:
+  - kind: ServiceAccount
+    name: model-catalog-mcp
+    namespace: hermes
