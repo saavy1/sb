@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana-mcp
+  namespace: hermes
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: grafana-mcp
+  template:
+    metadata:
+      labels:
+        app: grafana-mcp
+    spec:
+      containers:
+        - name: grafana-mcp
+          image: grafana/mcp-grafana:latest
+          args:
+            - -t
+            - streamable-http
+            - --address
+            - :8000
+          env:
+            - name: GRAFANA_URL
+              value: http://kube-prometheus-stack-grafana.monitoring.svc.cluster.local
+            - name: GRAFANA_SERVICE_ACCOUNT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: hermes-env
+                  key: GRAFANA_API_TOKEN
+          ports:
+            - name: http
+              containerPort: 8000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana-mcp
+  namespace: hermes
+spec:
+  selector:
+    app: grafana-mcp
+  ports:
+    - name: http
+      port: 8000
+      targetPort: http

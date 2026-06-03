@@ -6,11 +6,6 @@ resources:
   - service.yaml
   - pvc.yaml
   - rbac.yaml
+  - mcp/grafana-mcp.yaml
+  - mcp/kubernetes-mcp.yaml
 
-generatorOptions:
-  disableNameSuffixHash: true
-
-configMapGenerator:
-  - name: mcp-kserve
-    files:
-      - server.py=mcp-kserve-server.py

@@ -37,8 +37,6 @@ spec:
               mountPath: /opt/data
             - name: docker-sock
               mountPath: /var/run/docker.sock
-            - name: mcp-kserve
-              mountPath: /opt/mcp/mcp-kserve
       volumes:
         - name: hermes-data
           persistentVolumeClaim:
@@ -46,7 +44,3 @@ spec:
         - name: docker-sock
           hostPath:
             path: /var/run/docker.sock
-        - name: mcp-kserve
-          configMap:
-            name: mcp-kserve
-            defaultMode: 0755
