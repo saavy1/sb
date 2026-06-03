@@ -69,7 +69,7 @@ grafana:
             - uid: external-secrets-sync-failure
               title: External Secrets Sync Failure
               condition: C
-              for: 10m
+              for: 3m
               noDataState: OK
               execErrState: Error
               data:
@@ -77,7 +77,7 @@ grafana:
                   relativeTimeRange:
                     from: 900
                     to: 0
-                  datasourceUid: loki
+                  datasourceUid: P8E80F9AEF21F6940
                   model:
                     refId: A
                     expr: 'count_over_time({namespace="external-secrets"} |= "UpdateFailed" [15m])'

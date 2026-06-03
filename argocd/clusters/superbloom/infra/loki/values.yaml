@@ -37,7 +37,10 @@ singleBinary:
   persistence:
     enabled: true
     storageClass: local-path
-    size: 5Gi
+    # Pinned to 10Gi to match the existing StatefulSet's immutable
+    # volumeClaimTemplate. Shrinking the PVC renders an immutable-field diff
+    # that ArgoCD cannot apply, leaving infra-loki stuck OutOfSync.
+    size: 10Gi
   resources:
     requests:
       memory: 512Mi
