@@ -25,7 +25,7 @@ spec:
         fsGroup: 65532
       containers:
         - name: model-catalog-mcp
-          image: ghcr.io/saavy1/model-catalog-mcp:80a1f86
+          image: ghcr.io/saavy1/model-catalog-mcp:latest
           imagePullPolicy: Always
           ports:
             - name: http
