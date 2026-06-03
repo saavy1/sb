@@ -15,6 +15,7 @@ data:
 
     :8083 {
       reverse_proxy 127.0.0.1:8082 {
+        header_up Host "127.0.0.1:8082"
         header_up Authorization "Bearer {$GITHUB_PERSONAL_ACCESS_TOKEN}"
       }
     }
