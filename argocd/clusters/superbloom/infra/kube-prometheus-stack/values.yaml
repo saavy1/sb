@@ -105,6 +105,16 @@ grafana:
                           type: gt
                           params:
                             - 0
+      # Grafana file provisioning does not delete rules that are merely
+      # absent from the file — it only deletes UIDs listed here. The Nexus
+      # rules below were dropped from `groups` during the Hermes migration
+      # but kept evaluating (provenance: file) against the deleted `nexus`
+      # namespace, so delete them explicitly.
+      deleteRules:
+        - orgId: 1
+          uid: nexus-high-error-rate
+        - orgId: 1
+          uid: mcp-server-connection-failures
 
   service:
     type: ClusterIP
