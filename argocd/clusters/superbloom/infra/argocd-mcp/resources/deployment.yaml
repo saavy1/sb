@@ -27,6 +27,9 @@ spec:
           image: quay.io/argoprojlabs/mcp-for-argocd:latest
           imagePullPolicy: Always
           args:
+            - node
+            - dist/index.js
+            - http
             - --stateless
           ports:
             - name: http
