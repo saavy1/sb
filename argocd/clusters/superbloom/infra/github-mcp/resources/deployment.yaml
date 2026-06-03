@@ -65,7 +65,7 @@ spec:
             - name: caddy-config
               mountPath: /config
           securityContext:
-            allowPrivilegeEscalation: false
+            allowPrivilegeEscalation: true
             capabilities:
               drop:
                 - ALL
