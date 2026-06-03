@@ -30,6 +30,20 @@ spec:
     configs:
       cm:
         url: https://argocd.saavylab.dev
+        accounts.hermes-mcp: apiKey
+      rbac:
+        policy.csv: |
+          p, role:hermes-mcp, applications, get, */*, allow
+          p, role:hermes-mcp, applications, create, */*, allow
+          p, role:hermes-mcp, applications, update, */*, allow
+          p, role:hermes-mcp, applications, delete, */*, allow
+          p, role:hermes-mcp, applications, sync, */*, allow
+          p, role:hermes-mcp, applications, action/*, */*, allow
+          p, role:hermes-mcp, clusters, get, *, allow
+          p, role:hermes-mcp, logs, get, */*, allow
+          p, role:hermes-mcp, projects, get, *, allow
+          p, role:hermes-mcp, repositories, get, *, allow
+          g, hermes-mcp, role:hermes-mcp
       params:
         server.insecure: true
     server:
