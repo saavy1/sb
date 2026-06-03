@@ -13,6 +13,7 @@ resources:
   - kube-prometheus-stack/
   - argocd-mcp/
   - grafana-mcp/
+  - github-mcp/
   - kubernetes-mcp/
   - nvidia-gpu-operator/
   - hermes/

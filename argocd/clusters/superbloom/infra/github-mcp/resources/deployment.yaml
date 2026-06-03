@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: github-mcp-server
+  namespace: hermes
+  labels:
+    app.kubernetes.io/name: github-mcp-server
+    app.kubernetes.io/part-of: hermes
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: github-mcp-server
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: github-mcp-server
+        app.kubernetes.io/part-of: hermes
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
+      containers:
+        - name: github-mcp-server
+          image: ghcr.io/github/github-mcp-server:latest
+          imagePullPolicy: Always
+          args:
+            - http
+            - --toolsets=repos,issues,pull_requests,actions
+          ports:
+            - name: http
+              containerPort: 8082
+          env:
+            - name: GITHUB_PERSONAL_ACCESS_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: hermes-env
+                  key: GITHUB_PERSONAL_ACCESS_TOKEN
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
