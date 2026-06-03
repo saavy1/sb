@@ -17,6 +17,7 @@ spec:
       containers:
         - name: hermes
           image: nousresearch/hermes-agent:latest
+          args: ["sleep", "infinity"]
           env:
             - name: HERMES_DASHBOARD
               value: "1"
