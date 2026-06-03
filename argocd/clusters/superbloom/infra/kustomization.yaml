@@ -15,5 +15,6 @@ resources:
   - grafana-mcp/
   - github-mcp/
   - kubernetes-mcp/
+  - model-catalog-mcp/
   - nvidia-gpu-operator/
   - hermes/
