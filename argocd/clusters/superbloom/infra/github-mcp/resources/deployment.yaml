@@ -44,3 +44,36 @@ spec:
             capabilities:
               drop:
                 - ALL
+        - name: auth-proxy
+          image: caddy:2-alpine
+          imagePullPolicy: Always
+          ports:
+            - name: proxy
+              containerPort: 8083
+          env:
+            - name: GITHUB_PERSONAL_ACCESS_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: hermes-env
+                  key: GITHUB_PERSONAL_ACCESS_TOKEN
+          volumeMounts:
+            - name: caddyfile
+              mountPath: /etc/caddy/Caddyfile
+              subPath: Caddyfile
+            - name: caddy-data
+              mountPath: /data
+            - name: caddy-config
+              mountPath: /config
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+      volumes:
+        - name: caddyfile
+          configMap:
+            name: github-mcp-proxy
+        - name: caddy-data
+          emptyDir: {}
+        - name: caddy-config
+          emptyDir: {}
