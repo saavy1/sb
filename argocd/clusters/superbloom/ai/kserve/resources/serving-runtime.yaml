@@ -19,9 +19,9 @@ spec:
         - -m
         - vllm.entrypoints.openai.api_server
       # Per-InferenceService args (weights live under /tank/models/<name>/).
-      # `/tank/models` is the ZFS dataset on the superbloom host.
-      # Additional runtime flags (tp size, gpu mem utilization, tool-call parser,
-      # etc.) are provided per-model by the InferenceService.spec.predictor.model.
+      # `/mnt/nas/models` is the SMB mount on the GPU node (gx10-98a5) pointing
+      # to superbloom's /tank/models ZFS dataset. The container mountPath stays
+      # /tank/models so vLLM args don't change.
       args:
         - --model=/tank/models/{{.Name}}
         - --served-model-name={{.Name}}
@@ -55,7 +55,7 @@ spec:
   volumes:
     - name: nas-models
       hostPath:
-        path: /tank/models
+        path: /mnt/nas/models
         type: Directory
   tolerations:
     - key: nvidia.com/gpu
