@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: argocd-mcp-server
+  namespace: hermes
+  labels:
+    app.kubernetes.io/name: argocd-mcp-server
+    app.kubernetes.io/part-of: hermes
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: argocd-mcp-server
+  ports:
+    - name: http
+      port: 3000
+      targetPort: http
