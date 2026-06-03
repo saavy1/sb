@@ -12,6 +12,9 @@ grafana:
 
 disableWrite: false
 
+podAnnotations:
+  saavylab.dev/grafana-token-version: "2026-06-03-1"
+
 extraArgs:
   - -t
   - streamable-http
