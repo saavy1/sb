@@ -54,6 +54,7 @@ data:
       image: vllm/vllm-openai:latest
       args:
         - --enable-auto-tool-choice
+        - --kv-cache-dtype=fp8
       env: []
       tensor_parallel: 1
       max_model_len: 65536
