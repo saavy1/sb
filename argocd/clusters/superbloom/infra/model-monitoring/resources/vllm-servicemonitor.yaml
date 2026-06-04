@@ -15,8 +15,7 @@ spec:
       app.kubernetes.io/managed-by: homelab-mcp
       component: predictor
   endpoints:
-    - targetPort: 8080
-      path: /metrics
+    - path: /metrics
       interval: 30s
       scrapeTimeout: 10s
       relabelings:
