@@ -1,0 +1,26 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: vllm-predictors
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/name: vllm-predictors
+    app.kubernetes.io/part-of: model-monitoring
+spec:
+  namespaceSelector:
+    matchNames:
+      - ai
+  selector:
+    matchLabels:
+      app.kubernetes.io/managed-by: homelab-mcp
+      component: predictor
+  podMetricsEndpoints:
+    - targetPort: 8080
+      path: /metrics
+      interval: 30s
+      scrapeTimeout: 10s
+      relabelings:
+        - sourceLabels: [__meta_kubernetes_pod_label_serving_kserve_io_inferenceservice]
+          targetLabel: inferenceservice
+        - sourceLabels: [__meta_kubernetes_pod_label_homelab_saavylab_dev_recipe_id]
+          targetLabel: recipe_id

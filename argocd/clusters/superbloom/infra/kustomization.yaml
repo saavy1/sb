@@ -16,5 +16,6 @@ resources:
   - github-mcp/
   - kubernetes-mcp/
   - model-catalog-mcp/
+  - model-monitoring/
   - nvidia-gpu-operator/
   - hermes/
