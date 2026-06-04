@@ -75,3 +75,45 @@ data:
       source: local
       path: argocd/clusters/superbloom/ai/vllm/recipes/deepseek-v4-flash.yaml
       commit: null
+  lfm2.5-350m.yaml: |
+    id: lfm2.5-350m
+    source: spark-arena
+    model:
+      id: LiquidAI/LFM2.5-350M
+      revision: null
+      quantization: null
+      gated: false
+      license: apache-2.0
+    runtime:
+      image: vllm/vllm-openai:latest
+      args:
+        - --language-model-only
+        - --load-format=fastsafetensors
+        - --attention-backend=flash_attn
+        - --enable-prefix-caching
+        - --enable-chunked-prefill
+        - --trust-remote-code
+        - --dtype=auto
+      env:
+        - name: VLLM_MARLIN_USE_ATOMIC_ADD
+          value: "1"
+      tensor_parallel: 1
+      max_model_len: 32768
+      dtype: auto
+      tool_call_parser: null
+      reasoning_parser: null
+    hardware:
+      gpu_class: gb10
+      gpu_count: 1
+      estimated_vram_gb: 4
+      gpu_memory_utilization: 0.8
+    serving:
+      namespace: ai
+      service_name: lfm2.5-350m
+      replicas: 1
+      storage_mode: model-cache
+      ingress_policy: cluster-local
+    provenance:
+      source: spark-arena
+      path: argocd/clusters/superbloom/infra/model-catalog-mcp/resources/configmap.yaml
+      commit: null
