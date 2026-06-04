@@ -75,8 +75,8 @@ data:
       source: local
       path: argocd/clusters/superbloom/ai/vllm/recipes/deepseek-v4-flash.yaml
       commit: null
-  lfm2.5-350m.yaml: |
-    id: lfm2.5-350m
+  lfm25-350m.yaml: |
+    id: lfm25-350m
     source: spark-arena
     model:
       id: LiquidAI/LFM2.5-350M
@@ -109,7 +109,7 @@ data:
       gpu_memory_utilization: 0.8
     serving:
       namespace: ai
-      service_name: lfm2.5-350m
+      service_name: lfm25-350m
       replicas: 1
       storage_mode: model-cache
       ingress_policy: cluster-local
