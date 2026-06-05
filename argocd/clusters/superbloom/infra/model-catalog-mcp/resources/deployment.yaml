@@ -47,6 +47,12 @@ spec:
               value: "8080"
             - name: MODEL_CATALOG_RECIPE_DIR
               value: "/etc/model-catalog/recipes"
+            - name: MODEL_CATALOG_STATE_NAMESPACE
+              value: "hermes"
+            - name: MODEL_CATALOG_SPARK_ARENA_DIR
+              value: "/etc/model-catalog/spark-arena"
+            - name: PROMETHEUS_BASE_URL
+              value: "http://kube-prometheus-stack-prometheus.monitoring.svc.cluster.local:9090"
             - name: HF_TOKEN
               valueFrom:
                 secretKeyRef:
@@ -62,7 +68,13 @@ spec:
             - name: recipes
               mountPath: /etc/model-catalog/recipes
               readOnly: true
+            - name: spark-arena-recipes
+              mountPath: /etc/model-catalog/spark-arena
+              readOnly: true
       volumes:
         - name: recipes
           configMap:
             name: model-catalog-recipes
+        - name: spark-arena-recipes
+          configMap:
+            name: model-catalog-spark-arena-recipes

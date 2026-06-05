@@ -1,0 +1,52 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: model-catalog-spark-arena-recipes
+  namespace: hermes
+  labels:
+    app.kubernetes.io/part-of: model-catalog-mcp
+data:
+  lfm25-350m.yaml: |
+    id: lfm25-350m
+    source: spark-arena
+    model:
+      id: LiquidAI/LFM2.5-350M
+      revision: null
+      quantization: null
+      gated: false
+      license: apache-2.0
+    runtime:
+      image: vllm/vllm-openai:latest
+      args:
+        - --language-model-only
+        - --load-format=fastsafetensors
+        - --attention-backend=flash_attn
+        - --enable-prefix-caching
+        - --enable-chunked-prefill
+        - --enable-auto-tool-choice
+        - --tool-call-parser=hermes
+        - --trust-remote-code
+        - --dtype=auto
+      env:
+        - name: VLLM_MARLIN_USE_ATOMIC_ADD
+          value: "1"
+      tensor_parallel: 1
+      max_model_len: 32768
+      dtype: auto
+      tool_call_parser: hermes
+      reasoning_parser: null
+    hardware:
+      gpu_class: gb10
+      gpu_count: 1
+      estimated_vram_gb: 4
+      gpu_memory_utilization: 0.8
+    serving:
+      namespace: ai
+      service_name: lfm25-350m
+      replicas: 1
+      storage_mode: model-cache
+      ingress_policy: cluster-local
+    provenance:
+      source: spark-arena
+      path: spark-arena-recipes.yaml
+      commit: null

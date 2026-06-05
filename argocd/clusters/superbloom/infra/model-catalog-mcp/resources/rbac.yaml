@@ -23,7 +23,7 @@ rules:
   # InferenceServices (apply_plan)
   - apiGroups: ["serving.kserve.io"]
     resources: ["inferenceservices"]
-    verbs: ["get", "list", "watch", "create"]
+    verbs: ["get", "list", "watch", "create", "delete"]
   - apiGroups: ["serving.kserve.io"]
     resources: ["inferenceservices/status"]
     verbs: ["get"]
@@ -36,6 +36,14 @@ rules:
     resources: ["secrets"]
     verbs: ["get"]
     resourceNames: ["hermes-env"]
+  # ConfigMaps (runtime recipe/deployment ConfigMaps)
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list", "watch", "create", "patch", "update", "delete"]
+  # Nodes (capacity reports)
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list", "watch"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
