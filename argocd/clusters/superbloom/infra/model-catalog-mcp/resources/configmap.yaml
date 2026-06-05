@@ -118,3 +118,38 @@ data:
       source: spark-arena
       path: argocd/clusters/superbloom/infra/model-catalog-mcp/resources/configmap.yaml
       commit: null
+  qwen36-27b.yaml: |
+    id: qwen36-27b
+    source: local
+    model:
+      id: Qwen/Qwen3.6-27B-FP8
+      revision: null
+      quantization: fp8
+      gated: false
+      license: apache-2.0
+    runtime:
+      image: vllm/vllm-openai:latest
+      args:
+        - --enable-auto-tool-choice
+        - --tool-call-parser=hermes
+      env: []
+      tensor_parallel: 1
+      max_model_len: 131072
+      dtype: auto
+      tool_call_parser: hermes
+      reasoning_parser: null
+    hardware:
+      gpu_class: gb10
+      gpu_count: 1
+      estimated_vram_gb: 30
+      gpu_memory_utilization: 0.92
+    serving:
+      namespace: ai
+      service_name: qwen36-27b
+      replicas: 1
+      storage_mode: model-cache
+      ingress_policy: cluster-local
+    provenance:
+      source: sb
+      path: argocd/clusters/superbloom/ai/vllm/recipes/qwen36-27b.yaml
+      commit: null
