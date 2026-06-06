@@ -5,12 +5,15 @@ metadata:
 spec:
   group: models.saavylab.dev
   names:
+    categories: []
     kind: ModelRecipe
     plural: modelrecipes
+    shortNames: []
     singular: modelrecipe
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns: []
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: Auto-generated derived type for ModelRecipeSpec via `CustomResource`
@@ -87,6 +90,12 @@ spec:
                       dtype:
                         nullable: true
                         type: string
+                      engine:
+                        default: vllm
+                        enum:
+                        - vllm
+                        - sglang
+                        type: string
                       env:
                         items:
                           properties:
@@ -103,6 +112,12 @@ spec:
                         type: string
                       max_model_len:
                         format: uint32
+                        minimum: 0.0
+                        nullable: true
+                        type: integer
+                      port:
+                        format: uint16
+                        maximum: 65535.0
                         minimum: 0.0
                         nullable: true
                         type: integer

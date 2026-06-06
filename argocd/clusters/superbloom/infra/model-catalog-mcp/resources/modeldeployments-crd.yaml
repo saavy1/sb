@@ -5,12 +5,15 @@ metadata:
 spec:
   group: models.saavylab.dev
   names:
+    categories: []
     kind: ModelDeployment
     plural: modeldeployments
+    shortNames: []
     singular: modeldeployment
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns: []
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: Auto-generated derived type for ModelDeploymentSpec via `CustomResource`
@@ -48,6 +51,11 @@ spec:
                 items:
                   type: string
                 type: array
+              runtimeEngine:
+                enum:
+                - vllm
+                - sglang
+                type: string
               runtimeEnv:
                 items:
                   properties:
@@ -60,6 +68,11 @@ spec:
                   - value
                   type: object
                 type: array
+              runtimePort:
+                format: uint16
+                maximum: 65535.0
+                minimum: 0.0
+                type: integer
               target:
                 type: string
             required:
@@ -71,7 +84,9 @@ spec:
             - recipeId
             - resources
             - runtimeArgs
+            - runtimeEngine
             - runtimeEnv
+            - runtimePort
             - target
             type: object
           status:
