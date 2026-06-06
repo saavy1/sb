@@ -20,10 +20,10 @@ rules:
   - apiGroups: ["batch"]
     resources: ["jobs/status"]
     verbs: ["get"]
-  # InferenceServices (apply_plan)
+  # InferenceServices (apply_plan, deploy_model)
   - apiGroups: ["serving.kserve.io"]
     resources: ["inferenceservices"]
-    verbs: ["get", "list", "watch", "create", "delete"]
+    verbs: ["get", "list", "watch", "create", "patch", "update", "delete"]
   - apiGroups: ["serving.kserve.io"]
     resources: ["inferenceservices/status"]
     verbs: ["get"]
