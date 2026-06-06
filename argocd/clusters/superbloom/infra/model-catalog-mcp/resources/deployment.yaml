@@ -58,6 +58,16 @@ spec:
                 secretKeyRef:
                   name: hermes-env
                   key: HF_TOKEN
+            - name: RUST_LOG
+              value: "info,model_catalog_mcp=debug,homelab_mcp_k8s=debug"
+            - name: OTEL_SERVICE_NAME
+              value: "model-catalog-mcp"
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: "http://grafana-k8s-monitoring-alloy-receiver.alloy.svc.cluster.local:4317"
+            - name: OTEL_EXPORTER_OTLP_PROTOCOL
+              value: "grpc"
+            - name: OTEL_RESOURCE_ATTRIBUTES
+              value: "deployment.environment=homelab,k8s.namespace.name=hermes"
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
