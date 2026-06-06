@@ -5,15 +5,12 @@ metadata:
 spec:
   group: models.saavylab.dev
   names:
-    categories: []
     kind: ModelRecipe
     plural: modelrecipes
-    shortNames: []
     singular: modelrecipe
   scope: Namespaced
   versions:
-  - additionalPrinterColumns: []
-    name: v1alpha1
+  - name: v1alpha1
     schema:
       openAPIV3Schema:
         description: Auto-generated derived type for ModelRecipeSpec via `CustomResource`
