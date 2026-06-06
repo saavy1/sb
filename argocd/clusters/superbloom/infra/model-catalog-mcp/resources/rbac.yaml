@@ -36,10 +36,16 @@ rules:
     resources: ["secrets"]
     verbs: ["get"]
     resourceNames: ["hermes-env"]
-  # ConfigMaps (runtime recipe/deployment ConfigMaps)
-  - apiGroups: [""]
-    resources: ["configmaps"]
+  # Model Catalog runtime CRDs
+  - apiGroups: ["models.saavylab.dev"]
+    resources: ["modelrecipes"]
     verbs: ["get", "list", "watch", "create", "patch", "update", "delete"]
+  - apiGroups: ["models.saavylab.dev"]
+    resources: ["modeldeployments"]
+    verbs: ["get", "list", "watch", "create", "patch", "update", "delete"]
+  - apiGroups: ["models.saavylab.dev"]
+    resources: ["modeldeployments/status"]
+    verbs: ["get", "patch", "update"]
   # Nodes (capacity reports)
   - apiGroups: [""]
     resources: ["nodes"]

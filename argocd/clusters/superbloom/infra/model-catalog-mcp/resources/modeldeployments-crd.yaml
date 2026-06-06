@@ -1,0 +1,118 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: modeldeployments.models.saavylab.dev
+spec:
+  group: models.saavylab.dev
+  names:
+    categories: []
+    kind: ModelDeployment
+    plural: modeldeployments
+    shortNames: []
+    singular: modeldeployment
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns: []
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: Auto-generated derived type for ModelDeploymentSpec via `CustomResource`
+        properties:
+          spec:
+            properties:
+              createdAt:
+                type: string
+              createdBy:
+                type: string
+              lastPlanDigest:
+                type: string
+              name:
+                type: string
+              namespace:
+                type: string
+              recipeId:
+                type: string
+              resources:
+                properties:
+                  cpu:
+                    type: string
+                  gpu_count:
+                    format: uint32
+                    minimum: 0.0
+                    type: integer
+                  memory:
+                    type: string
+                required:
+                - cpu
+                - gpu_count
+                - memory
+                type: object
+              runtimeArgs:
+                items:
+                  type: string
+                type: array
+              runtimeEnv:
+                items:
+                  properties:
+                    name:
+                      type: string
+                    value:
+                      type: string
+                  required:
+                  - name
+                  - value
+                  type: object
+                type: array
+              target:
+                type: string
+            required:
+            - createdAt
+            - createdBy
+            - lastPlanDigest
+            - name
+            - namespace
+            - recipeId
+            - resources
+            - runtimeArgs
+            - runtimeEnv
+            - target
+            type: object
+          status:
+            nullable: true
+            properties:
+              failureReason:
+                nullable: true
+                type: string
+              kserveReady:
+                type: boolean
+              lastTransitionTime:
+                nullable: true
+                type: string
+              observedGeneration:
+                format: int64
+                nullable: true
+                type: integer
+              state:
+                enum:
+                - planned
+                - applying
+                - ready
+                - failed
+                - stopped
+                type: string
+              url:
+                nullable: true
+                type: string
+            required:
+            - kserveReady
+            - state
+            type: object
+        required:
+        - spec
+        title: ModelDeployment
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+

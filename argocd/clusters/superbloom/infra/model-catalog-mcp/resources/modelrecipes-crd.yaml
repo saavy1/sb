@@ -1,0 +1,194 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: modelrecipes.models.saavylab.dev
+spec:
+  group: models.saavylab.dev
+  names:
+    categories: []
+    kind: ModelRecipe
+    plural: modelrecipes
+    shortNames: []
+    singular: modelrecipe
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns: []
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: Auto-generated derived type for ModelRecipeSpec via `CustomResource`
+        properties:
+          spec:
+            properties:
+              createdAt:
+                type: string
+              createdBy:
+                type: string
+              recipe:
+                properties:
+                  hardware:
+                    properties:
+                      estimated_vram_gb:
+                        format: uint32
+                        minimum: 0.0
+                        nullable: true
+                        type: integer
+                      gpu_class:
+                        type: string
+                      gpu_count:
+                        format: uint32
+                        minimum: 0.0
+                        type: integer
+                      gpu_memory_utilization:
+                        format: double
+                        nullable: true
+                        type: number
+                    required:
+                    - gpu_class
+                    - gpu_count
+                    type: object
+                  id:
+                    type: string
+                  model:
+                    properties:
+                      gated:
+                        nullable: true
+                        type: boolean
+                      id:
+                        type: string
+                      license:
+                        nullable: true
+                        type: string
+                      quantization:
+                        nullable: true
+                        type: string
+                      revision:
+                        nullable: true
+                        type: string
+                    required:
+                    - id
+                    type: object
+                  provenance:
+                    properties:
+                      commit:
+                        nullable: true
+                        type: string
+                      path:
+                        nullable: true
+                        type: string
+                      source:
+                        type: string
+                    required:
+                    - source
+                    type: object
+                  runtime:
+                    properties:
+                      args:
+                        items:
+                          type: string
+                        type: array
+                      dtype:
+                        nullable: true
+                        type: string
+                      env:
+                        items:
+                          properties:
+                            name:
+                              type: string
+                            value:
+                              type: string
+                          required:
+                          - name
+                          - value
+                          type: object
+                        type: array
+                      image:
+                        type: string
+                      max_model_len:
+                        format: uint32
+                        minimum: 0.0
+                        nullable: true
+                        type: integer
+                      reasoning_parser:
+                        nullable: true
+                        type: string
+                      tensor_parallel:
+                        format: uint32
+                        minimum: 0.0
+                        nullable: true
+                        type: integer
+                      tool_call_parser:
+                        nullable: true
+                        type: string
+                    required:
+                    - args
+                    - env
+                    - image
+                    type: object
+                  serving:
+                    properties:
+                      ingress_policy:
+                        enum:
+                        - cluster-local
+                        - internal-http
+                        type: string
+                      namespace:
+                        type: string
+                      replicas:
+                        format: uint32
+                        minimum: 0.0
+                        type: integer
+                      service_name:
+                        nullable: true
+                        type: string
+                      storage_mode:
+                        enum:
+                        - ephemeral
+                        - model-cache
+                        type: string
+                    required:
+                    - ingress_policy
+                    - namespace
+                    - replicas
+                    - storage_mode
+                    type: object
+                  source:
+                    enum:
+                    - spark-arena
+                    - local
+                    - ad-hoc
+                    type: string
+                required:
+                - hardware
+                - id
+                - model
+                - provenance
+                - runtime
+                - serving
+                - source
+                type: object
+              updatedAt:
+                type: string
+            required:
+            - createdAt
+            - createdBy
+            - recipe
+            - updatedAt
+            type: object
+          status:
+            nullable: true
+            properties:
+              observedGeneration:
+                format: int64
+                nullable: true
+                type: integer
+            type: object
+        required:
+        - spec
+        title: ModelRecipe
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+
