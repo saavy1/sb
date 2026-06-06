@@ -93,6 +93,8 @@ data:
         - --attention-backend=flash_attn
         - --enable-prefix-caching
         - --enable-chunked-prefill
+        - --enable-auto-tool-choice
+        - --tool-call-parser=hermes
         - --trust-remote-code
         - --dtype=auto
       env:
@@ -101,7 +103,7 @@ data:
       tensor_parallel: 1
       max_model_len: 32768
       dtype: auto
-      tool_call_parser: null
+      tool_call_parser: hermes
       reasoning_parser: null
     hardware:
       gpu_class: gb10
