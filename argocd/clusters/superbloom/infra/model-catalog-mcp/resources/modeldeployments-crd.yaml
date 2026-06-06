@@ -5,15 +5,12 @@ metadata:
 spec:
   group: models.saavylab.dev
   names:
-    categories: []
     kind: ModelDeployment
     plural: modeldeployments
-    shortNames: []
     singular: modeldeployment
   scope: Namespaced
   versions:
-  - additionalPrinterColumns: []
-    name: v1alpha1
+  - name: v1alpha1
     schema:
       openAPIV3Schema:
         description: Auto-generated derived type for ModelDeploymentSpec via `CustomResource`
