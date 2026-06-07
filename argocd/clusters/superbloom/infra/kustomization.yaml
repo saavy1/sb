@@ -11,7 +11,4 @@ resources:
   - loki/
   - tempo/
   - kube-prometheus-stack/
-  - argocd-mcp/
   - grafana-mcp/
-  - github-mcp/
-  - kubernetes-mcp/
