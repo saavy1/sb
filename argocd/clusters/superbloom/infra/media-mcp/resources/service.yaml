@@ -3,6 +3,9 @@ kind: Service
 metadata:
   name: media-mcp
   namespace: hermes
+  annotations:
+    tailscale.com/expose: "true"
+    tailscale.com/hostname: media-mcp
   labels:
     app.kubernetes.io/name: media-mcp
     app.kubernetes.io/part-of: hermes

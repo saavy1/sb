@@ -12,6 +12,11 @@ grafana:
 
 disableWrite: false
 
+service:
+  annotations:
+    tailscale.com/expose: "true"
+    tailscale.com/hostname: grafana-mcp
+
 podAnnotations:
   saavylab.dev/grafana-token-version: "2026-06-03-1"
 

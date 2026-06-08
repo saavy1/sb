@@ -56,6 +56,8 @@ spec:
               value: grpc
             - name: OTEL_RESOURCE_ATTRIBUTES
               value: deployment.environment=homelab,k8s.namespace.name=hermes
+            - name: MCP_ALLOWED_HOSTS
+              value: media-mcp.tailc2db57.ts.net
             - name: JELLYSEERR_API_KEY
               valueFrom:
                 secretKeyRef:
