@@ -1,0 +1,79 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: media-mcp
+  namespace: hermes
+  labels:
+    app.kubernetes.io/name: media-mcp
+    app.kubernetes.io/part-of: hermes
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: media-mcp
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: media-mcp
+        app.kubernetes.io/part-of: hermes
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
+      containers:
+        - name: media-mcp
+          image: ghcr.io/saavy1/media-mcp:latest
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8080
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+          env:
+            - name: PORT
+              value: "8080"
+            - name: JELLYSEERR_BASE_URL
+              value: http://jellyseerr.jellyseerr.svc.cluster.local:5055
+            - name: SABNZBD_BASE_URL
+              value: http://sabnzbd.sabnzbd.svc.cluster.local:8080
+            - name: JELLYFIN_BASE_URL
+              value: http://jellyfin.jellyfin.svc.cluster.local:8096
+            - name: RUST_LOG
+              value: info,media_mcp=debug
+            - name: OTEL_SERVICE_NAME
+              value: media-mcp
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: http://grafana-k8s-monitoring-alloy-receiver.alloy.svc.cluster.local:4317
+            - name: OTEL_EXPORTER_OTLP_PROTOCOL
+              value: grpc
+            - name: OTEL_RESOURCE_ATTRIBUTES
+              value: deployment.environment=homelab,k8s.namespace.name=hermes
+            - name: JELLYSEERR_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: media-mcp-env
+                  key: JELLYSEERR_API_KEY
+            - name: SABNZBD_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: media-mcp-env
+                  key: SABNZBD_API_KEY
+            - name: JELLYFIN_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: media-mcp-env
+                  key: JELLYFIN_API_KEY
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
