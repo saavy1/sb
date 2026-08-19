@@ -9,7 +9,7 @@ resources:
   - tailscale-operator/
   - alloy/
   - loki/
-  - media-mcp/
+  - homelab-api/
   - tempo/
   - kube-prometheus-stack/
   - grafana-mcp/

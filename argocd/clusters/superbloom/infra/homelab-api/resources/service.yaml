@@ -1,18 +1,19 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: media-mcp
+  name: homelab-api
   namespace: hermes
   annotations:
     tailscale.com/expose: "true"
-    tailscale.com/hostname: media-mcp
+    tailscale.com/hostname: homelab-api
+    tailscale.com/tags: tag:homelab-api
   labels:
-    app.kubernetes.io/name: media-mcp
+    app.kubernetes.io/name: homelab-api
     app.kubernetes.io/part-of: hermes
 spec:
   type: ClusterIP
   selector:
-    app.kubernetes.io/name: media-mcp
+    app.kubernetes.io/name: homelab-api
   ports:
     - name: http
       port: 8080

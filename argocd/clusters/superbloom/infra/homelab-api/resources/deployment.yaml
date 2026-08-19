@@ -1,20 +1,20 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: media-mcp
+  name: homelab-api
   namespace: hermes
   labels:
-    app.kubernetes.io/name: media-mcp
+    app.kubernetes.io/name: homelab-api
     app.kubernetes.io/part-of: hermes
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app.kubernetes.io/name: media-mcp
+      app.kubernetes.io/name: homelab-api
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: media-mcp
+        app.kubernetes.io/name: homelab-api
         app.kubernetes.io/part-of: hermes
     spec:
       securityContext:
@@ -23,19 +23,19 @@ spec:
         runAsGroup: 65532
         fsGroup: 65532
       containers:
-        - name: media-mcp
-          image: ghcr.io/saavy1/media-mcp:latest
+        - name: homelab-api
+          image: ghcr.io/saavy1/homelab-api@sha256:1fd815780dc2a4f82f5fa24cdbbb50402a37b01452e55ed57b9d71d9659c6164
           imagePullPolicy: Always
           ports:
             - name: http
               containerPort: 8080
           livenessProbe:
             httpGet:
-              path: /health
+              path: /livez
               port: http
           readinessProbe:
             httpGet:
-              path: /health
+              path: /readyz
               port: http
           env:
             - name: PORT
@@ -47,31 +47,29 @@ spec:
             - name: JELLYFIN_BASE_URL
               value: http://jellyfin.jellyfin.svc.cluster.local:8096
             - name: RUST_LOG
-              value: info,media_mcp=debug
+              value: info,homelab_api=debug
             - name: OTEL_SERVICE_NAME
-              value: media-mcp
+              value: homelab-api
             - name: OTEL_EXPORTER_OTLP_ENDPOINT
               value: http://grafana-k8s-monitoring-alloy-receiver.alloy.svc.cluster.local:4317
             - name: OTEL_EXPORTER_OTLP_PROTOCOL
               value: grpc
             - name: OTEL_RESOURCE_ATTRIBUTES
               value: deployment.environment=homelab,k8s.namespace.name=hermes
-            - name: MCP_ALLOWED_HOSTS
-              value: media-mcp.tailc2db57.ts.net
             - name: JELLYSEERR_API_KEY
               valueFrom:
                 secretKeyRef:
-                  name: media-mcp-env
+                  name: homelab-api-env
                   key: JELLYSEERR_API_KEY
             - name: SABNZBD_API_KEY
               valueFrom:
                 secretKeyRef:
-                  name: media-mcp-env
+                  name: homelab-api-env
                   key: SABNZBD_API_KEY
             - name: JELLYFIN_API_KEY
               valueFrom:
                 secretKeyRef:
-                  name: media-mcp-env
+                  name: homelab-api-env
                   key: JELLYFIN_API_KEY
           securityContext:
             allowPrivilegeEscalation: false
@@ -79,3 +77,10 @@ spec:
             capabilities:
               drop:
                 - ALL
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "500m"

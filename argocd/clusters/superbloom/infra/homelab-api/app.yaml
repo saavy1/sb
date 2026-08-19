@@ -1,7 +1,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: infra-media-mcp
+  name: infra-homelab-api
   namespace: argocd
   finalizers:
     - resources-finalizer.argocd.argoproj.io
@@ -10,7 +10,7 @@ spec:
   source:
     repoURL: https://github.com/saavy1/sb.git
     targetRevision: main
-    path: argocd/clusters/superbloom/infra/media-mcp/resources
+    path: argocd/clusters/superbloom/infra/homelab-api/resources
   destination:
     server: https://kubernetes.default.svc
     namespace: hermes
