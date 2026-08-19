@@ -8,8 +8,8 @@ This directory contains the complete NixOS system configuration for the Superblo
 
 ## Stack
 
-- **NixOS:** 25.11
-- **Home Manager:** release-25.11
+- **NixOS:** 26.05
+- **Home Manager:** release-26.05
 - **K3s:** Lightweight Kubernetes
 - **Docker:** Container runtime
 - **Tailscale:** VPN mesh networking

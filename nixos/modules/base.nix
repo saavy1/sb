@@ -6,6 +6,9 @@
   # Enable networking
   networking.networkmanager.enable = true;
 
+  # Preserve live test/switch support during the 26.05 upgrade.
+  services.dbus.implementation = "dbus";
+
   # Set your time zone.
   time.timeZone = "America/Denver";
 
