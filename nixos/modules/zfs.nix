@@ -5,6 +5,7 @@
   boot.supportedFilesystems = [ "zfs" ];
   boot.zfs.forceImportRoot = false;
   boot.zfs.forceImportAll = false;
+  boot.zfs.extraPools = [ "tank" ];
 
   # Use LTS kernel for ZFS compatibility
   boot.kernelPackages = pkgs.linuxPackages;

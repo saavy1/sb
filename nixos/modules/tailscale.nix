@@ -3,11 +3,9 @@
     enable = true;
     useRoutingFeatures = "server";
     extraUpFlags = [ "--ssh" ];
-    extraDaemonFlags = [ "--no-logs-no-support" "--state=/var/lib/tailscale/tailscaled.state" "--tun=tailscale0" ];
+    extraDaemonFlags = [ "--no-logs-no-support" "--state=/var/lib/tailscale/tailscaled.state" "--tun=tailscale0" "--encrypt-state=false" ];
   };
 
-  # Disable TPM-based state encryption to prevent DA lockout crashes
-  systemd.services.tailscaled.environment.TS_USE_TPM = "false";
 
   networking.firewall.trustedInterfaces = [ "tailscale0" ];
 }
