@@ -24,7 +24,7 @@ spec:
         fsGroup: 65532
       containers:
         - name: homelab-api
-          image: ghcr.io/saavy1/homelab-api@sha256:c24368ed78cc96ba371bbb902cbcc732d4a42ad803d7380c2ac517d43a5c0a86
+          image: ghcr.io/saavy1/homelab-api@sha256:6047e3a67aa88895077c4f9c3f6dacb3f90e158a77cc265f3098a9a601f4603e
           imagePullPolicy: Always
           ports:
             - name: http
