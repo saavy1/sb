@@ -1,7 +1,7 @@
 # SparkDash k3s Deployment Design
 
 Date: 2026-08-20
-Status: Approved; implementation in progress
+Status: Implemented and verified
 
 ## Goal
 
@@ -163,6 +163,18 @@ SparkDash invokes plain OpenSSH with `BatchMode=yes`. No private key is needed o
 9. Confirm Deployment, pod, PVC, Service, Ingress, and Tailscale proxy are healthy.
 10. Open `https://sparkdash.tailc2db57.ts.net`, verify the dashboard renders, and confirm `/ws` connects.
 11. Configure `spark.tailc2db57.ts.net` and run SparkDash's connection test to verify non-interactive Tailscale SSH and remote probes.
+
+## Outcome
+
+- `saavy1/sparkDash` publishes amd64 images to `ghcr.io/saavy1/sparkdash`; workflow run `32446515259` completed with typecheck, 149 tests, build, and push all passing.
+- ArgoCD deploys immutable tag `sha-a3ca3bc` (digest `sha256:21e9c72dfb79f5416418747c4c055d973d8444365d59edd2ea22af09eeaea539`).
+- `infra-sparkdash` is Synced and Healthy. The pod is Ready with zero restarts, and the `1Gi` `local-path` PVC is Bound.
+- The Tailscale operator assigned `sparkdash.tailc2db57.ts.net` (`100.101.26.112`) and serves valid HTTPS without Funnel.
+- Browser verification observed a `101 Switching Protocols` handshake for `wss://sparkdash.tailc2db57.ts.net/ws` and received a text frame.
+- The Spark is tagged `tag:spark`; the tailnet SSH policy accepts `tag:server` to `tag:spark` as user `saavy`.
+- SparkDash's built-in connection test passed SSH and detected `qwen3.8-27b-sglang` on port `8888`.
+- Live monitoring reports the Spark online with GPU, CPU, memory, storage, process, and SGLang metrics.
+- A forced Deployment restart preserved the registered Spark configuration on the PVC.
 
 ## Non-goals
 
