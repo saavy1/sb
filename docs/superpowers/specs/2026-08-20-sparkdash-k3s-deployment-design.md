@@ -1,7 +1,7 @@
 # SparkDash k3s Deployment Design
 
 Date: 2026-08-20
-Status: Approved in chat; awaiting written-spec review
+Status: Approved; implementation in progress
 
 ## Goal
 
