@@ -1,6 +1,3 @@
-defaultPodOptions:
-  imagePullSecrets:
-    - name: ha-registry-pull
 configMaps:
   config:
     data:
@@ -106,23 +103,6 @@ controllers:
           limits:
             cpu: 500m
             memory: 256Mi
-  whisper:
-    strategy: Recreate
-    containers:
-      main:
-        image:
-          repository: registry.saavylab.dev/saavy1/wyoming-openvino-whisper
-          tag: 623901f6c105d7ea613b5b350923e9956889f0ed
-          pullPolicy: Always
-        securityContext:
-          privileged: true
-        resources:
-          requests:
-            cpu: 100m
-            memory: 256Mi
-          limits:
-            cpu: 2000m
-            memory: 2Gi
 service:
   main:
     controller: main
@@ -139,11 +119,6 @@ service:
     ports:
       wyoming:
         port: 10400
-  whisper:
-    controller: whisper
-    ports:
-      wyoming:
-        port: 10300
 ingress:
   main:
     enabled: false
@@ -190,11 +165,3 @@ persistence:
           - path: /data
           - path: /custom
             subPath: custom
-  dri:
-    enabled: true
-    type: hostPath
-    hostPath: /dev/dri
-    advancedMounts:
-      whisper:
-        main:
-          - path: /dev/dri
