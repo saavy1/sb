@@ -7,10 +7,10 @@
   "labels": ["dependencies"],
   "osvVulnerabilityAlerts": true,
   "argocd": {
-    "fileMatch": ["argocd/clusters/**/*.yaml"]
+    "managerFilePatterns": ["/^argocd\\/clusters\\/.+\\.yaml$/"]
   },
   "kubernetes": {
-    "fileMatch": ["argocd/clusters/**/resources/*.yaml"]
+    "managerFilePatterns": ["/^argocd\\/clusters\\/.+\\/resources\\/.+\\.yaml$/"]
   },
   "packageRules": [
     {
