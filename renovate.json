@@ -1,0 +1,42 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    "docker:pinDigests"
+  ],
+  "labels": ["dependencies"],
+  "osvVulnerabilityAlerts": true,
+  "argocd": {
+    "fileMatch": ["argocd/clusters/**/*.yaml"]
+  },
+  "kubernetes": {
+    "fileMatch": ["argocd/clusters/**/resources/*.yaml"]
+  },
+  "packageRules": [
+    {
+      "description": "Group GitHub Actions updates into one automerged PR (CI-only blast radius)",
+      "matchManagers": ["github-actions"],
+      "groupName": "github-actions",
+      "automerge": true,
+      "automergeType": "pr"
+    },
+    {
+      "description": "Group Helm chart minor/patch bumps into one review PR (ArgoCD deploys on merge, so no automerge)",
+      "matchManagers": ["argocd"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "helm charts (minor/patch)"
+    },
+    {
+      "description": "Major chart bumps need dashboard approval - keep canary discipline (e.g. app-template v4 to v5)",
+      "matchManagers": ["argocd"],
+      "matchUpdateTypes": ["major"],
+      "dependencyDashboardApproval": true
+    },
+    {
+      "description": "Auto-deploy newly pushed self-hosted image digests (builds are CI-gated)",
+      "matchManagers": ["kubernetes"],
+      "matchUpdateTypes": ["digest", "patch", "minor", "major"],
+      "automerge": true
+    }
+  ]
+}
