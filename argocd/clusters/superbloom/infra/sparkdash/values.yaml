@@ -1,0 +1,73 @@
+controllers:
+  main:
+    type: deployment
+    strategy: Recreate
+    containers:
+      main:
+        image:
+          repository: ghcr.io/saavy1/sparkdash
+          tag: sha-a3ca3bc
+          pullPolicy: IfNotPresent
+        env:
+          BIND_HOST: 0.0.0.0
+          PORT: "5555"
+          LLM_PORT: "8888"
+          NODE_ENV: production
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        probes:
+          startup:
+            enabled: true
+            custom: true
+            spec:
+              httpGet:
+                path: /api/settings
+                port: 5555
+              failureThreshold: 30
+              periodSeconds: 2
+          readiness:
+            enabled: true
+            custom: true
+            spec:
+              httpGet:
+                path: /api/settings
+                port: 5555
+              initialDelaySeconds: 2
+              periodSeconds: 5
+          liveness:
+            enabled: true
+            custom: true
+            spec:
+              httpGet:
+                path: /api/settings
+                port: 5555
+              initialDelaySeconds: 15
+              periodSeconds: 10
+
+service:
+  main:
+    controller: main
+    ports:
+      http:
+        port: 5555
+
+persistence:
+  config:
+    enabled: true
+    type: persistentVolumeClaim
+    accessMode: ReadWriteOnce
+    size: 1Gi
+    storageClass: local-path
+    retain: true
+    globalMounts:
+      - path: /app/config

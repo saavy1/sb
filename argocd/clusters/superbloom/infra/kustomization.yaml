@@ -10,6 +10,7 @@ resources:
   - alloy/
   - loki/
   - homelab-api/
+  - sparkdash/
   - tempo/
   - kube-prometheus-stack/
   - grafana-mcp/
