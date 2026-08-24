@@ -6,7 +6,7 @@ controllers:
       main:
         image:
           repository: ghcr.io/saavy1/sparkdash
-          tag: sha-e82a877
+          tag: sha-0870ad4
           pullPolicy: IfNotPresent
         env:
           BIND_HOST: 0.0.0.0
