@@ -65,7 +65,7 @@ persistence:
   downloads:
     enabled: true
     type: hostPath
-    hostPath: /srv/downloads
+    hostPath: /tank/downloads
     globalMounts:
       - path: /downloads
   media:

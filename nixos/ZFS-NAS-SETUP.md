@@ -104,25 +104,38 @@ zfs set recordsize=1M tank/data
 chown -R saavy:users /tank/media /tank/public /tank/data /tank/games
 ```
 
-## NVMe Fast Storage
+## Tank-backed Downloads (Sabnzbd staging)
 
-For downloads and temporary files (Sabnzbd, etc.):
+Completed and in-progress Sabnzbd downloads live on `tank` under `/tank/downloads`
+(COMPUTE_LANDSCAPE policy: bulky artifacts belong on tank, not the system NVMe).
+Use a real ZFS dataset when possible:
 
 ```bash
-mkdir -p /srv/downloads/{complete,incomplete}
-chown -R saavy:users /srv/downloads
+sudo zfs create tank/downloads
+chown -R saavy:users /tank/downloads
 ```
+
+A plain directory works too (inherits lz4 from `tank`) if dataset creation is not
+available: `mkdir -p /tank/downloads/{complete,incomplete}`.
 
 **Layout:**
 ```
-/srv/downloads/      # NVMe (fast, temporary)
-├── complete/        # Sabnzbd completed downloads
-└── incomplete/      # Sabnzbd in-progress
+/tank/downloads/      # ZFS pool (Sabnzbd completed + in-progress staging)
+├── complete/         # Sabnzbd completed downloads
+└── incomplete/       # Sabnzbd in-progress
 
-/tank/media/         # ZFS pool (final destination)
-├── movies/          # Radarr moves here
-└── shows/           # Sonarr moves here
+/tank/media/          # ZFS pool (final destination, imported by Sonarr/Radarr)
+├── movies/           # Radarr moves here
+└── shows/            # Sonarr moves here
 ```
+
+The K3s manifests (argocd/clusters/superbloom/media/{sabnzbd,sonarr,radarr,bazarr}/values.yaml)
+mount `/tank/downloads` at `/downloads` via hostPath. A custom-cont-init.d script
+(`20-download-paths.sh`) enforces `download_dir`/`complete_dir` in `sabnzbd.ini`
+to point under `/downloads` on every container start.
+
+**Legacy:** `/srv/downloads` (NVMe) was the previous downloads location. It is no
+longer provisioned or mounted; it held only pre-2026-02-28 completions.
 
 ## Access Methods
 
