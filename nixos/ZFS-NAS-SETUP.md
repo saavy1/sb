@@ -130,9 +130,11 @@ available: `mkdir -p /tank/downloads/{complete,incomplete}`.
 ```
 
 The K3s manifests (argocd/clusters/superbloom/media/{sabnzbd,sonarr,radarr,bazarr}/values.yaml)
-mount `/tank/downloads` at `/downloads` via hostPath. A custom-cont-init.d script
-(`20-download-paths.sh`) enforces `download_dir`/`complete_dir` in `sabnzbd.ini`
-to point under `/downloads` on every container start.
+mount `/tank/downloads` at `/downloads` via hostPath. Point SABnzbd's
+`complete_dir` and `download_dir` at `/downloads/complete` and
+`/downloads/incomplete` **once** (edit `/config/sabnzbd.ini` or `Config →
+Folders` in the UI); SABnzbd persists these in the PVC, so no startup script is
+needed. The paths persist across restarts.
 
 **Legacy:** `/srv/downloads` (NVMe) was the previous downloads location. It is no
 longer provisioned or mounted; it held only pre-2026-02-28 completions.

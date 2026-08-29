@@ -13,16 +13,3 @@ data:
       echo "Updating host_whitelist in SABnzbd config..."
       sed -i "s/^host_whitelist = .*/host_whitelist = ${WHITELIST}/" "$CONFIG_FILE"
     fi
-  20-download-paths.sh: |
-    #!/bin/bash
-    # Enforce completed/incomplete download paths on /downloads (tank-backed
-    # hostPath) on every start. SABnzbd's shipped defaults use paths relative
-    # to /config (the local-path PVC on the system NVMe), which made completed
-    # downloads accumulate on the SSD. See fleet health 2026-08-28.
-    CONFIG_FILE="/config/sabnzbd.ini"
-
-    if [ -f "$CONFIG_FILE" ]; then
-      echo "Enforcing download paths -> /downloads (tank-backed)..."
-      sed -i "s|^download_dir = .*|download_dir = /downloads/incomplete|" "$CONFIG_FILE"
-      sed -i "s|^complete_dir = .*|complete_dir = /downloads/complete|" "$CONFIG_FILE"
-    fi
