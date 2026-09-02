@@ -104,40 +104,102 @@ zfs set recordsize=1M tank/data
 chown -R saavy:users /tank/media /tank/public /tank/data /tank/games
 ```
 
-## Tank-backed Downloads (Sabnzbd staging)
+## Tank-backed Downloads (SABnzbd staging)
 
-Completed and in-progress Sabnzbd downloads live on `tank` under `/tank/downloads`
-(COMPUTE_LANDSCAPE policy: bulky artifacts belong on tank, not the system NVMe).
-Use a real ZFS dataset when possible:
+Downloads and final media must be directories in the **same ZFS dataset**. A
+shared pool or set of disks is not sufficient: separate datasets are separate
+filesystems, so Sonarr/Radarr cannot use atomic renames or hardlinks across the
+boundary.
 
-```bash
-sudo zfs create tank/downloads
-chown -R saavy:users /tank/downloads
+`/tank/media` is the `tank/media` dataset. Keep SABnzbd staging inside it as a
+plain directory; do not create a child `tank/media/downloads` dataset.
+
+**Target layout:**
+
+```text
+/tank/media/                 # one ZFS dataset and one container mount
+├── downloads/
+│   ├── complete/            # SABnzbd completed downloads
+│   └── incomplete/          # SABnzbd work directory
+├── movies/                  # Radarr library
+├── shows/                   # Sonarr library
+└── music/                   # optional Jellyfin library
 ```
 
-A plain directory works too (inherits lz4 from `tank`) if dataset creation is not
-available: `mkdir -p /tank/downloads/{complete,incomplete}`.
+SABnzbd, Sonarr, Radarr, and Bazarr each receive one hostPath volume from
+`/tank/media` to `/media`. Configure paths as follows:
 
-**Layout:**
-```
-/tank/downloads/      # ZFS pool (Sabnzbd completed + in-progress staging)
-├── complete/         # Sabnzbd completed downloads
-└── incomplete/       # Sabnzbd in-progress
+- SABnzbd temporary folder: `/media/downloads/incomplete`
+- SABnzbd completed folder: `/media/downloads/complete`
+- Sonarr root: `/media/shows`
+- Radarr root: `/media/movies`
 
-/tank/media/          # ZFS pool (final destination, imported by Sonarr/Radarr)
-├── movies/           # Radarr moves here
-└── shows/            # Sonarr moves here
-```
+Using one `/media` mount is intentional. Separate `/downloads` and `/media`
+bind mounts can still create a cross-mount boundary inside a container, even
+when their host paths ultimately reside on the same filesystem.
 
-The K3s manifests (argocd/clusters/superbloom/media/{sabnzbd,sonarr,radarr,bazarr}/values.yaml)
-mount `/tank/downloads` at `/downloads` via hostPath. Point SABnzbd's
-`complete_dir` and `download_dir` at `/downloads/complete` and
-`/downloads/incomplete` **once** (edit `/config/sabnzbd.ini` or `Config →
-Folders` in the UI); SABnzbd persists these in the PVC, so no startup script is
-needed. The paths persist across restarts.
+### Migration from `/tank/downloads`
 
-**Legacy:** `/srv/downloads` (NVMe) was the previous downloads location. It is no
-longer provisioned or mounted; it held only pre-2026-02-28 completions.
+Do not merge the prepared Argo CD manifest change until the copy and application
+configuration cutover are ready. The source must remain available for rollback.
+
+1. Pre-copy while the stack is online:
+
+   ```bash
+   mkdir -p /tank/media/downloads/{complete,incomplete}
+   chown -R saavy:users /tank/media/downloads
+   rsync -aHAX --numeric-ids --info=progress2 \
+     /tank/downloads/ /tank/media/downloads/
+   ```
+
+2. When the SABnzbd queue and Arr import activity are quiet, pause SABnzbd and
+   stop Sonarr/Radarr import processing. Run the final delta sync:
+
+   ```bash
+   rsync -aHAX --numeric-ids --delete --info=progress2 \
+     /tank/downloads/ /tank/media/downloads/
+   rsync -aHAXn --numeric-ids --delete --itemize-changes \
+     /tank/downloads/ /tank/media/downloads/
+   ```
+
+   The dry run must produce no changes before continuing.
+
+3. In SABnzbd `Config → Folders`, set the temporary and completed folders to
+   the `/media/downloads/...` paths above. SABnzbd persists these settings in
+   its config PVC.
+
+4. Merge/apply the media-stack manifest changes. Wait for SABnzbd, Sonarr,
+   Radarr, and Bazarr to become Ready.
+
+5. Existing SABnzbd history may still report old paths. In both Sonarr and
+   Radarr, add/update remote path mappings for host
+   `sabnzbd.sabnzbd.svc.cluster.local`:
+
+   | Remote path | Local path |
+   |---|---|
+   | `/downloads/` | `/media/downloads/` |
+   | `/config/Downloads/` | `/media/downloads/` |
+
+6. Verify the filesystem and mount boundary from an Arr pod:
+
+   ```bash
+   kubectl exec -n sonarr deployment/sonarr -- \
+     stat -c '%d %n' /media/downloads /media/shows
+   ```
+
+   Both paths must report the same device number. Then verify a newly completed
+   SABnzbd item imports into the library and becomes visible to Jellyfin.
+
+7. Keep `/tank/downloads` intact until the end-to-end check passes. Remove the
+   old copy only after verifying the destination and deciding that rollback is
+   no longer needed.
+
+**Rollback:** restore the old manifests, set SABnzbd's folders back to
+`/downloads/incomplete` and `/downloads/complete`, and restart the media apps.
+The untouched `/tank/downloads` tree remains the source of truth until cleanup.
+
+**Older legacy path:** `/srv/downloads` (NVMe) was used before 2026-02-28 and is
+no longer provisioned or mounted.
 
 ## Access Methods
 

@@ -62,12 +62,6 @@ persistence:
     storageClass: local-path
     globalMounts:
       - path: /config
-  downloads:
-    enabled: true
-    type: hostPath
-    hostPath: /tank/downloads
-    globalMounts:
-      - path: /downloads
   media:
     enabled: true
     type: hostPath
