@@ -153,7 +153,8 @@ configuration cutover are ready. The source must remain available for rollback.
    ```
 
 2. When the SABnzbd queue and Arr import activity are quiet, pause SABnzbd and
-   stop Sonarr/Radarr import processing. Run the final delta sync:
+   temporarily disable the SABnzbd download client in both Sonarr and Radarr.
+   Run the final delta sync:
 
    ```bash
    rsync -aHAX --numeric-ids --delete --info=progress2 \
@@ -164,12 +165,14 @@ configuration cutover are ready. The source must remain available for rollback.
 
    The dry run must produce no changes before continuing.
 
-3. In SABnzbd `Config → Folders`, set the temporary and completed folders to
-   the `/media/downloads/...` paths above. SABnzbd persists these settings in
-   its config PVC.
+3. Merge/apply the media-stack manifest changes. Wait for SABnzbd, Sonarr,
+   Radarr, and Bazarr to become Ready on the new revision. Leave the Arr
+   download clients disabled.
 
-4. Merge/apply the media-stack manifest changes. Wait for SABnzbd, Sonarr,
-   Radarr, and Bazarr to become Ready.
+4. In SABnzbd `Config → Folders`, set the temporary and completed folders to
+   the `/media/downloads/...` paths above. SABnzbd persists these settings in
+   its config PVC. Changing folders through SABnzbd's API can clear its paused
+   state, so check and pause it again before continuing.
 
 5. Existing SABnzbd history may still report old paths. In both Sonarr and
    Radarr, add/update remote path mappings for host
@@ -180,15 +183,19 @@ configuration cutover are ready. The source must remain available for rollback.
    | `/downloads/` | `/media/downloads/` |
    | `/config/Downloads/` | `/media/downloads/` |
 
-6. Verify the filesystem and mount boundary from an Arr pod:
+6. Verify that both Arr download-client tests pass, then check the filesystem and
+   mount boundary from an Arr pod:
 
    ```bash
    kubectl exec -n sonarr deployment/sonarr -- \
      stat -c '%d %n' /media/downloads /media/shows
    ```
 
-   Both paths must report the same device number. Then verify a newly completed
-   SABnzbd item imports into the library and becomes visible to Jellyfin.
+   Both paths must report the same device number. Re-enable both Arr download
+   clients, resume SABnzbd, and refresh monitored downloads. All retained queue
+   paths should resolve beneath `/media/downloads/`. Then verify a newly
+   completed SABnzbd item imports into the library and becomes visible to
+   Jellyfin.
 
 7. Keep `/tank/downloads` intact until the end-to-end check passes. Remove the
    old copy only after verifying the destination and deciding that rollback is
