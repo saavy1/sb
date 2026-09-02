@@ -197,13 +197,22 @@ configuration cutover are ready. The source must remain available for rollback.
    completed SABnzbd item imports into the library and becomes visible to
    Jellyfin.
 
-7. Keep `/tank/downloads` intact until the end-to-end check passes. Remove the
-   old copy only after verifying the destination and deciding that rollback is
-   no longer needed.
+7. Keep `/tank/downloads` intact as a rollback baseline until the end-to-end check
+   passes. Once SABnzbd resumes, `/tank/media/downloads` is authoritative because
+   it receives all new work. Remove the old copy only after verifying the
+   destination and deciding that rollback is no longer needed.
 
-**Rollback:** restore the old manifests, set SABnzbd's folders back to
-`/downloads/incomplete` and `/downloads/complete`, and restart the media apps.
-The untouched `/tank/downloads` tree remains the source of truth until cleanup.
+**Rollback:** pause SABnzbd, disable both Arr download clients, and synchronize
+new work back to the old location before restoring the old manifests:
+
+```bash
+rsync -aHAX --numeric-ids --delete \
+  /tank/media/downloads/ /tank/downloads/
+```
+
+Set SABnzbd's folders back to `/downloads/incomplete` and
+`/downloads/complete`, restore the manifests, restart the media apps, verify the
+old mount, and only then resume processing.
 
 **Older legacy path:** `/srv/downloads` (NVMe) was used before 2026-02-28 and is
 no longer provisioned or mounted.
