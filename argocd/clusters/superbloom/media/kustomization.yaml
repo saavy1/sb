@@ -6,5 +6,6 @@ resources:
   - jellyseerr/
   - prowlarr/
   - radarr/
+  - recyclarr/
   - sabnzbd/
   - sonarr/
