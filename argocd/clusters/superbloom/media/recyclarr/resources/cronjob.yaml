@@ -6,6 +6,7 @@ spec:
   schedule: "17 4 * * *"
   timeZone: America/Denver
   concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 3600
   successfulJobsHistoryLimit: 2
   failedJobsHistoryLimit: 3
   suspend: false

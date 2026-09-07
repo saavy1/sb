@@ -16,7 +16,7 @@ spec:
     path: argocd/clusters/superbloom/media/recyclarr/resources
   syncPolicy:
     automated:
-      prune: false
+      prune: true
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
