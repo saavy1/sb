@@ -4,6 +4,7 @@ metadata:
   name: recyclarr
 spec:
   schedule: "17 4 * * *"
+  timeZone: America/Denver
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 2
   failedJobsHistoryLimit: 3
@@ -18,9 +19,15 @@ spec:
             app.kubernetes.io/name: recyclarr
         spec:
           restartPolicy: Never
+          automountServiceAccountToken: false
           securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
             fsGroup: 1000
             fsGroupChangePolicy: OnRootMismatch
+            seccompProfile:
+              type: RuntimeDefault
           initContainers:
             - name: install-config
               image: ghcr.io/recyclarr/recyclarr:8.7.0
@@ -29,7 +36,12 @@ spec:
                 - /bin/sh
                 - -ec
               args:
-                - mkdir -p /config/configs && rm -f /config/configs/*.yml && cp /bootstrap/*.yml /config/configs/
+                - mkdir -p /config/configs && rm -f /config/configs/*.yml /config/configs/*.yaml && cp /bootstrap/*.yml /config/configs/
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
               volumeMounts:
                 - name: bootstrap
                   mountPath: /bootstrap
@@ -42,6 +54,11 @@ spec:
               imagePullPolicy: IfNotPresent
               args:
                 - sync
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
               env:
                 - name: SONARR_API_KEY
                   valueFrom:
