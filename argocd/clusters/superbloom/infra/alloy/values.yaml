@@ -29,6 +29,15 @@ clusterMetrics:
     enabled: false
   node-exporter:
     enabled: true
+    # Tolerate all taints so the DaemonSet runs on every node, including
+    # gx10-98a5 which carries a NoExecute nvidia.com/gpu taint. Without the
+    # NoExecute toleration the node-exporter pod is evicted and the "Homelab
+    # at a Glance" CPU/memory/disk panels only show superbloom.
+    tolerations:
+      - effect: NoSchedule
+        operator: Exists
+      - effect: NoExecute
+        operator: Exists
   kube-state-metrics:
     enabled: true
 
