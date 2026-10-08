@@ -1,0 +1,57 @@
+# Discord bot for ad-hoc queries to a chat model and a classifier, currently
+# Qwen and Laya on the DGX Spark; the env below picks them. Source:
+# https://github.com/saavy1/spark-bot. It only makes outbound connections
+# (Discord's gateway, and the Spark by its MagicDNS name, which pods resolve
+# through the node), so it has no Service or probes.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spark-bot
+  namespace: spark-bot
+  labels:
+    app.kubernetes.io/name: spark-bot
+spec:
+  replicas: 1
+  strategy:
+    # Two gateway sessions with the same token would answer twice.
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: spark-bot
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: spark-bot
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+      containers:
+        - name: spark-bot
+          image: ghcr.io/saavy1/spark-bot@sha256:IMAGE_DIGEST
+          env:
+            - name: CHAT_URL
+              value: http://spark.tailc2db57.ts.net:8888/v1
+            - name: CHAT_THINKING_FORMAT
+              value: qwen-chat-template
+            - name: CLASSIFIER_URL
+              value: http://spark.tailc2db57.ts.net:8001/v1
+            - name: CLASSIFIER_MODEL
+              value: laya
+          envFrom:
+            - secretRef:
+                name: spark-bot-env
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            requests:
+              memory: "96Mi"
+              cpu: "50m"
+            limits:
+              memory: "256Mi"
+              cpu: "500m"
