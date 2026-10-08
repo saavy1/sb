@@ -29,7 +29,7 @@ spec:
         runAsGroup: 1000
       containers:
         - name: spark-bot
-          image: ghcr.io/saavy1/spark-bot@sha256:062b4661a6e45725b4c099868613655e419df3d44c963a252be0de5cc7572ddf
+          image: ghcr.io/saavy1/spark-bot@sha256:ed6dcc59cb4c3f50030faf25a6a104608f4346b7b56acc82d65ddc39c23157de
           env:
             - name: CHAT_URL
               value: http://spark.tailc2db57.ts.net:8888/v1
